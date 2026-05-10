@@ -1,0 +1,12 @@
+{
+  "id": "20260510-235159",
+  "createdAt": "2026-05-10T15:51:59.284Z",
+  "reason": "restore-before",
+  "files": [
+    {
+      "path": "src/config/siteConfig.ts",
+      "backupPath": "20260510-235159__src__config__siteConfig.ts.bak",
+      "existed": true
+    }
+  ]
+}

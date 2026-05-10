@@ -1,0 +1,12 @@
+{
+  "id": "20260510-232514",
+  "createdAt": "2026-05-10T15:25:15.456Z",
+  "reason": "save-before",
+  "files": [
+    {
+      "path": "src/config/pioConfig.ts",
+      "backupPath": "20260510-232514__src__config__pioConfig.ts.bak",
+      "existed": true
+    }
+  ]
+}

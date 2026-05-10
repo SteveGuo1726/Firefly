@@ -1,0 +1,12 @@
+{
+  "id": "20260510-235629",
+  "createdAt": "2026-05-10T15:56:30.278Z",
+  "reason": "save-before",
+  "files": [
+    {
+      "path": "src/config/backgroundWallpaper.ts",
+      "backupPath": "20260510-235629__src__config__backgroundWallpaper.ts.bak",
+      "existed": true
+    }
+  ]
+}
