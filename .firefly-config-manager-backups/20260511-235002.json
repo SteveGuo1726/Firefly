@@ -1,0 +1,17 @@
+{
+  "id": "20260511-235002",
+  "name": "",
+  "createdAt": "2026-05-11T15:50:02.173Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/backgroundWallpaper.ts: Banner 图片位置 (backgroundWallpaper.banner.position)",
+  "files": [
+    {
+      "path": "src/config/backgroundWallpaper.ts",
+      "backupPath": "20260511-235002__src__config__backgroundWallpaper.ts.bak",
+      "existed": true,
+      "changes": [
+        "Banner 图片位置 (backgroundWallpaper.banner.position)"
+      ]
+    }
+  ]
+}

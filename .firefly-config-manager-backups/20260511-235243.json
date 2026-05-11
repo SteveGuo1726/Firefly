@@ -1,0 +1,17 @@
+{
+  "id": "20260511-235243",
+  "name": "",
+  "createdAt": "2026-05-11T15:52:43.746Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/backgroundWallpaper.ts: 壁纸模式 (backgroundWallpaper.mode)",
+  "files": [
+    {
+      "path": "src/config/backgroundWallpaper.ts",
+      "backupPath": "20260511-235243__src__config__backgroundWallpaper.ts.bak",
+      "existed": true,
+      "changes": [
+        "壁纸模式 (backgroundWallpaper.mode)"
+      ]
+    }
+  ]
+}

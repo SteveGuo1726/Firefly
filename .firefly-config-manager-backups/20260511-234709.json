@@ -1,0 +1,17 @@
+{
+  "id": "20260511-234709",
+  "name": "",
+  "createdAt": "2026-05-11T15:47:09.644Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/backgroundWallpaper.ts: 壁纸文字遮罩暗度 (backgroundWallpaper.common.dimOpacity)",
+  "files": [
+    {
+      "path": "src/config/backgroundWallpaper.ts",
+      "backupPath": "20260511-234709__src__config__backgroundWallpaper.ts.bak",
+      "existed": true,
+      "changes": [
+        "壁纸文字遮罩暗度 (backgroundWallpaper.common.dimOpacity)"
+      ]
+    }
+  ]
+}
