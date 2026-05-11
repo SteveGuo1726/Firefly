@@ -1,0 +1,16 @@
+{
+  "id": "20260511-133129",
+  "createdAt": "2026-05-11T05:31:29.853Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/siteConfig.ts: 主题色 Hue (siteConfig.themeColor.hue)",
+  "files": [
+    {
+      "path": "src/config/siteConfig.ts",
+      "backupPath": "20260511-133129__src__config__siteConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "主题色 Hue (siteConfig.themeColor.hue)"
+      ]
+    }
+  ]
+}

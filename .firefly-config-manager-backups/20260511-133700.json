@@ -1,0 +1,24 @@
+{
+  "id": "20260511-133700",
+  "createdAt": "2026-05-11T05:37:01.210Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 2 个文件：src/config/coverImageConfig.ts: 随机封面启用 (coverImageConfig.randomCoverImage.enable)；src/config/announcementConfig.ts: 公告内容 (announcementConfig.content)",
+  "files": [
+    {
+      "path": "src/config/coverImageConfig.ts",
+      "backupPath": "20260511-133700__src__config__coverImageConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "随机封面启用 (coverImageConfig.randomCoverImage.enable)"
+      ]
+    },
+    {
+      "path": "src/config/announcementConfig.ts",
+      "backupPath": "20260511-133700__src__config__announcementConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "公告内容 (announcementConfig.content)"
+      ]
+    }
+  ]
+}
