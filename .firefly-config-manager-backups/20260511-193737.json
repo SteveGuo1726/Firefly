@@ -1,0 +1,16 @@
+{
+  "id": "20260511-193737",
+  "createdAt": "2026-05-11T11:37:44.280Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/siteConfig.ts: Logo 值 (siteConfig.navbar.logo.value)",
+  "files": [
+    {
+      "path": "src/config/siteConfig.ts",
+      "backupPath": "20260511-193737__src__config__siteConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "Logo 值 (siteConfig.navbar.logo.value)"
+      ]
+    }
+  ]
+}
