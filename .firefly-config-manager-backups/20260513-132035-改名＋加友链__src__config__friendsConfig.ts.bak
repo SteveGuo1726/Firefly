@@ -54,17 +54,6 @@ export const friendsConfig: FriendLink[] = [
 		],
 		weight: 8,
 		enabled: true
-	},
-	{
-		title: "若木秋光の Blog Ver.3.0",
-		imgurl: "https://blog.rmqg.org/avatar/avatar.webp",
-		desc: "一个普通的大学生",
-		siteurl: "https://blog.rmqg.org/",
-		tags: [
-			"Blog"
-		],
-		weight: 11,
-		enabled: true
 	}
 ];
 
