@@ -1,0 +1,41 @@
+{
+  "id": "20260513-122627",
+  "name": "",
+  "createdAt": "2026-05-13T04:26:27.511Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 4 个文件：src/config/friendsConfig.ts: 友链列表 (friendsConfig)；src/content/posts/firefly-config-manager.md: 文章 Frontmatter；src/content/posts/firefly.md: 文章 Frontmatter；src/content/spec/friends.mdx: 友链申请示例",
+  "files": [
+    {
+      "path": "src/config/friendsConfig.ts",
+      "backupPath": "20260513-122627__src__config__friendsConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "友链列表 (friendsConfig)"
+      ]
+    },
+    {
+      "path": "src/content/posts/firefly-config-manager.md",
+      "backupPath": "20260513-122627__src__content__posts__firefly-config-manager.md.bak",
+      "existed": true,
+      "changes": [
+        "文章 Frontmatter"
+      ]
+    },
+    {
+      "path": "src/content/posts/firefly.md",
+      "backupPath": "20260513-122627__src__content__posts__firefly.md.bak",
+      "existed": true,
+      "changes": [
+        "文章 Frontmatter"
+      ]
+    },
+    {
+      "path": "src/content/spec/friends.mdx",
+      "backupPath": "20260513-122627__src__content__spec__friends.mdx.bak",
+      "existed": true,
+      "changes": [
+        "友链申请示例"
+      ]
+    }
+  ]
+}
