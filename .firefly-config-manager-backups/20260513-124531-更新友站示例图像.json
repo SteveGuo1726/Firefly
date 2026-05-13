@@ -1,0 +1,17 @@
+{
+  "id": "20260513-124531-更新友站示例图像",
+  "name": "更新友站示例图像",
+  "createdAt": "2026-05-13T04:45:38.385Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/content/spec/friends.mdx: 友链申请示例",
+  "files": [
+    {
+      "path": "src/content/spec/friends.mdx",
+      "backupPath": "20260513-124531-更新友站示例图像__src__content__spec__friends.mdx.bak",
+      "existed": true,
+      "changes": [
+        "友链申请示例"
+      ]
+    }
+  ]
+}
