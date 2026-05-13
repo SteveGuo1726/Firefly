@@ -1,0 +1,18 @@
+{
+  "id": "20260513-233602-配置Twikoo评论系统",
+  "name": "配置Twikoo评论系统",
+  "createdAt": "2026-05-13T15:36:03.151Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/commentConfig.ts: 评论系统 (commentConfig.type)；src/config/commentConfig.ts: Twikoo envId (commentConfig.twikoo.envId)",
+  "files": [
+    {
+      "path": "src/config/commentConfig.ts",
+      "backupPath": "20260513-233602-配置Twikoo评论系统__src__config__commentConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "评论系统 (commentConfig.type)",
+        "Twikoo envId (commentConfig.twikoo.envId)"
+      ]
+    }
+  ]
+}
