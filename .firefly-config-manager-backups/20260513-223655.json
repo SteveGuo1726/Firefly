@@ -1,0 +1,17 @@
+{
+  "id": "20260513-223655",
+  "name": "",
+  "createdAt": "2026-05-13T14:36:56.495Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/siteConfig.ts: Umami 追踪外链 (siteConfig.analytics.umamiAnalytics.trackOutboundLinks)",
+  "files": [
+    {
+      "path": "src/config/siteConfig.ts",
+      "backupPath": "20260513-223655__src__config__siteConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "Umami 追踪外链 (siteConfig.analytics.umamiAnalytics.trackOutboundLinks)"
+      ]
+    }
+  ]
+}

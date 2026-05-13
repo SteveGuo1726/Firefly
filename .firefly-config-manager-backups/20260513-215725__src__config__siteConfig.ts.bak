@@ -185,7 +185,7 @@ export const siteConfig: SiteConfig = {
 			// Umami JS地址，支持使用自建
 			scriptUrl: "https://cloud.umami.is/script.js",
 			// 是否追踪出站链接
-			trackOutboundLinks: false,
+			trackOutboundLinks: true,
 			// 是否收集浏览器性能指标
 			collectWebVitals: false,
 			// 会话回放配置
