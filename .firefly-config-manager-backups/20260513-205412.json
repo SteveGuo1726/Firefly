@@ -1,0 +1,17 @@
+{
+  "id": "20260513-205412",
+  "name": "",
+  "createdAt": "2026-05-13T12:54:19.226Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/backgroundWallpaper.ts: 导航透明 (backgroundWallpaper.common.navbar.transparentMode)",
+  "files": [
+    {
+      "path": "src/config/backgroundWallpaper.ts",
+      "backupPath": "20260513-205412__src__config__backgroundWallpaper.ts.bak",
+      "existed": true,
+      "changes": [
+        "导航透明 (backgroundWallpaper.common.navbar.transparentMode)"
+      ]
+    }
+  ]
+}

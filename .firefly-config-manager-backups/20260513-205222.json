@@ -1,0 +1,17 @@
+{
+  "id": "20260513-205222",
+  "name": "",
+  "createdAt": "2026-05-13T12:52:29.180Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/backgroundWallpaper.ts: 导航模糊强度 (backgroundWallpaper.common.navbar.blur)",
+  "files": [
+    {
+      "path": "src/config/backgroundWallpaper.ts",
+      "backupPath": "20260513-205222__src__config__backgroundWallpaper.ts.bak",
+      "existed": true,
+      "changes": [
+        "导航模糊强度 (backgroundWallpaper.common.navbar.blur)"
+      ]
+    }
+  ]
+}

@@ -9,7 +9,7 @@ export const profileConfig: ProfileConfig = {
 	avatar: "assets/images/avatar.avif",
 
 	// 名字
-	name: "星遐蝶梦",
+	name: "Casto-星遐蝶梦",
 
 	// 个人签名
 	bio: "因为Casto.top便宜，所以叫Casto……其实是我推的遐蝶啦（Castorice）",
