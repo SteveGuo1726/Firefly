@@ -1,0 +1,19 @@
+{
+  "id": "20260514-002937-更新评论配置",
+  "name": "更新评论配置",
+  "createdAt": "2026-05-13T16:29:38.702Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/commentConfig.ts: Twikoo envId (commentConfig.twikoo.envId)；src/config/commentConfig.ts: Artalk 访问计数 (commentConfig.artalk.visitorCount)；src/config/commentConfig.ts: Waline 访问计数 (commentConfig.waline.visitorCount)",
+  "files": [
+    {
+      "path": "src/config/commentConfig.ts",
+      "backupPath": "20260514-002937-更新评论配置__src__config__commentConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "Twikoo envId (commentConfig.twikoo.envId)",
+        "Artalk 访问计数 (commentConfig.artalk.visitorCount)",
+        "Waline 访问计数 (commentConfig.waline.visitorCount)"
+      ]
+    }
+  ]
+}

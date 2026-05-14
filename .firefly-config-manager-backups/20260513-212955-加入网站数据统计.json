@@ -1,0 +1,20 @@
+{
+  "id": "20260513-212955-加入网站数据统计",
+  "name": "加入网站数据统计",
+  "createdAt": "2026-05-13T13:30:02.865Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/siteConfig.ts: 51la ID (siteConfig.analytics.la51Analytics.Id)；src/config/siteConfig.ts: 51la CK (siteConfig.analytics.la51Analytics.ck)；src/config/siteConfig.ts: 51la SDK URL (siteConfig.analytics.la51Analytics.sdkUrl)；src/config/siteConfig.ts: 51la 自动追踪 (siteConfig.analytics.la51Analytics.autoTrack)",
+  "files": [
+    {
+      "path": "src/config/siteConfig.ts",
+      "backupPath": "20260513-212955-加入网站数据统计__src__config__siteConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "51la ID (siteConfig.analytics.la51Analytics.Id)",
+        "51la CK (siteConfig.analytics.la51Analytics.ck)",
+        "51la SDK URL (siteConfig.analytics.la51Analytics.sdkUrl)",
+        "51la 自动追踪 (siteConfig.analytics.la51Analytics.autoTrack)"
+      ]
+    }
+  ]
+}

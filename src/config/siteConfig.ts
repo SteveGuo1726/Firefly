@@ -7,13 +7,13 @@ const SITE_LANG = "zh_CN";
 
 export const siteConfig: SiteConfig = {
 	// 站点标题
-	title: "Firefly",
+	title: "星遐蝶梦",
 
 	// 站点副标题
-	subtitle: "Demo site",
+	subtitle: "",
 
 	// 站点 URL
-	site_url: "https://firefly.cuteleaf.cn",
+	site_url: "https://blog.casto.top",
 
 	// 站点描述
 	description:
@@ -21,19 +21,21 @@ export const siteConfig: SiteConfig = {
 
 	// 站点关键词
 	keywords: [
-		"Firefly",
-		"Fuwari",
-		"Astro",
-		"ACGN",
-		"博客",
-		"技术博客",
-		"静态博客",
-	],
+	"Casto",
+	"星遐蝶梦",
+	"Firefly",
+	"Fuwari",
+	"Astro",
+	"ACGN",
+	"博客",
+	"技术博客",
+	"静态博客"
+],
 
 	// 主题色
 	themeColor: {
 		// 主题色的默认色相，范围从 0 到 360。例如：红色：0，青色：200，蓝绿色：250，粉色：345
-		hue: 165,
+		hue: 295,
 		// 是否对访问者隐藏主题色选择器
 		fixed: false,
 		// 默认模式："light" 亮色，"dark" 暗色，"system" 跟随系统
@@ -75,11 +77,11 @@ export const siteConfig: SiteConfig = {
 		// 4. 网络图片: { type: "url", value: "https://example.com/logo.png", alt: "Logo" }
 		logo: {
 			type: "image",
-			value: "assets/images/firefly.png",
-			alt: "🍀",
+			value: "assets/images/icon.png",
+			alt: "",
 		},
 		// 导航栏标题
-		title: "Firefly",
+		title: "Casto",
 		// 全宽导航栏，导航栏是否占满屏幕宽度
 		widthFull: false,
 		// 导航菜单对齐方式，left：左对齐，center：居中
@@ -91,7 +93,7 @@ export const siteConfig: SiteConfig = {
 	},
 
 	// 站点开始日期，用于统计运行天数
-	siteStartDate: "2025-01-01",
+	siteStartDate: "2026-05-08",
 
 	// 站点时区（IANA 时区字符串），用于格式化bangumi、rss里的构建日期时间等等..
 	// 示例："Asia/Shanghai", "UTC", 如果为空，则按照构建服务器的时区进行时区转换
@@ -118,7 +120,7 @@ export const siteConfig: SiteConfig = {
 	// bangumi配置
 	bangumi: {
 		// Bangumi用户ID
-		userId: "1143164",
+		userId: "1193420",
 		// 条目类型排序，数组中的类型将按顺序优先展示
 		// 可选值: "anime" | "book" | "music" | "game" | "real" (暂不支持"real"类型)
 		// 未列出的类型将按默认顺序排在后面
@@ -183,7 +185,7 @@ export const siteConfig: SiteConfig = {
 			// Umami JS地址，支持使用自建
 			scriptUrl: "https://cloud.umami.is/script.js",
 			// 是否追踪出站链接
-			trackOutboundLinks: true,
+			trackOutboundLinks: false,
 			// 是否收集浏览器性能指标
 			collectWebVitals: false,
 			// 会话回放配置
@@ -203,13 +205,13 @@ export const siteConfig: SiteConfig = {
 		// 51la 统计配置
 		la51Analytics: {
 			// 51la 统计 ID
-			Id: "",
+			Id: "3PvIirDkY8Gsd38Z",
 			// 自定义 SDK JS 地址，防止 DNS 污染，留空使用默认地址
-			sdkUrl: "",
+			sdkUrl: "https://sdk.51.la/js-sdk-pro.min.js",
 			// 多个统计 ID 的数据分离标识，留空则使用 Id
-			ck: "",
+			ck: "3PvIirDkY8Gsd38Z",
 			// 是否开启事件分析功能
-			autoTrack: false,
+			autoTrack: true,
 			//  Hash路由模式, 项目使用History API路由, 所以不必开启默认false
 			hashMode: false,
 			// 是否开启网站录屏功能

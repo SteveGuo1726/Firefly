@@ -1,0 +1,17 @@
+{
+  "id": "20260514-095409-更新友链图片为图床",
+  "name": "更新友链图片为图床",
+  "createdAt": "2026-05-14T01:54:10.285Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/content/spec/friends.mdx: 友链申请示例",
+  "files": [
+    {
+      "path": "src/content/spec/friends.mdx",
+      "backupPath": "20260514-095409-更新友链图片为图床__src__content__spec__friends.mdx.bak",
+      "existed": true,
+      "changes": [
+        "友链申请示例"
+      ]
+    }
+  ]
+}

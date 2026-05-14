@@ -1,0 +1,27 @@
+{
+  "id": "20260513-132035-改名＋加友链",
+  "name": "改名＋加友链",
+  "createdAt": "2026-05-13T05:20:42.658Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 2 个文件：src/config/siteConfig.ts: 网站标题 (siteConfig.title)；src/config/siteConfig.ts: 关键词 (siteConfig.keywords)；src/config/siteConfig.ts: 导航标题 (siteConfig.navbar.title)；src/config/friendsConfig.ts: 友链列表 (friendsConfig)",
+  "files": [
+    {
+      "path": "src/config/siteConfig.ts",
+      "backupPath": "20260513-132035-改名＋加友链__src__config__siteConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "网站标题 (siteConfig.title)",
+        "关键词 (siteConfig.keywords)",
+        "导航标题 (siteConfig.navbar.title)"
+      ]
+    },
+    {
+      "path": "src/config/friendsConfig.ts",
+      "backupPath": "20260513-132035-改名＋加友链__src__config__friendsConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "友链列表 (friendsConfig)"
+      ]
+    }
+  ]
+}

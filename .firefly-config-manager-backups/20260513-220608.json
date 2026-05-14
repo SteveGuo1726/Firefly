@@ -1,0 +1,18 @@
+{
+  "id": "20260513-220608",
+  "name": "",
+  "createdAt": "2026-05-13T14:06:15.260Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/musicConfig.ts: Meting API (musicPlayerConfig.meting.api)；src/config/musicConfig.ts: 备用 API (musicPlayerConfig.meting.fallbackApis)",
+  "files": [
+    {
+      "path": "src/config/musicConfig.ts",
+      "backupPath": "20260513-220608__src__config__musicConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "Meting API (musicPlayerConfig.meting.api)",
+        "备用 API (musicPlayerConfig.meting.fallbackApis)"
+      ]
+    }
+  ]
+}

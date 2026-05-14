@@ -1,0 +1,17 @@
+{
+  "id": "20260512-122345-更改了链接设置",
+  "name": "更改了链接设置",
+  "createdAt": "2026-05-12T04:23:46.161Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/navBarConfig.ts: 链接菜单子项 (navLinksMenu.children)",
+  "files": [
+    {
+      "path": "src/config/navBarConfig.ts",
+      "backupPath": "20260512-122345-更改了链接设置__src__config__navBarConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "链接菜单子项 (navLinksMenu.children)"
+      ]
+    }
+  ]
+}

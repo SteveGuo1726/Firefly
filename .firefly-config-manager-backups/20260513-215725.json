@@ -1,0 +1,27 @@
+{
+  "id": "20260513-215725",
+  "name": "",
+  "createdAt": "2026-05-13T13:57:32.944Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 2 个文件：src/config/siteConfig.ts: Umami 追踪外链 (siteConfig.analytics.umamiAnalytics.trackOutboundLinks)；src/config/musicConfig.ts: Meting API (musicPlayerConfig.meting.api)；src/config/musicConfig.ts: 备用 API (musicPlayerConfig.meting.fallbackApis)；src/config/musicConfig.ts: Meting auth (musicPlayerConfig.meting.auth)",
+  "files": [
+    {
+      "path": "src/config/siteConfig.ts",
+      "backupPath": "20260513-215725__src__config__siteConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "Umami 追踪外链 (siteConfig.analytics.umamiAnalytics.trackOutboundLinks)"
+      ]
+    },
+    {
+      "path": "src/config/musicConfig.ts",
+      "backupPath": "20260513-215725__src__config__musicConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "Meting API (musicPlayerConfig.meting.api)",
+        "备用 API (musicPlayerConfig.meting.fallbackApis)",
+        "Meting auth (musicPlayerConfig.meting.auth)"
+      ]
+    }
+  ]
+}
