@@ -11,7 +11,7 @@ export const site = {
 	name: "星遐蝶梦",
 	desc: "星穹漫遐，蝶携清梦。",
 	url: "https://blog.casto.top",
-	avatar: "https://img.casto.top/file/img111/1778723548704_icon.png",
+	avatar: "https://pic1.imgdb.cn/item/6a0401c96f6a2d474b48e665.png",
 	email: "2367211699@qq.com"
 };
 

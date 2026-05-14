@@ -6,7 +6,7 @@ export const commentConfig: CommentConfig = {
 
 	//twikoo评论系统配置，版本1.7.4
 	twikoo: {
-		envId: "https://twikoo-netlify-casto.netlify.app/.netlify/functions/twikoo",
+		envId: "https://steveguo1726-twikooforcasto.hf.space",
 		// 设置 Twikoo 评论系统语言
 		lang: "zh-CN",
 		// 是否启用文章访问量统计功能
@@ -31,7 +31,7 @@ export const commentConfig: CommentConfig = {
 		//   'disable'  —— 禁止所有登录和 OAuth，仅允许匿名评论（填写昵称/邮箱），适用于极简留言。
 		login: "enable",
 		// 是否启用文章访问量统计功能
-		visitorCount: false,
+		visitorCount: true,
 	},
 
 	// artalk评论系统配置
@@ -41,7 +41,7 @@ export const commentConfig: CommentConfig = {
 		// 设置 Artalk 语言
 		locale: "zh-CN",
 		// 是否启用文章访问量统计功能
-		visitorCount: false,
+		visitorCount: true,
 	},
 
 	//giscus评论系统配置
