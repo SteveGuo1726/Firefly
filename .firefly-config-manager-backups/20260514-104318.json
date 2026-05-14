@@ -1,0 +1,29 @@
+{
+  "id": "20260514-104318",
+  "name": "",
+  "createdAt": "2026-05-14T02:43:19.043Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 2 个文件：src/config/commentConfig.ts: Artalk 访问计数 (commentConfig.artalk.visitorCount)；src/config/commentConfig.ts: Waline 访问计数 (commentConfig.waline.visitorCount)；src/config/commentConfig.ts: Twikoo envId (commentConfig.twikoo.envId)；src/config/commentConfig.ts: Waline 登录策略 (commentConfig.waline.login)；src/config/commentConfig.ts: 评论系统 (commentConfig.type)；src/content/spec/friends.mdx: 友链申请示例",
+  "files": [
+    {
+      "path": "src/config/commentConfig.ts",
+      "backupPath": "20260514-104318__src__config__commentConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "Artalk 访问计数 (commentConfig.artalk.visitorCount)",
+        "Waline 访问计数 (commentConfig.waline.visitorCount)",
+        "Twikoo envId (commentConfig.twikoo.envId)",
+        "Waline 登录策略 (commentConfig.waline.login)",
+        "评论系统 (commentConfig.type)"
+      ]
+    },
+    {
+      "path": "src/content/spec/friends.mdx",
+      "backupPath": "20260514-104318__src__content__spec__friends.mdx.bak",
+      "existed": true,
+      "changes": [
+        "友链申请示例"
+      ]
+    }
+  ]
+}
