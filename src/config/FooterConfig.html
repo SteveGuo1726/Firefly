@@ -1,1 +1,17 @@
-<script id="LA-DATA-WIDGET" crossorigin="anonymous" charset="UTF-8" src="https://v6-widget.51.la/v6/3PvIirDkY8Gsd38Z/quote.js?theme=4&f=12&display=0,1,1,1,1,1,1,1"></script>
+<span id="la-footer-widget"></span>
+<script>
+(() => {
+	const mount = document.getElementById("la-footer-widget");
+	if (!mount) return;
+
+	mount.replaceChildren();
+	document.querySelectorAll('script[id="LA-DATA-WIDGET"]').forEach((node) => node.remove());
+
+	const script = document.createElement("script");
+	script.id = "LA-DATA-WIDGET";
+	script.crossOrigin = "anonymous";
+	script.charset = "UTF-8";
+	script.src = "https://v6-widget.51.la/v6/3PvIirDkY8Gsd38Z/quote.js?theme=4&f=12&display=0,1,1,1,1,1,1,1";
+	mount.appendChild(script);
+})();
+</script>
