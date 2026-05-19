@@ -1,17 +1,33 @@
 <span id="la-footer-widget"></span>
 <script>
 (() => {
+	const widgetUrl = "https://v6-widget.51.la/v6/3PvIirDkY8Gsd38Z/quote.js?theme=4&f=12&display=0,1,1,1,1,1,1,1";
 	const mount = document.getElementById("la-footer-widget");
 	if (!mount) return;
 
-	mount.replaceChildren();
-	document.querySelectorAll('script[id="LA-DATA-WIDGET"]').forEach((node) => node.remove());
+	const clearWidget = () => {
+		mount.replaceChildren();
+		document.querySelectorAll('script[id="LA-DATA-WIDGET"], script[src*="v6-widget.51.la/v6/3PvIirDkY8Gsd38Z/quote.js"]').forEach((node) => node.remove());
+	};
+
+	clearWidget();
 
 	const script = document.createElement("script");
 	script.id = "LA-DATA-WIDGET";
 	script.crossOrigin = "anonymous";
 	script.charset = "UTF-8";
-	script.src = "https://v6-widget.51.la/v6/3PvIirDkY8Gsd38Z/quote.js?theme=4&f=12&display=0,1,1,1,1,1,1,1";
+	script.src = widgetUrl;
 	mount.appendChild(script);
+
+	window.__fireflyLa51FooterCleanup__ = () => {
+		const mounts = [...document.querySelectorAll("#la-footer-widget")];
+		mounts.slice(0, -1).forEach((node) => node.remove());
+		mounts.at(-1)?.querySelectorAll('script[id="LA-DATA-WIDGET"]').forEach((node) => {
+			if (node !== script) node.remove();
+		});
+	};
+
+	setTimeout(window.__fireflyLa51FooterCleanup__, 300);
+	setTimeout(window.__fireflyLa51FooterCleanup__, 1200);
 })();
 </script>
