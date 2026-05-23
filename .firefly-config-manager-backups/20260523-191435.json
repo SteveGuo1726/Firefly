@@ -1,0 +1,18 @@
+{
+  "id": "20260523-191435",
+  "name": "",
+  "createdAt": "2026-05-23T11:14:42.496Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/content/posts/moments/mmd-start.md: 文章 Frontmatter；src/content/posts/moments/mmd-start.md: 随机封面 image: api",
+  "files": [
+    {
+      "path": "src/content/posts/moments/mmd-start.md",
+      "backupPath": "20260523-191435__src__content__posts__moments__mmd-start.md.bak",
+      "existed": false,
+      "changes": [
+        "文章 Frontmatter",
+        "随机封面 image: api"
+      ]
+    }
+  ]
+}
