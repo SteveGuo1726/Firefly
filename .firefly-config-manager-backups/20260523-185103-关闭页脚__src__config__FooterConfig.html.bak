@@ -1,0 +1,48 @@
+<span id="la-footer-widget"></span>
+<script>
+(() => {
+	const widgetUrl = "https://v6-widget.51.la/v6/3PvIirDkY8Gsd38Z/quote.js?theme=4&f=12&display=0,1,1,1,1,1,1,1";
+	const widgetSrc = "v6-widget.51.la/v6/3PvIirDkY8Gsd38Z/quote.js";
+	const currentMount = document.getElementById("la-footer-widget");
+	const contentRoot = currentMount?.closest(".custom-footer-html-content") || currentMount?.parentElement;
+	if (!currentMount || !contentRoot) return;
+
+	const cleanup = () => {
+		const roots = [...document.querySelectorAll("#custom-footer-html")];
+		roots.slice(0, -1).forEach((root) => {
+			root.querySelectorAll('script[id="LA-DATA-WIDGET"], script[src*="' + widgetSrc + '"], #la-footer-widget, .la-widget, [id^="LA-"], [class*="LA-"]').forEach((node) => node.remove());
+		});
+		[...contentRoot.childNodes].forEach((node) => {
+			if (node !== currentMount && node !== document.currentScript) node.remove();
+		});
+		const mounts = [...document.querySelectorAll("#la-footer-widget")];
+		mounts.slice(0, -1).forEach((node) => node.remove());
+		document.querySelectorAll('script[id="LA-DATA-WIDGET"], script[src*="' + widgetSrc + '"]').forEach((node) => {
+			if (!currentMount.contains(node)) node.remove();
+		});
+	};
+
+	cleanup();
+	currentMount.replaceChildren();
+
+	const script = document.createElement("script");
+	script.id = "LA-DATA-WIDGET";
+	script.crossOrigin = "anonymous";
+	script.charset = "UTF-8";
+	script.src = widgetUrl;
+	currentMount.appendChild(script);
+
+	const scheduleCleanup = () => {
+		cleanup();
+		setTimeout(cleanup, 200);
+		setTimeout(cleanup, 800);
+	};
+
+	document.removeEventListener("astro:before-swap", window.__fireflyLa51FooterCleanup__);
+	document.removeEventListener("astro:page-load", window.__fireflyLa51FooterCleanup__);
+	window.__fireflyLa51FooterCleanup__ = scheduleCleanup;
+	document.addEventListener("astro:before-swap", window.__fireflyLa51FooterCleanup__);
+	document.addEventListener("astro:page-load", window.__fireflyLa51FooterCleanup__);
+	scheduleCleanup();
+})();
+</script>
