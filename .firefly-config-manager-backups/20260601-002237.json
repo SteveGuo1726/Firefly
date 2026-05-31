@@ -1,0 +1,17 @@
+{
+  "id": "20260601-002237",
+  "name": "",
+  "createdAt": "2026-05-31T16:22:44.110Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/content/spec/friends.mdx: 友链申请示例",
+  "files": [
+    {
+      "path": "src/content/spec/friends.mdx",
+      "backupPath": "20260601-002237__src__content__spec__friends.mdx.bak",
+      "existed": true,
+      "changes": [
+        "友链申请示例"
+      ]
+    }
+  ]
+}
