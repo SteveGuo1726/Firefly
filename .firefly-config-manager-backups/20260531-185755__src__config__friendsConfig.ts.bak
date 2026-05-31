@@ -71,21 +71,8 @@ export const friendsConfig: FriendLink[] = [
 		imgurl: "https://q1.qlogo.cn/g?b=qq&nk=20447289&s=640",
 		desc: "坐而言不如起而行.",
 		siteurl: "https://fqzlr.com",
-		tags: [
-			"Blog"
-		],
+		tags: [],
 		weight: 12,
-		enabled: true
-	},
-	{
-		title: "Hyde Blog",
-		imgurl: "https://seasir.top/assets/avatar.avif",
-		desc: "人心中的成见是一座大山",
-		siteurl: "https://seasir.top",
-		tags: [
-			"Blog"
-		],
-		weight: 13,
 		enabled: true
 	}
 ];
