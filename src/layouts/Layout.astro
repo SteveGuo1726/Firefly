@@ -108,9 +108,10 @@ const siteLang = lang.replace("_", "-");
           <UmamiAnalytics
           websiteId={siteConfig.analytics.umamiAnalytics.websiteId}
           scriptUrl={siteConfig.analytics.umamiAnalytics.scriptUrl}
+          replaysScriptUrl={siteConfig.analytics.umamiAnalytics.replaysScriptUrl}
           trackOutboundLinks={siteConfig.analytics.umamiAnalytics.trackOutboundLinks}
           collectWebVitals={siteConfig.analytics.umamiAnalytics.collectWebVitals}
-          relpays={siteConfig.analytics.umamiAnalytics.relpays}
+          replays={siteConfig.analytics.umamiAnalytics.replays}
           />
         )}
         {siteConfig.analytics?.la51Analytics?.Id && (
@@ -469,6 +470,12 @@ const siteLang = lang.replace("_", "-");
               mainContentWrapper.style.top = "0";
               mainContentWrapper.style.zIndex = "30";
               mainContentWrapper.style.setProperty("margin-top", "1rem", "important");
+            } else if (isMobile && isHomePage && (wallpaperMode === WALLPAPER_BANNER || wallpaperMode === undefined)) {
+              // 移动端横幅模式首页：清除 inline top，让 CSS 响应式规则生效
+              mainContentWrapper.style.removeProperty("top");
+              mainContentWrapper.style.position = "";
+              mainContentWrapper.style.zIndex = "";
+              mainContentWrapper.style.setProperty("margin-top", "0", "important");
             } else if (isMobileNonHome) {
               mainContentWrapper.style.setProperty("top", "5.5rem", "important");
               mainContentWrapper.style.position = "";
@@ -1143,6 +1150,12 @@ function disableAnimation() {
               mainContentWrapper.style.position = "";
               mainContentWrapper.style.zIndex = "";
               mainContentWrapper.style.setProperty("margin-top", "0", "important");
+            } else if (isMobile) {
+              // 移动端横幅模式首页：清除 inline top，让 CSS 响应式规则生效
+              mainContentWrapper.style.removeProperty("top");
+              mainContentWrapper.style.position = "";
+              mainContentWrapper.style.zIndex = "";
+              mainContentWrapper.style.setProperty("margin-top", "0", "important");
             } else {
               mainContentWrapper.style.setProperty("top", "calc(var(--banner-height) - 3.5rem)", "important");
               mainContentWrapper.style.position = "";
@@ -1624,4 +1637,34 @@ function disableAnimation() {
     initThemeListener();
     initIconLoader();
   }
+
+  // LQIP fade-in：图片加载完成后淡出占位渐变
+  function initImageLoadFadeIn() {
+    const placeholders = document.querySelectorAll<HTMLElement>('.lqip-placeholder');
+    placeholders.forEach(placeholder => {
+      const container = placeholder.parentElement;
+      if (!container) return;
+      const img = container.querySelector<HTMLImageElement>('img, picture img');
+      if (!img) return;
+
+      if (img.complete && img.naturalWidth > 0) {
+        img.style.opacity = '1';
+        placeholder.classList.add('loaded');
+      } else {
+        img.addEventListener('load', () => {
+          img.style.opacity = '1';
+          placeholder.classList.add('loaded');
+        }, { once: true });
+        img.addEventListener('error', () => {
+          placeholder.classList.add('loaded');
+        }, { once: true });
+      }
+    });
+  }
+
+  initImageLoadFadeIn();
+  document.addEventListener('astro:page-load', initImageLoadFadeIn);
+  document.addEventListener('swup:contentReplaced', () => {
+    requestAnimationFrame(initImageLoadFadeIn);
+  });
 </script>

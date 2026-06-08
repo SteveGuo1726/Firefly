@@ -23,8 +23,6 @@
 
 ::github{repo="saicaca/fuwari"}
 
-
 ---
 
 *感谢你的来访！希望你能玩的开心！*
-
