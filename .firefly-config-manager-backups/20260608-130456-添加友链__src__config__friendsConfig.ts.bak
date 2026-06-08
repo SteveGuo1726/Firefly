@@ -94,20 +94,9 @@ export const friendsConfig: FriendLink[] = [
 		desc: "阳光正好，慢慢前行。",
 		siteurl: "https://sunlight.kejk.cn",
 		tags: [
-			"Blog"
+			"blog"
 		],
 		weight: 14,
-		enabled: true
-	},
-	{
-		title: "年华",
-		imgurl: "https://q1.qlogo.cn/g?b=qq&nk=1323860289&s=640",
-		desc: "分享生活和技术。",
-		siteurl: "https://blog.520781.xyz",
-		tags: [
-			"Blog"
-		],
-		weight: 15,
 		enabled: true
 	}
 ];
