@@ -1,0 +1,386 @@
+﻿---
+import { Icon } from "astro-icon/components";
+import { friendCircleConfig } from "@/config";
+
+const pageSize = friendCircleConfig.pageSize ?? 12;
+const apiUrl = friendCircleConfig.apiUrl || "/api/friend-circle.json";
+const fallbackApiUrl = friendCircleConfig.fallbackApiUrl || "/api/friend-circle.json";
+const title = friendCircleConfig.title || "友链朋友圈";
+const description =
+	friendCircleConfig.description ||
+	"自动聚合友链 RSS/Atom 的最新文章，数据分支定时更新，不需要重构建网站。";
+---
+
+{
+	friendCircleConfig.enable !== false && (
+		<section
+			class="mt-4 card-base z-10 px-9 py-6 relative w-full friend-circle-panel"
+			data-friend-circle
+			data-page-size={pageSize}
+			data-api-url={apiUrl}
+			data-fallback-api-url={fallbackApiUrl}
+		>
+			<div class="flex flex-col gap-5">
+				<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+					<div class="flex items-start gap-3">
+						<div class="h-8 w-8 rounded-lg bg-(--primary) flex items-center justify-center text-white dark:text-black/70 shrink-0">
+							<Icon name="material-symbols:rss-feed-rounded" class="text-[1.5rem]" />
+						</div>
+						<div>
+							<h2 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
+								{title}
+							</h2>
+							<p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
+								{description}
+							</p>
+						</div>
+					</div>
+					<div class="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400" data-fc-meta>
+						<Icon name="material-symbols:sync-rounded" class="text-base" />
+						<span>加载中...</span>
+					</div>
+				</div>
+
+				<div class="friend-circle-random hidden" data-fc-random></div>
+
+				<div class="friend-circle-grid" data-fc-list>
+					{Array.from({ length: Math.min(pageSize, 6) }).map(() => (
+						<div class="friend-circle-skeleton" />
+					))}
+				</div>
+
+				<nav class="friend-circle-pagination hidden" aria-label="友链朋友圈分页" data-fc-pagination></nav>
+
+				<div class="hidden flex-col items-center justify-center py-10 text-neutral-400 dark:text-neutral-500" data-fc-empty>
+					<Icon name="material-symbols:sentiment-dissatisfied-rounded" class="text-4xl mb-3" />
+					<div class="text-sm">暂时没有抓取到友链文章。</div>
+				</div>
+
+				<div class="hidden rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-200" data-fc-error />
+			</div>
+		</section>
+	)
+}
+
+<script is:inline>
+	(() => {
+		const initFriendCircle = () => {
+			const panels = document.querySelectorAll("[data-friend-circle]");
+			panels.forEach((panel) => {
+				if (panel.dataset.loaded === "true") return;
+				panel.dataset.loaded = "true";
+
+				const pageSize = Number(panel.dataset.pageSize || 12);
+				const apiUrl = panel.dataset.apiUrl || "/api/friend-circle.json";
+				const fallbackApiUrl = panel.dataset.fallbackApiUrl || "/api/friend-circle.json";
+				const list = panel.querySelector("[data-fc-list]");
+				const random = panel.querySelector("[data-fc-random]");
+				const meta = panel.querySelector("[data-fc-meta]");
+				const empty = panel.querySelector("[data-fc-empty]");
+				const error = panel.querySelector("[data-fc-error]");
+				const pagination = panel.querySelector("[data-fc-pagination]");
+				let articles = [];
+				let currentPage = 1;
+
+				const esc = (value) => String(value ?? "")
+					.replaceAll("&", "&amp;")
+					.replaceAll("<", "&lt;")
+					.replaceAll(">", "&gt;")
+					.replaceAll('"', "&quot;");
+
+				const formatDate = (value) => {
+					const date = new Date(value);
+					if (Number.isNaN(date.getTime())) return "未知日期";
+					return date.toLocaleDateString("zh-CN", {
+						year: "numeric",
+						month: "2-digit",
+						day: "2-digit",
+					});
+				};
+
+				const pageCount = () => Math.max(1, Math.ceil(articles.length / pageSize));
+
+				const visiblePages = () => {
+					const total = pageCount();
+					const pages = new Set([1, total, currentPage, currentPage - 1, currentPage + 1]);
+					return [...pages].filter((page) => page >= 1 && page <= total).sort((a, b) => a - b);
+				};
+
+				const renderRandom = () => {
+					if (!random || articles.length === 0) return;
+					const article = articles[Math.floor(Math.random() * articles.length)];
+					random.classList.remove("hidden");
+					random.innerHTML = `
+						<div class="friend-circle-random-card">
+							<img class="friend-circle-random-avatar no-lightbox" src="${esc(article.avatar)}" alt="${esc(article.author)}" loading="lazy" onerror="this.style.visibility='hidden'">
+							<div class="min-w-0 grow">
+								<div class="text-xs text-neutral-500 dark:text-neutral-400 mb-1">随便转转</div>
+								<a class="block text-lg font-bold text-neutral-900 dark:text-neutral-100 hover:text-(--primary) transition-colors truncate" href="${esc(article.link)}" target="_blank" rel="noopener noreferrer">${esc(article.title)}</a>
+								<div class="mt-1 text-sm text-neutral-500 dark:text-neutral-400">${esc(article.author)} · ${formatDate(article.created)}</div>
+							</div>
+							<button type="button" class="btn-regular shrink-0 px-3 py-2 rounded-lg text-sm" data-random-refresh>换一篇</button>
+						</div>
+					`;
+					random.querySelector("[data-random-refresh]")?.addEventListener("click", renderRandom);
+				};
+
+				const renderPage = () => {
+					if (!list) return;
+					const total = pageCount();
+					currentPage = Math.min(Math.max(currentPage, 1), total);
+					const start = (currentPage - 1) * pageSize;
+					const slice = articles.slice(start, start + pageSize);
+					list.innerHTML = slice.map((article) => `
+						<a class="friend-circle-card group" href="${esc(article.link)}" target="_blank" rel="noopener noreferrer">
+							<img class="friend-circle-avatar no-lightbox" src="${esc(article.avatar)}" alt="${esc(article.author)}" loading="lazy" onerror="this.style.visibility='hidden'">
+							<div class="min-w-0 grow">
+								<div class="friend-circle-title">${esc(article.title)}</div>
+								${article.summary ? `<div class="friend-circle-summary">${esc(article.summary)}</div>` : ""}
+								<div class="friend-circle-info">${esc(article.author)} · ${formatDate(article.created)}</div>
+							</div>
+						</a>
+					`).join("");
+					renderPagination();
+				};
+
+				const renderPagination = () => {
+					if (!pagination) return;
+					const total = pageCount();
+					if (total <= 1) {
+						pagination.classList.add("hidden");
+						pagination.innerHTML = "";
+						return;
+					}
+					let previous = 0;
+					const pageButtons = visiblePages().map((page) => {
+						const spacer = previous && page - previous > 1 ? `<span class="friend-circle-page-gap">...</span>` : "";
+						previous = page;
+						return `${spacer}<button type="button" class="friend-circle-page-button${page === currentPage ? " active" : ""}" data-page="${page}" aria-current="${page === currentPage ? "page" : "false"}">${page}</button>`;
+					}).join("");
+					pagination.classList.remove("hidden");
+					pagination.innerHTML = `
+						<button type="button" class="friend-circle-page-button" data-page="${currentPage - 1}" ${currentPage <= 1 ? "disabled" : ""}>上一页</button>
+						${pageButtons}
+						<button type="button" class="friend-circle-page-button" data-page="${currentPage + 1}" ${currentPage >= total ? "disabled" : ""}>下一页</button>
+					`;
+					pagination.querySelectorAll("[data-page]").forEach((button) => {
+						button.addEventListener("click", () => {
+							const page = Number(button.dataset.page);
+							if (!Number.isFinite(page) || page < 1 || page > total || page === currentPage) return;
+							currentPage = page;
+							renderPage();
+							panel.scrollIntoView({ behavior: "smooth", block: "start" });
+						});
+					});
+				};
+
+				const fetchJson = (url) => fetch(url, { headers: { Accept: "application/json" } })
+					.then((response) => {
+						if (!response.ok) throw new Error(`HTTP ${response.status}`);
+						return response.json();
+					});
+
+				fetchJson(apiUrl).catch(() => fallbackApiUrl && fallbackApiUrl !== apiUrl ? fetchJson(fallbackApiUrl) : Promise.reject(new Error("数据源不可用")))
+					.then((data) => {
+						articles = Array.isArray(data.article_data) ? data.article_data : [];
+						if (meta) {
+							const stats = data.statistical_data || {};
+							const skipped = Number(stats.skipped_num || 0);
+							const skippedText = skipped > 0 ? ` · ${esc(skipped)} 个已跳过` : "";
+							meta.innerHTML = `<span>${esc(stats.active_num ?? 0)} 个订阅 · ${esc(stats.article_num ?? articles.length)} 篇文章${skippedText} · ${esc(stats.last_updated_time ?? "刚刚更新")}</span>`;
+						}
+						if (articles.length === 0) {
+							list && (list.innerHTML = "");
+							empty?.classList.remove("hidden");
+							empty?.classList.add("flex");
+							return;
+						}
+						renderRandom();
+						renderPage();
+					})
+					.catch((err) => {
+						list && (list.innerHTML = "");
+						if (meta) meta.innerHTML = "<span>加载失败</span>";
+						if (error) {
+							error.textContent = `友链朋友圈加载失败：${err.message}`;
+							error.classList.remove("hidden");
+						}
+					});
+			});
+		};
+
+		initFriendCircle();
+		document.addEventListener("astro:page-load", initFriendCircle);
+	})();
+</script>
+
+<style is:global>
+	.friend-circle-grid {
+		display: grid;
+		grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+		gap: 0.85rem;
+	}
+
+	.friend-circle-card,
+	.friend-circle-random-card {
+		display: flex;
+		align-items: center;
+		gap: 0.85rem;
+		border: 1px solid var(--line-divider);
+		border-radius: 0.75rem;
+		background: color-mix(in oklch, var(--card-bg) 75%, transparent);
+		transition: border-color 0.2s ease, transform 0.2s ease, background 0.2s ease;
+	}
+
+	.friend-circle-card {
+		padding: 0.95rem;
+		min-height: 7.25rem;
+	}
+
+	.friend-circle-random-card {
+		justify-content: space-between;
+		padding: 1rem;
+	}
+
+	.friend-circle-card:hover {
+		border-color: var(--primary);
+		transform: translateY(-1px);
+	}
+
+	.friend-circle-avatar,
+	.friend-circle-random-avatar {
+		border-radius: 0.85rem;
+		object-fit: cover;
+		background: rgb(244 244 245);
+		flex: none;
+	}
+
+	.friend-circle-avatar {
+		width: 3.4rem;
+		height: 3.4rem;
+	}
+
+	.friend-circle-random-avatar {
+		width: 3rem;
+		height: 3rem;
+	}
+
+	.friend-circle-title {
+		font-size: 1.08rem;
+		font-weight: 800;
+		color: rgb(23 23 23);
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+		transition: color 0.2s ease;
+	}
+
+	.friend-circle-card:hover .friend-circle-title {
+		color: var(--primary);
+	}
+
+	.friend-circle-summary {
+		margin-top: 0.35rem;
+		font-size: 0.88rem;
+		line-height: 1.5;
+		color: rgb(82 82 82);
+		display: -webkit-box;
+		-webkit-line-clamp: 2;
+		-webkit-box-orient: vertical;
+		overflow: hidden;
+	}
+
+	.friend-circle-info {
+		margin-top: 0.45rem;
+		font-size: 0.8rem;
+		color: rgb(115 115 115);
+		white-space: nowrap;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+
+	.friend-circle-pagination {
+		display: flex;
+		align-items: center;
+		justify-content: center;
+		flex-wrap: wrap;
+		gap: 0.45rem;
+	}
+
+	.friend-circle-page-button {
+		min-width: 2.35rem;
+		height: 2.35rem;
+		padding: 0 0.75rem;
+		border-radius: 0.6rem;
+		border: 1px solid var(--line-divider);
+		background: color-mix(in oklch, var(--card-bg) 82%, transparent);
+		color: rgb(64 64 64);
+		font-size: 0.88rem;
+		font-weight: 700;
+		transition: border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+	}
+
+	.friend-circle-page-button:hover:not(:disabled),
+	.friend-circle-page-button.active {
+		border-color: var(--primary);
+		background: var(--primary);
+		color: white;
+	}
+
+	.friend-circle-page-button:disabled {
+		cursor: not-allowed;
+		opacity: 0.45;
+	}
+
+	.friend-circle-page-gap {
+		padding: 0 0.15rem;
+		color: rgb(115 115 115);
+		font-weight: 700;
+	}
+
+	.friend-circle-skeleton {
+		min-height: 7.25rem;
+		border-radius: 0.75rem;
+		background: linear-gradient(90deg, rgb(229 229 229 / 0.4), rgb(245 245 245 / 0.8), rgb(229 229 229 / 0.4));
+		background-size: 200% 100%;
+		animation: friend-circle-loading 1.2s ease-in-out infinite;
+	}
+
+	.dark .friend-circle-title {
+		color: rgb(245 245 245);
+	}
+
+	.dark .friend-circle-summary {
+		color: rgb(212 212 212);
+	}
+
+	.dark .friend-circle-info,
+	.dark .friend-circle-page-gap {
+		color: rgb(163 163 163);
+	}
+
+	.dark .friend-circle-avatar,
+	.dark .friend-circle-random-avatar {
+		background: rgb(39 39 42);
+	}
+
+	.dark .friend-circle-page-button {
+		color: rgb(229 229 229);
+	}
+
+	@keyframes friend-circle-loading {
+		0% { background-position: 100% 0; }
+		100% { background-position: -100% 0; }
+	}
+
+	@media (max-width: 640px) {
+		.friend-circle-grid {
+			grid-template-columns: 1fr;
+		}
+
+		.friend-circle-card {
+			align-items: flex-start;
+		}
+	}
+</style>

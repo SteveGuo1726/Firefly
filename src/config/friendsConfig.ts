@@ -1,4 +1,8 @@
-import type { FriendLink, FriendsPageConfig } from "../types/config";
+import type {
+	FriendCircleConfig,
+	FriendLink,
+	FriendsPageConfig,
+} from "../types/config";
 
 // 可以在src/content/spec/friends.md中编写友链页面下方的自定义内容
 
@@ -20,6 +24,35 @@ export const friendsPageConfig: FriendsPageConfig = {
 	randomizeSort: false,
 };
 
+// 友链朋友圈配置
+// 运行时 API 会读取启用友链的 feedurl；未填写 feedurl 时会尝试 feedPaths 中的常见 RSS/Atom 路径。
+export const friendCircleConfig: FriendCircleConfig = {
+	enable: true,
+	title: "友链朋友圈",
+	description: "自动聚合友链 RSS/Atom 的最新文章，数据分支定时更新，不需要重构建网站。",
+	apiUrl: "https://raw.githubusercontent.com/SteveGuo1726/Firefly/friend-circle-data/all.json",
+	fallbackApiUrl: "/api/friend-circle.json",
+	pageSize: 12,
+	cacheSeconds: 3600,
+	requestTimeout: 8000,
+	maxArticlesPerFriend: 5,
+	feedPaths: [
+		"/atom.xml",
+		"/feed.xml",
+		"/rss.xml",
+		"/rss2.xml",
+		"/index.xml",
+		"/feed/",
+		"/feed",
+		"/rss",
+		"/atom",
+		"/index.atom",
+		"/index.rss",
+		"/feeds/all.atom.xml",
+		"/?feed=rss2",
+	],
+};
+
 // 友链配置
 export const friendsConfig: FriendLink[] = [
 	{
@@ -38,6 +71,7 @@ export const friendsConfig: FriendLink[] = [
 		imgurl: "https://docs-firefly.cuteleaf.cn/logo.png",
 		desc: "Firefly主题模板文档",
 		siteurl: "https://docs-firefly.cuteleaf.cn",
+		fetchFeed: false,
 		tags: [
 			"Docs"
 		],
@@ -49,6 +83,7 @@ export const friendsConfig: FriendLink[] = [
 		imgurl: "https://avatars.githubusercontent.com/u/44914786?v=4&s=640",
 		desc: "The web framework for content-driven websites. ⭐️ Star to support our work!",
 		siteurl: "https://github.com/withastro/astro",
+		fetchFeed: false,
 		tags: [
 			"Framework"
 		],

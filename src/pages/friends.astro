@@ -2,6 +2,7 @@
 import { getEntry, render } from "astro:content";
 import Comment from "@components/comment/index.astro";
 import Markdown from "@components/common/Markdown.astro";
+import FriendCircle from "@components/pages/friends/FriendCircle.astro";
 import { Icon } from "astro-icon/components";
 import {
 	commentConfig,
@@ -179,6 +180,8 @@ const description =
       </div>
     </div>
   </div>
+
+  <FriendCircle />
 
   {friendsPageConfig.showCustomContent !== false && (
     <div class="mt-4 card-base z-10 px-9 py-6 relative w-full">

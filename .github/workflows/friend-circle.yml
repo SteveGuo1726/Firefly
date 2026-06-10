@@ -1,0 +1,47 @@
+name: Update Friend Circle Data
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 */4 * * *"
+
+permissions:
+  contents: write
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.14.4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Generate friend circle data
+        run: pnpm friend-circle
+
+      - name: Publish data branch
+        run: |
+          cd .friend-circle-dist
+          git init
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add all.json
+          git commit -m "update friend circle data"
+          git branch -M friend-circle-data
+          git remote add origin "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git"
+          git push -f origin friend-circle-data
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
