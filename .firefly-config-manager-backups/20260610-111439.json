@@ -1,0 +1,17 @@
+{
+  "id": "20260610-111439",
+  "name": "",
+  "createdAt": "2026-06-10T03:14:46.661Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/friendsConfig.ts: 友链列表 (friendsConfig)",
+  "files": [
+    {
+      "path": "src/config/friendsConfig.ts",
+      "backupPath": "20260610-111439__src__config__friendsConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "友链列表 (friendsConfig)"
+      ]
+    }
+  ]
+}
