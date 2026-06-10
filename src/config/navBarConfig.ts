@@ -70,18 +70,18 @@ const getDynamicNavBarConfig = (): NavBarConfig => {
 
 	// 自定义导航栏链接,并且支持多级菜单
 	links.push({
-	name: "链接",
-	url: "/links/",
-	icon: "material-symbols:link",
-	children: [
-		{
-			name: "GitHub",
-			url: "https://github.com/SteveGuo1726",
-			external: true,
-			icon: "fa7-brands:github"
-		}
-	]
-});
+		name: "链接",
+		url: "/links/",
+		icon: "material-symbols:link",
+		children: [
+			{
+				name: "GitHub",
+				url: "https://github.com/SteveGuo1726",
+				external: true,
+				icon: "fa7-brands:github",
+			},
+		],
+	});
 
 	// 仅返回链接，其它导航搜索相关配置在模块顶层常量中独立导出
 	return { links } as NavBarConfig;

@@ -21,23 +21,23 @@ export const profileConfig: ProfileConfig = {
 	// `pnpm add @iconify-json/<icon-set-name>`
 	// showName: true 时显示图标和名称，false 时只显示图标
 	links: [
-	{
-		name: "GitHub",
-		icon: "fa7-brands:github",
-		url: "https://github.com/SteveGuo1726",
-		showName: false
-	},
-	{
-		name: "Email",
-		icon: "fa7-solid:envelope",
-		url: "mailto:2367211699@qq.com",
-		showName: false
-	},
-	{
-		name: "RSS",
-		icon: "fa7-solid:rss",
-		url: "/rss/",
-		showName: false
-	}
-],
+		{
+			name: "GitHub",
+			icon: "fa7-brands:github",
+			url: "https://github.com/SteveGuo1726",
+			showName: false,
+		},
+		{
+			name: "Email",
+			icon: "fa7-solid:envelope",
+			url: "mailto:2367211699@qq.com",
+			showName: false,
+		},
+		{
+			name: "RSS",
+			icon: "fa7-solid:rss",
+			url: "/rss/",
+			showName: false,
+		},
+	],
 };

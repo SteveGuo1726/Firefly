@@ -22,35 +22,35 @@ export const sponsorConfig: SponsorConfig = {
 
 	// 赞助方式列表
 	methods: [
-	{
-		name: "支付宝",
-		icon: "fa7-brands:alipay",
-		qrCode: "/assets/images/sponsor/alipay.png",
-		description: "使用 支付宝 扫码赞助",
-		enabled: false
-	},
-	{
-		name: "微信",
-		icon: "fa7-brands:weixin",
-		qrCode: "/assets/images/sponsor/wechat.png",
-		description: "使用 微信 扫码赞助",
-		enabled: false
-	},
-	{
-		name: "ko-fi",
-		icon: "simple-icons:kofi",
-		link: "https://ko-fi.com/cuteleaf",
-		description: "Buy a Coffee for Firefly",
-		enabled: false
-	},
-	{
-		name: "爱发电",
-		icon: "simple-icons:afdian",
-		link: "https://ifdian.net/a/cuteleaf",
-		description: "通过 爱发电 进行赞助",
-		enabled: false
-	}
-],
+		{
+			name: "支付宝",
+			icon: "fa7-brands:alipay",
+			qrCode: "/assets/images/sponsor/alipay.png",
+			description: "使用 支付宝 扫码赞助",
+			enabled: false,
+		},
+		{
+			name: "微信",
+			icon: "fa7-brands:weixin",
+			qrCode: "/assets/images/sponsor/wechat.png",
+			description: "使用 微信 扫码赞助",
+			enabled: false,
+		},
+		{
+			name: "ko-fi",
+			icon: "simple-icons:kofi",
+			link: "https://ko-fi.com/cuteleaf",
+			description: "Buy a Coffee for Firefly",
+			enabled: false,
+		},
+		{
+			name: "爱发电",
+			icon: "simple-icons:afdian",
+			link: "https://ifdian.net/a/cuteleaf",
+			description: "通过 爱发电 进行赞助",
+			enabled: false,
+		},
+	],
 
 	// 赞助者列表（可选）
 	sponsors: [],

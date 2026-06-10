@@ -29,8 +29,10 @@ export const friendsPageConfig: FriendsPageConfig = {
 export const friendCircleConfig: FriendCircleConfig = {
 	enable: true,
 	title: "友链朋友圈",
-	description: "自动聚合友链 RSS/Atom 的最新文章，数据分支定时更新，不需要重构建网站。",
-	apiUrl: "https://raw.githubusercontent.com/SteveGuo1726/Firefly/friend-circle-data/all.json",
+	description:
+		"自动聚合友链 RSS/Atom 的最新文章，数据分支定时更新，不需要重构建网站。",
+	apiUrl:
+		"https://raw.githubusercontent.com/SteveGuo1726/Firefly/friend-circle-data/all.json",
 	fallbackApiUrl: "/api/friend-circle.json",
 	pageSize: 12,
 	cacheSeconds: 3600,
@@ -57,14 +59,13 @@ export const friendCircleConfig: FriendCircleConfig = {
 export const friendsConfig: FriendLink[] = [
 	{
 		title: "夏夜流萤",
-		imgurl: "https://weavatar.com/avatar/d252655d40d6874417a720bad0a6c5f77f8f6a1fd2f882f8f338402dc37e4190?s=640",
+		imgurl:
+			"https://weavatar.com/avatar/d252655d40d6874417a720bad0a6c5f77f8f6a1fd2f882f8f338402dc37e4190?s=640",
 		desc: "飞萤之火自无梦的长夜亮起，绽放在终竟的明天。",
 		siteurl: "https://blog.cuteleaf.cn",
-		tags: [
-			"Blog"
-		],
+		tags: ["Blog"],
 		weight: 10,
-		enabled: true
+		enabled: true,
 	},
 	{
 		title: "Firefly Docs",
@@ -72,11 +73,9 @@ export const friendsConfig: FriendLink[] = [
 		desc: "Firefly主题模板文档",
 		siteurl: "https://docs-firefly.cuteleaf.cn",
 		fetchFeed: false,
-		tags: [
-			"Docs"
-		],
+		tags: ["Docs"],
 		weight: 9,
-		enabled: true
+		enabled: true,
 	},
 	{
 		title: "Astro",
@@ -84,78 +83,66 @@ export const friendsConfig: FriendLink[] = [
 		desc: "The web framework for content-driven websites. ⭐️ Star to support our work!",
 		siteurl: "https://github.com/withastro/astro",
 		fetchFeed: false,
-		tags: [
-			"Framework"
-		],
+		tags: ["Framework"],
 		weight: 8,
-		enabled: true
+		enabled: true,
 	},
 	{
 		title: "若木秋光の Blog Ver.3.0",
 		imgurl: "https://blog.rmqg.org/avatar/avatar.webp",
 		desc: "一个普通的大学生",
 		siteurl: "https://blog.rmqg.org/",
-		tags: [
-			"Blog"
-		],
+		tags: ["Blog"],
 		weight: 11,
-		enabled: true
+		enabled: true,
 	},
 	{
 		title: "番茄主理人",
 		imgurl: "https://q1.qlogo.cn/g?b=qq&nk=20447289&s=640",
 		desc: "坐而言不如起而行.",
 		siteurl: "https://fqzlr.com",
-		tags: [
-			"Blog"
-		],
+		tags: ["Blog"],
 		weight: 12,
-		enabled: true
+		enabled: true,
 	},
 	{
 		title: "Hyde Blog",
 		imgurl: "https://seasir.top/assets/avatar.avif",
 		desc: "人心中的成见是一座大山",
 		siteurl: "https://seasir.top",
-		tags: [
-			"Blog"
-		],
+		tags: ["Blog"],
 		weight: 13,
-		enabled: true
+		enabled: true,
 	},
 	{
 		title: "L!!!!ght",
-		imgurl: "https://easyimg.kejk.cn/i/4484873c-c2cc-4b3d-bc35-5c72ed01cfd9.webp",
+		imgurl:
+			"https://easyimg.kejk.cn/i/4484873c-c2cc-4b3d-bc35-5c72ed01cfd9.webp",
 		desc: "阳光正好，慢慢前行。",
 		siteurl: "https://sunlight.kejk.cn",
-		tags: [
-			"Blog"
-		],
+		tags: ["Blog"],
 		weight: 14,
-		enabled: true
+		enabled: true,
 	},
 	{
 		title: "年华",
 		imgurl: "https://q1.qlogo.cn/g?b=qq&nk=1323860289&s=640",
 		desc: "分享生活和技术。",
 		siteurl: "https://blog.520781.xyz",
-		tags: [
-			"Blog"
-		],
+		tags: ["Blog"],
 		weight: 15,
-		enabled: true
+		enabled: true,
 	},
 	{
 		title: "versus0",
-		imgurl: "https://img.542000.xyz/file/friend_avatar/1778931720838_f167cb95af9d881f4378b92b3e181d89_4647054993754934443.jpg",
+		imgurl:
+			"https://img.542000.xyz/file/friend_avatar/1778931720838_f167cb95af9d881f4378b92b3e181d89_4647054993754934443.jpg",
 		desc: "技术+算法blog",
 		siteurl: "https://blog.542000.xyz",
-		tags: [
-			"Blog"
-		],
+		tags: ["Blog"],
 		weight: 16,
-		enabled: true
-	}
+		enabled: true,
+	},
 ];
 
 // 获取启用的友链并进行排序
