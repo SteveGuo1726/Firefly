@@ -33,8 +33,11 @@ const {
 const isDynamic = $derived(!!fetchConfig);
 
 // 状态
-let activeTab = $state(initialActiveTab || "");
-let loading = $state(isDynamic);
+const getInitialActiveTab = () => initialActiveTab || "";
+const getInitialLoading = () => !!fetchConfig;
+
+let activeTab = $state(getInitialActiveTab());
+let loading = $state(getInitialLoading());
 let error = $state(false);
 let errorTitle = $state("");
 let errorDesc = $state("");

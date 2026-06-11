@@ -6,9 +6,7 @@ const pageSize = friendCircleConfig.pageSize ?? 12;
 const apiUrl = friendCircleConfig.apiUrl || "/api/friend-circle.json";
 const fallbackApiUrl = friendCircleConfig.fallbackApiUrl || "/api/friend-circle.json";
 const title = friendCircleConfig.title || "友链朋友圈";
-const description =
-	friendCircleConfig.description ||
-	"自动聚合友链 RSS/Atom 的最新文章，数据分支定时更新，不需要重构建网站。";
+const description = friendCircleConfig.description || "";
 ---
 
 {
@@ -30,9 +28,11 @@ const description =
 							<h2 class="text-2xl font-bold text-neutral-900 dark:text-neutral-100">
 								{title}
 							</h2>
-							<p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
-								{description}
-							</p>
+							{description && (
+								<p class="mt-1 text-sm text-neutral-600 dark:text-neutral-400 leading-relaxed">
+									{description}
+								</p>
+							)}
 						</div>
 					</div>
 					<div class="flex items-center gap-2 text-xs text-neutral-500 dark:text-neutral-400" data-fc-meta>
@@ -174,31 +174,51 @@ const description =
 					});
 				};
 
-				const fetchJson = (url) => fetch(url, { headers: { Accept: "application/json" } })
-					.then((response) => {
-						if (!response.ok) throw new Error(`HTTP ${response.status}`);
-						return response.json();
-					});
+				const fetchJson = (url) => {
+					const controller = new AbortController();
+					const timer = window.setTimeout(() => controller.abort(), 4000);
+					return fetch(url, {
+						signal: controller.signal,
+						headers: { Accept: "application/json" },
+					})
+						.then((response) => {
+							if (!response.ok) throw new Error(`HTTP ${response.status}`);
+							return response.json();
+						})
+						.finally(() => window.clearTimeout(timer));
+				};
 
-				fetchJson(apiUrl).catch(() => fallbackApiUrl && fallbackApiUrl !== apiUrl ? fetchJson(fallbackApiUrl) : Promise.reject(new Error("数据源不可用")))
+				const applyData = (data) => {
+					articles = Array.isArray(data.article_data) ? data.article_data : [];
+					if (meta) {
+						const stats = data.statistical_data || {};
+						meta.innerHTML = `<span>${esc(stats.active_num ?? 0)} 个订阅 · ${esc(stats.article_num ?? articles.length)} 篇文章 · ${esc(stats.last_updated_time ?? "刚刚更新")}</span>`;
+					}
+					if (articles.length === 0) {
+						list && (list.innerHTML = "");
+						empty?.classList.remove("hidden");
+						empty?.classList.add("flex");
+						return;
+					}
+					empty?.classList.add("hidden");
+					empty?.classList.remove("flex");
+					error?.classList.add("hidden");
+					renderRandom();
+					renderPage();
+				};
+
+				const loadRemote = () => {
+					if (!apiUrl || apiUrl === fallbackApiUrl) return;
+					fetchJson(apiUrl).then(applyData).catch(() => {});
+				};
+
+				fetchJson(fallbackApiUrl || apiUrl)
 					.then((data) => {
-						articles = Array.isArray(data.article_data) ? data.article_data : [];
-						if (meta) {
-							const stats = data.statistical_data || {};
-							const skipped = Number(stats.skipped_num || 0);
-							const skippedText = skipped > 0 ? ` · ${esc(skipped)} 个已跳过` : "";
-							meta.innerHTML = `<span>${esc(stats.active_num ?? 0)} 个订阅 · ${esc(stats.article_num ?? articles.length)} 篇文章${skippedText} · ${esc(stats.last_updated_time ?? "刚刚更新")}</span>`;
-						}
-						if (articles.length === 0) {
-							list && (list.innerHTML = "");
-							empty?.classList.remove("hidden");
-							empty?.classList.add("flex");
-							return;
-						}
-						renderRandom();
-						renderPage();
+						applyData(data);
+						loadRemote();
 					})
 					.catch((err) => {
+						loadRemote();
 						list && (list.innerHTML = "");
 						if (meta) meta.innerHTML = "<span>加载失败</span>";
 						if (error) {
@@ -384,3 +404,5 @@ const description =
 		}
 	}
 </style>
+
+

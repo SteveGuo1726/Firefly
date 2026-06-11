@@ -29,10 +29,9 @@ export const friendsPageConfig: FriendsPageConfig = {
 export const friendCircleConfig: FriendCircleConfig = {
 	enable: true,
 	title: "友链朋友圈",
-	description:
-		"自动聚合友链 RSS/Atom 的最新文章，数据分支定时更新，不需要重构建网站。",
+	description: "",
 	apiUrl:
-		"https://raw.githubusercontent.com/SteveGuo1726/Firefly/friend-circle-data/all.json",
+		"https://cdn.jsdelivr.net/gh/SteveGuo1726/Firefly@friend-circle-data/all.json",
 	fallbackApiUrl: "/api/friend-circle.json",
 	pageSize: 12,
 	cacheSeconds: 3600,
