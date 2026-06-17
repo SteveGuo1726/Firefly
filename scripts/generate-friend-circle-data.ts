@@ -18,6 +18,12 @@ type Article = {
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_DIR = join(__dirname, "..", ".friend-circle-dist");
 const OUT_FILE = join(OUT_DIR, "all.json");
+const OUT_JS_FILE = join(OUT_DIR, "all.js");
+const OUT_HTML_FILE = join(OUT_DIR, "index.html");
+const OUT_HEADERS_FILE = join(OUT_DIR, "_headers");
+const OUT_PACKAGE_FILE = join(OUT_DIR, "package.json");
+const OUT_BUILD_FILE = join(OUT_DIR, "build.mjs");
+const OUT_README_FILE = join(OUT_DIR, "README.md");
 const REQUEST_TIMEOUT = friendCircleConfig.requestTimeout ?? 8000;
 const MAX_PER_FRIEND = friendCircleConfig.maxArticlesPerFriend ?? 5;
 const FEED_PATHS = friendCircleConfig.feedPaths ?? [
@@ -68,11 +74,150 @@ async function main() {
 	};
 
 	await mkdir(OUT_DIR, { recursive: true });
-	await writeFile(OUT_FILE, `${JSON.stringify(payload, null, 2)}\n`, "utf8");
+	const payloadJson = `${JSON.stringify(payload, null, 2)}\n`;
+	await writeFile(OUT_FILE, payloadJson, "utf8");
+	await writeFile(OUT_JS_FILE, buildBrowserPayload(payload), "utf8");
+	await writeFile(OUT_HTML_FILE, buildIndexHtml(payload), "utf8");
+	await writeFile(OUT_HEADERS_FILE, buildHeaders(), "utf8");
+	await writeFile(OUT_PACKAGE_FILE, buildPackageJson(), "utf8");
+	await writeFile(OUT_BUILD_FILE, buildBuildScript(), "utf8");
+	await writeFile(OUT_README_FILE, buildReadme(), "utf8");
 	console.log(`Friend circle data written: ${OUT_FILE}`);
 	console.log(
 		`friends=${feedFriends.length}, active=${activeNum}, articles=${articleData.length}, errors=${errorNum}, skipped=${skippedFriends.length}`,
 	);
+}
+
+function buildBrowserPayload(payload: unknown) {
+	return [
+		"globalThis.__FIREFLY_FRIEND_CIRCLE_DATA__ = ",
+		JSON.stringify(payload, null, 2),
+		";\n",
+	].join("");
+}
+
+function buildIndexHtml(payload: {
+	statistical_data: {
+		article_num: number;
+		active_num: number;
+		error_num: number;
+		skipped_num?: number;
+		last_updated_time: string;
+	};
+}) {
+	const stats = payload.statistical_data;
+	return `<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Firefly Friend Circle Data</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; margin: 40px auto; max-width: 860px; padding: 0 20px; color: #1f2937; background: #f8fafc; }
+    .card { background: #fff; border: 1px solid #e5e7eb; border-radius: 16px; padding: 24px; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06); }
+    h1 { margin-top: 0; font-size: 28px; }
+    .meta { color: #6b7280; line-height: 1.7; }
+    .links { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 20px; }
+    a { color: #0f766e; text-decoration: none; font-weight: 600; }
+    a:hover { text-decoration: underline; }
+    code { background: #f1f5f9; padding: 2px 6px; border-radius: 6px; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>Firefly Friend Circle Data</h1>
+    <div class="meta">
+      <div>最近更新时间：${escapeHtml(stats.last_updated_time)}</div>
+      <div>活跃订阅：${stats.active_num}</div>
+      <div>文章总数：${stats.article_num}</div>
+      <div>错误数：${stats.error_num}</div>
+      <div>跳过数：${stats.skipped_num ?? 0}</div>
+    </div>
+    <div class="links">
+      <a href="./all.json">查看 all.json</a>
+      <a href="./all.js">查看 all.js</a>
+    </div>
+    <p class="meta" style="margin-top: 20px;">
+      跨域加载推荐使用 <code>all.js</code>，页面可直接通过 <code>globalThis.__FIREFLY_FRIEND_CIRCLE_DATA__</code> 读取。
+    </p>
+  </div>
+</body>
+</html>
+`;
+}
+
+function buildHeaders() {
+	const cacheSeconds = friendCircleConfig.cacheSeconds ?? 3600;
+	return `/all.json
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=${cacheSeconds}, s-maxage=${cacheSeconds}, stale-while-revalidate=${cacheSeconds}
+
+/all.js
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=${cacheSeconds}, s-maxage=${cacheSeconds}, stale-while-revalidate=${cacheSeconds}
+
+/index.html
+  Cache-Control: no-cache
+`;
+}
+
+function buildPackageJson() {
+	return `${JSON.stringify(
+		{
+			name: "firefly-friend-circle-data",
+			private: true,
+			version: "1.0.0",
+			description: "Static deploy bundle for Firefly friend circle data.",
+			scripts: {
+				build: "node build.mjs",
+			},
+		},
+		null,
+		2,
+	)}\n`;
+}
+
+function buildBuildScript() {
+	return `import { cpSync, existsSync, mkdirSync, rmSync } from "node:fs";
+
+const files = ["all.json", "all.js", "index.html", "_headers", "README.md"];
+
+rmSync("dist", { recursive: true, force: true });
+mkdirSync("dist", { recursive: true });
+
+for (const file of files) {
+  if (existsSync(file)) {
+    cpSync(file, "dist/" + file);
+  }
+}
+
+console.log("Prepared static friend circle dist/");
+`;
+}
+
+function buildReadme() {
+	return `# Firefly Friend Circle Data
+
+This branch is a static publish bundle for Firefly friend circle data.
+
+- \`all.json\`: standard JSON payload
+- \`all.js\`: browser-friendly payload without CORS dependency
+- \`index.html\`: simple status page
+- \`package.json\` + \`build.mjs\`: optional no-dependency build entry for Pages platforms
+
+Recommended:
+
+1. Static direct deploy: publish repository root
+2. Build deploy: run \`pnpm run build\`, output directory \`dist\`
+`;
+}
+
+function escapeHtml(value: string) {
+	return value
+		.replaceAll("&", "&amp;")
+		.replaceAll("<", "&lt;")
+		.replaceAll(">", "&gt;")
+		.replaceAll('"', "&quot;");
 }
 
 async function fetchFriendArticles(friend: Friend): Promise<{

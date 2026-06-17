@@ -3,8 +3,12 @@ import { Icon } from "astro-icon/components";
 import { friendCircleConfig } from "@/config";
 
 const pageSize = friendCircleConfig.pageSize ?? 12;
-const apiUrl = friendCircleConfig.apiUrl || "/api/friend-circle.json";
-const fallbackApiUrl = friendCircleConfig.fallbackApiUrl || "/api/friend-circle.json";
+const apiUrls = Array.isArray(friendCircleConfig.apiUrl)
+	? friendCircleConfig.apiUrl
+	: [friendCircleConfig.apiUrl || "/api/friend-circle.json"];
+const fallbackApiUrls = Array.isArray(friendCircleConfig.fallbackApiUrl)
+	? friendCircleConfig.fallbackApiUrl
+	: [friendCircleConfig.fallbackApiUrl || "/api/friend-circle.json"];
 const title = friendCircleConfig.title || "友链朋友圈";
 const description = friendCircleConfig.description || "";
 ---
@@ -15,8 +19,8 @@ const description = friendCircleConfig.description || "";
 			class="mt-4 card-base z-10 px-9 py-6 relative w-full friend-circle-panel"
 			data-friend-circle
 			data-page-size={pageSize}
-			data-api-url={apiUrl}
-			data-fallback-api-url={fallbackApiUrl}
+			data-api-urls={JSON.stringify(apiUrls)}
+			data-fallback-api-urls={JSON.stringify(fallbackApiUrls)}
 		>
 			<div class="flex flex-col gap-5">
 				<div class="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
@@ -71,8 +75,15 @@ const description = friendCircleConfig.description || "";
 				panel.dataset.loaded = "true";
 
 				const pageSize = Number(panel.dataset.pageSize || 12);
-				const apiUrl = panel.dataset.apiUrl || "/api/friend-circle.json";
-				const fallbackApiUrl = panel.dataset.fallbackApiUrl || "/api/friend-circle.json";
+				const parseUrls = (value, fallback) => {
+					try {
+						const parsed = JSON.parse(value || "[]");
+						if (Array.isArray(parsed) && parsed.length > 0) return parsed.filter(Boolean);
+					} catch {}
+					return [fallback];
+				};
+				const apiUrls = parseUrls(panel.dataset.apiUrls, "/api/friend-circle.json");
+				const fallbackApiUrls = parseUrls(panel.dataset.fallbackApiUrls, "/api/friend-circle.json");
 				const list = panel.querySelector("[data-fc-list]");
 				const random = panel.querySelector("[data-fc-random]");
 				const meta = panel.querySelector("[data-fc-meta]");
@@ -188,6 +199,41 @@ const description = friendCircleConfig.description || "";
 						.finally(() => window.clearTimeout(timer));
 				};
 
+				const loadScriptData = (url) => new Promise((resolve, reject) => {
+					const previous = globalThis.__FIREFLY_FRIEND_CIRCLE_DATA__;
+					const script = document.createElement("script");
+					const timer = window.setTimeout(() => {
+						script.remove();
+						if (previous === undefined) delete globalThis.__FIREFLY_FRIEND_CIRCLE_DATA__;
+						else globalThis.__FIREFLY_FRIEND_CIRCLE_DATA__ = previous;
+						reject(new Error("script timeout"));
+					}, 6000);
+					script.src = url;
+					script.async = true;
+					script.onload = () => {
+						window.clearTimeout(timer);
+						const data = globalThis.__FIREFLY_FRIEND_CIRCLE_DATA__;
+						script.remove();
+						if (previous === undefined) delete globalThis.__FIREFLY_FRIEND_CIRCLE_DATA__;
+						else globalThis.__FIREFLY_FRIEND_CIRCLE_DATA__ = previous;
+						if (!data) {
+							reject(new Error("script payload missing"));
+							return;
+						}
+						resolve(data);
+					};
+					script.onerror = () => {
+						window.clearTimeout(timer);
+						script.remove();
+						if (previous === undefined) delete globalThis.__FIREFLY_FRIEND_CIRCLE_DATA__;
+						else globalThis.__FIREFLY_FRIEND_CIRCLE_DATA__ = previous;
+						reject(new Error("script load failed"));
+					};
+					document.head.appendChild(script);
+				});
+
+				const loadData = (url) => /\.js(?:$|[?#])/.test(url) ? loadScriptData(url) : fetchJson(url);
+
 				const applyData = (data) => {
 					articles = Array.isArray(data.article_data) ? data.article_data : [];
 					if (meta) {
@@ -207,12 +253,25 @@ const description = friendCircleConfig.description || "";
 					renderPage();
 				};
 
-				const loadRemote = () => {
-					if (!apiUrl || apiUrl === fallbackApiUrl) return;
-					fetchJson(apiUrl).then(applyData).catch(() => {});
+				const loadFirstAvailable = async (urls) => {
+					let lastError = null;
+					for (const url of urls) {
+						try {
+							return await loadData(url);
+						} catch (error) {
+							lastError = error;
+						}
+					}
+					throw lastError || new Error("no available data source");
 				};
 
-				fetchJson(fallbackApiUrl || apiUrl)
+				const loadRemote = () => {
+					const remoteUrls = apiUrls.filter((url) => !fallbackApiUrls.includes(url));
+					if (remoteUrls.length === 0) return;
+					loadFirstAvailable(remoteUrls).then(applyData).catch(() => {});
+				};
+
+				loadFirstAvailable(fallbackApiUrls)
 					.then((data) => {
 						applyData(data);
 						loadRemote();
@@ -404,5 +463,3 @@ const description = friendCircleConfig.description || "";
 		}
 	}
 </style>
-
-

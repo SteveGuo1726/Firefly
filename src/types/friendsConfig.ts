@@ -15,8 +15,8 @@ export type FriendCircleConfig = {
 	enable?: boolean; // 是否显示友链朋友圈
 	title?: string; // 朋友圈区块标题
 	description?: string; // 朋友圈区块描述
-	apiUrl?: string; // 运行时优先读取的朋友圈 JSON 地址
-	fallbackApiUrl?: string; // 优先地址失败时的兜底 JSON 地址
+	apiUrl?: string | string[]; // 运行时优先读取的朋友圈 JSON/JS 地址，支持多个候选地址
+	fallbackApiUrl?: string | string[]; // 优先地址失败时的兜底 JSON/JS 地址，支持多个候选地址
 	pageSize?: number; // 前端每次显示文章数量
 	cacheSeconds?: number; // API 缓存时间，单位秒
 	requestTimeout?: number; // 单个 RSS 请求超时时间，单位毫秒
