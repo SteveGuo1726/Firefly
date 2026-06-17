@@ -2,7 +2,7 @@ import type {
 	FriendCircleConfig,
 	FriendLink,
 	FriendsPageConfig,
-} from "../types/config";
+} from "../types/friendsConfig";
 
 // 可以在src/content/spec/friends.md中编写友链页面下方的自定义内容
 
