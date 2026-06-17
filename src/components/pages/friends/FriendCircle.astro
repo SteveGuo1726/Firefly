@@ -92,6 +92,7 @@ const description = friendCircleConfig.description || "";
 				const pagination = panel.querySelector("[data-fc-pagination]");
 				let articles = [];
 				let currentPage = 1;
+				let currentGeneratedAt = 0;
 
 				const esc = (value) => String(value ?? "")
 					.replaceAll("&", "&amp;")
@@ -110,6 +111,12 @@ const description = friendCircleConfig.description || "";
 				};
 
 				const pageCount = () => Math.max(1, Math.ceil(articles.length / pageSize));
+
+				const parseGeneratedAt = (data) => {
+					const raw = data?.statistical_data?.generated_at;
+					const timestamp = raw ? new Date(raw).getTime() : 0;
+					return Number.isFinite(timestamp) ? timestamp : 0;
+				};
 
 				const visiblePages = () => {
 					const total = pageCount();
@@ -234,8 +241,19 @@ const description = friendCircleConfig.description || "";
 
 				const loadData = (url) => /\.js(?:$|[?#])/.test(url) ? loadScriptData(url) : fetchJson(url);
 
-				const applyData = (data) => {
+				const shouldReplaceData = (data, force = false) => {
+					if (force) return true;
+					const nextArticles = Array.isArray(data?.article_data) ? data.article_data : [];
+					const nextGeneratedAt = parseGeneratedAt(data);
+					if (nextGeneratedAt > currentGeneratedAt) return true;
+					if (currentGeneratedAt === 0 && articles.length === 0 && nextArticles.length > 0) return true;
+					return false;
+				};
+
+				const applyData = (data, { force = false } = {}) => {
+					if (!shouldReplaceData(data, force)) return false;
 					articles = Array.isArray(data.article_data) ? data.article_data : [];
+					currentGeneratedAt = parseGeneratedAt(data);
 					if (meta) {
 						const stats = data.statistical_data || {};
 						meta.innerHTML = `<span>${esc(stats.active_num ?? 0)} 个订阅 · ${esc(stats.article_num ?? articles.length)} 篇文章 · ${esc(stats.last_updated_time ?? "刚刚更新")}</span>`;
@@ -244,13 +262,14 @@ const description = friendCircleConfig.description || "";
 						list && (list.innerHTML = "");
 						empty?.classList.remove("hidden");
 						empty?.classList.add("flex");
-						return;
+						return true;
 					}
 					empty?.classList.add("hidden");
 					empty?.classList.remove("flex");
 					error?.classList.add("hidden");
 					renderRandom();
 					renderPage();
+					return true;
 				};
 
 				const loadFirstAvailable = async (urls) => {
@@ -273,7 +292,7 @@ const description = friendCircleConfig.description || "";
 
 				loadFirstAvailable(fallbackApiUrls)
 					.then((data) => {
-						applyData(data);
+						applyData(data, { force: true });
 						loadRemote();
 					})
 					.catch((err) => {

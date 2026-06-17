@@ -30,7 +30,10 @@ export const friendCircleConfig: FriendCircleConfig = {
 	enable: true,
 	title: "友链朋友圈",
 	description: "",
-	apiUrl: ["https://cdn.jsdelivr.net/gh/SteveGuo1726/Firefly@c6d9f82/all.json"],
+	apiUrl: [
+		"https://raw.githubusercontent.com/SteveGuo1726/Firefly/friend-circle-data/all.js",
+		"https://cdn.jsdelivr.net/gh/SteveGuo1726/Firefly@friend-circle-data/all.js",
+	],
 	fallbackApiUrl: ["/api/friend-circle.json"],
 	pageSize: 12,
 	cacheSeconds: 3600,
