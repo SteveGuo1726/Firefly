@@ -41,9 +41,9 @@ const getDynamicNavBarConfig = (): NavBarConfig => {
 
 	// 我的及其子菜单
 	links.push({
-		name: "展示",
+		name: "我的",
 		url: "#",
-		icon: "material-symbols:filter-frames",
+		icon: "material-symbols:person",
 		children: [
 			// 相册
 			LinkPresets.Gallery,

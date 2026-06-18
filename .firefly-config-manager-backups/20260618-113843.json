@@ -1,0 +1,17 @@
+{
+  "id": "20260618-113843",
+  "name": "",
+  "createdAt": "2026-06-18T03:38:43.358Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/backgroundWallpaper.ts: 桌面壁纸 (backgroundWallpaper.src.desktop)",
+  "files": [
+    {
+      "path": "src/config/backgroundWallpaper.ts",
+      "backupPath": "20260618-113843__src__config__backgroundWallpaper.ts.bak",
+      "existed": true,
+      "changes": [
+        "桌面壁纸 (backgroundWallpaper.src.desktop)"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "id": "20260618-114046",
+  "name": "",
+  "createdAt": "2026-06-18T03:40:46.612Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/backgroundWallpaper.ts: 壁纸模式 (backgroundWallpaper.mode)；src/config/backgroundWallpaper.ts: Banner 轮播 (backgroundWallpaper.banner.carousel.enable)",
+  "files": [
+    {
+      "path": "src/config/backgroundWallpaper.ts",
+      "backupPath": "20260618-114046__src__config__backgroundWallpaper.ts.bak",
+      "existed": true,
+      "changes": [
+        "壁纸模式 (backgroundWallpaper.mode)",
+        "Banner 轮播 (backgroundWallpaper.banner.carousel.enable)"
+      ]
+    }
+  ]
+}

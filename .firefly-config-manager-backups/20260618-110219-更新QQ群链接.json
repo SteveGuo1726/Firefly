@@ -1,0 +1,17 @@
+{
+  "id": "20260618-110219-更新QQ群链接",
+  "name": "更新QQ群链接",
+  "createdAt": "2026-06-18T03:02:26.371Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/navBarConfig.ts: 链接菜单子项 (navLinksMenu.children)",
+  "files": [
+    {
+      "path": "src/config/navBarConfig.ts",
+      "backupPath": "20260618-110219-更新QQ群链接__src__config__navBarConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "链接菜单子项 (navLinksMenu.children)"
+      ]
+    }
+  ]
+}

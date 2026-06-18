@@ -1,0 +1,25 @@
+{
+  "id": "20260618-102608-更新链接links",
+  "name": "更新链接links",
+  "createdAt": "2026-06-18T02:26:15.404Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 2 个文件：src/config/navBarConfig.ts: 链接菜单子项 (navLinksMenu.children)；src/config/siteConfig.ts: 赞助页面 (siteConfig.pages.sponsor)",
+  "files": [
+    {
+      "path": "src/config/navBarConfig.ts",
+      "backupPath": "20260618-102608-更新链接links__src__config__navBarConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "链接菜单子项 (navLinksMenu.children)"
+      ]
+    },
+    {
+      "path": "src/config/siteConfig.ts",
+      "backupPath": "20260618-102608-更新链接links__src__config__siteConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "赞助页面 (siteConfig.pages.sponsor)"
+      ]
+    }
+  ]
+}

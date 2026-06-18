@@ -43,7 +43,8 @@ export const backgroundWallpaper: BackgroundWallpaperConfig = {
 		desktop: [
 	"assets/images/DesktopWallpaper/d1.avif",
 	"assets/images/DesktopWallpaper/d2.avif",
-	"assets/images/DesktopWallpaper/d3.avif"
+	"assets/images/DesktopWallpaper/d3.avif",
+	"assets/images/DesktopWallpaper/d4.avif"
 ],
 		// 移动背景图片（支持单张或多张随机）
 		// mobile: "assets/images/MobileWallpaper/m1.avif",
@@ -136,7 +137,7 @@ export const backgroundWallpaper: BackgroundWallpaperConfig = {
 			// 是否启用横幅图片轮播；关闭时保持每次刷新随机显示一张
 			enable: true,
 			// 轮播切换间隔（毫秒）
-			interval: 8000,
+			interval: 5000,
 			// 是否允许用户通过控制面板切换横幅轮播
 			switchable: false,
 		},

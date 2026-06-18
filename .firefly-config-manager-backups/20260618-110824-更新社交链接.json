@@ -1,0 +1,17 @@
+{
+  "id": "20260618-110824-更新社交链接",
+  "name": "更新社交链接",
+  "createdAt": "2026-06-18T03:08:31.445Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/profileConfig.ts: 社交链接 (profileConfig.links)",
+  "files": [
+    {
+      "path": "src/config/profileConfig.ts",
+      "backupPath": "20260618-110824-更新社交链接__src__config__profileConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "社交链接 (profileConfig.links)"
+      ]
+    }
+  ]
+}

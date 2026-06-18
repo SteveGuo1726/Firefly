@@ -1,0 +1,17 @@
+{
+  "id": "20260618-115654-restore-before-恢复前-20260618-114816",
+  "name": "恢复前-恢复前-20260618-114816",
+  "createdAt": "2026-06-18T03:56:54.345Z",
+  "reason": "restore-before",
+  "summary": "恢复 恢复前-20260618-114816 前自动创建，包含 1 个即将被覆盖的文件。",
+  "files": [
+    {
+      "path": "src/config/navBarConfig.ts",
+      "backupPath": "20260618-115654-restore-before-恢复前-20260618-114816__src__config__navBarConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "恢复 恢复前-20260618-114816 前的当前版本"
+      ]
+    }
+  ]
+}

@@ -43,7 +43,7 @@ const getDynamicNavBarConfig = (): NavBarConfig => {
 	links.push({
 		name: "展示",
 		url: "#",
-		icon: "material-symbols:filter-frames",
+		icon: "material-symbols:filter_frames",
 		children: [
 			// 相册
 			LinkPresets.Gallery,

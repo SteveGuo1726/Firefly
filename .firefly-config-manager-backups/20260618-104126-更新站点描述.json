@@ -1,0 +1,19 @@
+{
+  "id": "20260618-104126-更新站点描述",
+  "name": "更新站点描述",
+  "createdAt": "2026-06-18T02:41:33.786Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/siteConfig.ts: 关键词 (siteConfig.keywords)；src/config/siteConfig.ts: 站点描述 (siteConfig.description)；src/config/siteConfig.ts: 显示最后修改时间 (siteConfig.post.showLastModified)",
+  "files": [
+    {
+      "path": "src/config/siteConfig.ts",
+      "backupPath": "20260618-104126-更新站点描述__src__config__siteConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "关键词 (siteConfig.keywords)",
+        "站点描述 (siteConfig.description)",
+        "显示最后修改时间 (siteConfig.post.showLastModified)"
+      ]
+    }
+  ]
+}

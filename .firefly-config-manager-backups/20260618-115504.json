@@ -1,0 +1,17 @@
+{
+  "id": "20260618-115504",
+  "name": "",
+  "createdAt": "2026-06-18T03:55:04.403Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/navBarConfig.ts: 导航动态追加逻辑 (getDynamicNavBarConfig.pushes)",
+  "files": [
+    {
+      "path": "src/config/navBarConfig.ts",
+      "backupPath": "20260618-115504__src__config__navBarConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "导航动态追加逻辑 (getDynamicNavBarConfig.pushes)"
+      ]
+    }
+  ]
+}

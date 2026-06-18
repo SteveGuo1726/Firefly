@@ -1,0 +1,17 @@
+{
+  "id": "20260618-114154",
+  "name": "",
+  "createdAt": "2026-06-18T03:41:54.520Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/backgroundWallpaper.ts: 轮播间隔 ms (backgroundWallpaper.banner.carousel.interval)",
+  "files": [
+    {
+      "path": "src/config/backgroundWallpaper.ts",
+      "backupPath": "20260618-114154__src__config__backgroundWallpaper.ts.bak",
+      "existed": true,
+      "changes": [
+        "轮播间隔 ms (backgroundWallpaper.banner.carousel.interval)"
+      ]
+    }
+  ]
+}
