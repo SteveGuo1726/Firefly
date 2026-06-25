@@ -28,7 +28,10 @@ function anyEnvKeyOrValueMatches(
 ): boolean {
 	return Object.entries(env).some(([key, value]) => {
 		if (patterns.some((pattern) => pattern.test(key))) return true;
-		if (typeof value === "string" && patterns.some((pattern) => pattern.test(value))) {
+		if (
+			typeof value === "string" &&
+			patterns.some((pattern) => pattern.test(value))
+		) {
 			return true;
 		}
 		return false;
@@ -50,11 +53,7 @@ export function detectBuildPlatform({
 	}
 
 	if (
-		hasAnyEnv(env, [
-			"GITHUB_ACTIONS",
-			"GITHUB_RUN_ID",
-			"GITHUB_REPOSITORY",
-		])
+		hasAnyEnv(env, ["GITHUB_ACTIONS", "GITHUB_RUN_ID", "GITHUB_REPOSITORY"])
 	) {
 		return "GitHub Actions";
 	}
