@@ -1,0 +1,33 @@
+{
+  "id": "20260625-173753",
+  "name": "",
+  "createdAt": "2026-06-25T09:37:54.078Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 3 个文件：src/config/galleryConfig.ts: 画廊相册 (galleryConfig.albums)；public/gallery/new-album/urls.txt: 相册外链图片 urls.txt；public/gallery/castorice-2026/urls.txt: 相册外链图片 urls.txt",
+  "files": [
+    {
+      "path": "src/config/galleryConfig.ts",
+      "backupPath": "20260625-173753__src__config__galleryConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "画廊相册 (galleryConfig.albums)"
+      ]
+    },
+    {
+      "path": "public/gallery/new-album/urls.txt",
+      "backupPath": "20260625-173753__public__gallery__new-album__urls.txt.bak",
+      "existed": false,
+      "changes": [
+        "相册外链图片 urls.txt"
+      ]
+    },
+    {
+      "path": "public/gallery/castorice-2026/urls.txt",
+      "backupPath": "20260625-173753__public__gallery__castorice-2026__urls.txt.bak",
+      "existed": false,
+      "changes": [
+        "相册外链图片 urls.txt"
+      ]
+    }
+  ]
+}
