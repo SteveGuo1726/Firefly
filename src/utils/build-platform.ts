@@ -87,7 +87,7 @@ export function detectBuildPlatform({
 		]) ||
 		anyEnvKeyOrValueMatches(env, [/edgeone/i, /pages\.edgeone/i])
 	) {
-		return "Tencent EdgeOne Pages";
+		return "EdgeOne Pages";
 	}
 
 	if (
@@ -107,7 +107,7 @@ export function detectBuildPlatform({
 			/alibaba cloud/i,
 		])
 	) {
-		return "Alibaba Cloud ESA Pages";
+		return "ESA Pages";
 	}
 
 	if (isCI) {

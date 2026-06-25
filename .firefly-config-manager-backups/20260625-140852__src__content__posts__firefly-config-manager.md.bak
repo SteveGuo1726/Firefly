@@ -4,7 +4,7 @@ published: 2026-05-12
 pinned: false
 description: 基于简单html文件的专门为Firefly博客模板设计的管理器（GPT5.5配合codex写的）
 image: api
-tags: ["工具"]
+tags: []
 category: 工具
 draft: false
 comment: true
