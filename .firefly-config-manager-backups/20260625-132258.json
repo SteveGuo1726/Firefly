@@ -1,0 +1,17 @@
+{
+  "id": "20260625-132258",
+  "name": "",
+  "createdAt": "2026-06-25T05:22:58.899Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/siteConfig.ts: Bilibili UID (siteConfig.anime.bilibili.uid)",
+  "files": [
+    {
+      "path": "src/config/siteConfig.ts",
+      "backupPath": "20260625-132258__src__config__siteConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "Bilibili UID (siteConfig.anime.bilibili.uid)"
+      ]
+    }
+  ]
+}
