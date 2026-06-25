@@ -7,9 +7,7 @@ export const fontConfig: FontConfig = {
 	// 是否预加载字体文件
 	preload: true,
 	// 当前选择的字体，支持多个字体组合
-	selected: [
-	"zen-maru-gothic"
-],
+	selected: ["system"],
 
 	// 各区域独立字体设置（填写下方 fonts 中的字体 ID，留空则使用全局 selected 字体）
 	// 横幅标题字体

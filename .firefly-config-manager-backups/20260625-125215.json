@@ -1,0 +1,17 @@
+{
+  "id": "20260625-125215",
+  "name": "",
+  "createdAt": "2026-06-25T04:52:15.558Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/fontConfig.ts: 选用字体 (fontConfig.selected)",
+  "files": [
+    {
+      "path": "src/config/fontConfig.ts",
+      "backupPath": "20260625-125215__src__config__fontConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "选用字体 (fontConfig.selected)"
+      ]
+    }
+  ]
+}

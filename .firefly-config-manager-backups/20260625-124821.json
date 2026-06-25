@@ -1,0 +1,19 @@
+{
+  "id": "20260625-124821",
+  "name": "",
+  "createdAt": "2026-06-25T04:48:21.653Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/backgroundWallpaper.ts: 启用背景视频 (backgroundWallpaper.playerEnable)；src/config/backgroundWallpaper.ts: 背景视频地址 (backgroundWallpaper.src.playerUrl)；src/config/backgroundWallpaper.ts: 轮播可切换 (backgroundWallpaper.banner.carousel.switchable)",
+  "files": [
+    {
+      "path": "src/config/backgroundWallpaper.ts",
+      "backupPath": "20260625-124821__src__config__backgroundWallpaper.ts.bak",
+      "existed": true,
+      "changes": [
+        "启用背景视频 (backgroundWallpaper.playerEnable)",
+        "背景视频地址 (backgroundWallpaper.src.playerUrl)",
+        "轮播可切换 (backgroundWallpaper.banner.carousel.switchable)"
+      ]
+    }
+  ]
+}
