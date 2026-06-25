@@ -2,6 +2,7 @@ type DetectBuildPlatformOptions = {
 	env: Record<string, string | undefined>;
 	isCI: boolean;
 	ciName?: string | null;
+	ciId?: string | null;
 	isDev?: boolean;
 	unknownBuildPlatform?: string;
 };
@@ -9,8 +10,57 @@ type DetectBuildPlatformOptions = {
 const BUILD_PLATFORM_OVERRIDE_KEYS = [
 	"SITE_BUILD_PLATFORM",
 	"BUILD_PLATFORM_NAME",
+	"FIREFLY_BUILD_PLATFORM",
 	"FIRELY_BUILD_PLATFORM",
 ];
+
+const FRIENDLY_CI_PLATFORM_NAMES = {
+	GITHUB_ACTIONS: "GitHub Actions",
+	CLOUDFLARE_PAGES: "Cloudflare Pages",
+	CLOUDFLARE_WORKERS: "Cloudflare Workers",
+	VERCEL: "Vercel",
+	NETLIFY: "Netlify",
+} as const;
+
+const PLATFORM_NAME_ALIASES = new Map<string, string>([
+	["github actions", "GitHub Actions"],
+	["cloudflare pages", "Cloudflare Pages"],
+	["cloudflare workers", "Cloudflare Workers"],
+	["vercel", "Vercel"],
+	["netlify", "Netlify"],
+	["netlify ci", "Netlify"],
+	["edgeone", "EdgeOne Pages"],
+	["edgeone pages", "EdgeOne Pages"],
+	["tencent edgeone", "EdgeOne Pages"],
+	["tencent edgeone pages", "EdgeOne Pages"],
+	["esa", "ESA Pages"],
+	["esa pages", "ESA Pages"],
+	["alibaba cloud esa", "ESA Pages"],
+	["alibaba cloud esa pages", "ESA Pages"],
+]);
+
+const EDGEONE_STRONG_ENV_KEYS = [
+	"EDGEONE_PROJECT_NAME",
+	"EDGEONE_SERVICE_NAME",
+	"EDGEONE_DEPLOYMENT_ID",
+];
+
+const EDGEONE_WEAK_ENV_KEYS = [
+	"EDGEONE",
+	"EDGEONE_ENV",
+	"EDGEONE_BRANCH",
+	"EDGEONE_PAGES",
+	"TENCENT_EDGEONE",
+];
+
+const ESA_STRONG_ENV_KEYS = [
+	"ALIBABA_CLOUD_ESA",
+	"ALIYUN_ESA",
+	"ESA_PROJECT_NAME",
+	"ESA_REGION",
+];
+
+const ESA_WEAK_ENV_KEYS = ["ALIBABA_CLOUD_PAGES", "ESA_ENV", "ESA"];
 
 function hasAnyEnv(
 	env: Record<string, string | undefined>,
@@ -22,34 +72,46 @@ function hasAnyEnv(
 	});
 }
 
-function anyEnvKeyOrValueMatches(
+function countEnv(
 	env: Record<string, string | undefined>,
-	patterns: RegExp[],
-): boolean {
-	return Object.entries(env).some(([key, value]) => {
-		if (patterns.some((pattern) => pattern.test(key))) return true;
-		if (
-			typeof value === "string" &&
-			patterns.some((pattern) => pattern.test(value))
-		) {
-			return true;
-		}
-		return false;
-	});
+	keys: string[],
+): number {
+	return keys.reduce((count, key) => {
+		const value = env[key];
+		return typeof value === "string" && value.trim() !== "" ? count + 1 : count;
+	}, 0);
+}
+
+function normalizePlatformName(value?: string | null): string | null {
+	if (!value) return null;
+	const normalized = value.trim().replace(/\s+/g, " ").toLowerCase();
+	return PLATFORM_NAME_ALIASES.get(normalized) ?? null;
 }
 
 export function detectBuildPlatform({
 	env,
 	isCI,
 	ciName,
+	ciId,
 	isDev = false,
 	unknownBuildPlatform = "Unknown CI",
 }: DetectBuildPlatformOptions): string {
 	for (const key of BUILD_PLATFORM_OVERRIDE_KEYS) {
 		const value = env[key];
 		if (typeof value === "string" && value.trim() !== "") {
-			return value.trim();
+			return normalizePlatformName(value) ?? value.trim();
 		}
+	}
+
+	if (ciId && ciId in FRIENDLY_CI_PLATFORM_NAMES) {
+		return FRIENDLY_CI_PLATFORM_NAMES[
+			ciId as keyof typeof FRIENDLY_CI_PLATFORM_NAMES
+		];
+	}
+
+	const normalizedCiName = normalizePlatformName(ciName);
+	if (normalizedCiName) {
+		return normalizedCiName;
 	}
 
 	if (
@@ -62,11 +124,11 @@ export function detectBuildPlatform({
 		return "Cloudflare Pages";
 	}
 
-	if (hasAnyEnv(env, ["CF_WORKERS"])) {
+	if (hasAnyEnv(env, ["WORKERS_CI", "CF_WORKERS"])) {
 		return "Cloudflare Workers";
 	}
 
-	if (hasAnyEnv(env, ["VERCEL", "VERCEL_ENV"])) {
+	if (hasAnyEnv(env, ["VERCEL", "VERCEL_ENV", "NOW_BUILDER"])) {
 		return "Vercel";
 	}
 
@@ -75,37 +137,15 @@ export function detectBuildPlatform({
 	}
 
 	if (
-		hasAnyEnv(env, [
-			"EDGEONE",
-			"EDGEONE_ENV",
-			"EDGEONE_PROJECT_NAME",
-			"EDGEONE_BRANCH",
-			"EDGEONE_PAGES",
-			"EDGEONE_SERVICE_NAME",
-			"EDGEONE_DEPLOYMENT_ID",
-			"TENCENT_EDGEONE",
-		]) ||
-		anyEnvKeyOrValueMatches(env, [/edgeone/i, /pages\.edgeone/i])
+		hasAnyEnv(env, EDGEONE_STRONG_ENV_KEYS) ||
+		countEnv(env, EDGEONE_WEAK_ENV_KEYS) >= 2
 	) {
 		return "EdgeOne Pages";
 	}
 
 	if (
-		hasAnyEnv(env, [
-			"ALIBABA_CLOUD_ESA",
-			"ALIBABA_CLOUD_PAGES",
-			"ESA",
-			"ESA_ENV",
-			"ESA_PROJECT_NAME",
-			"ESA_REGION",
-			"ALIYUN_ESA",
-		]) ||
-		anyEnvKeyOrValueMatches(env, [
-			/(^|[_-])esa([_-]|$)/i,
-			/aliyun/i,
-			/alibabacloud/i,
-			/alibaba cloud/i,
-		])
+		hasAnyEnv(env, ESA_STRONG_ENV_KEYS) ||
+		countEnv(env, ESA_WEAK_ENV_KEYS) >= 2
 	) {
 		return "ESA Pages";
 	}

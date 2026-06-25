@@ -1,0 +1,17 @@
+{
+  "id": "20260625-222833",
+  "name": "",
+  "createdAt": "2026-06-25T14:28:33.910Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/backgroundWallpaper.ts: 壁纸轮播 (backgroundWallpaper.common.carousel.enable)",
+  "files": [
+    {
+      "path": "src/config/backgroundWallpaper.ts",
+      "backupPath": "20260625-222833__src__config__backgroundWallpaper.ts.bak",
+      "existed": true,
+      "changes": [
+        "壁纸轮播 (backgroundWallpaper.common.carousel.enable)"
+      ]
+    }
+  ]
+}

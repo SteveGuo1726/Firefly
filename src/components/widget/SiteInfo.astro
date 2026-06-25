@@ -61,6 +61,7 @@ const buildPlatform = detectBuildPlatform({
 	env: process.env,
 	isCI: ci.isCI,
 	ciName: ci.name,
+	ciId: ci.id,
 	isDev: import.meta.env.DEV,
 	unknownBuildPlatform,
 });

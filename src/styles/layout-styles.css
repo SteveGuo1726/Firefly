@@ -68,14 +68,14 @@ html.is-page-transitioning .banner-home-text-overlay {
 
 /* 移动端横幅优化 - 小屏手机 (320px - 480px) */
 @media (max-width: 480px) {
-    /* Banner wrapper 高度优化 - 优先保持banner显示 - 仅在首页应用 */
+    /* Banner wrapper 高度统一 65vh，让主内容区自然覆盖约 10% 横幅 */
     #wallpaper-wrapper:not(.mobile-hide-banner) {
-        height: 70vh !important;
+        height: 65vh !important;
         top: 0 !important;
         transform: none !important;
     }
 
-    /* 主内容区域位置调整 - 与桌面端使用相同的 calc 公式，确保 switchable 开关一致 */
+    /* 主内容区域位置调整 - 覆盖横幅约 10% */
     body.enable-banner .absolute.w-full.z-30:not(.no-banner-layout):not(.mobile-main-no-banner) {
         top: calc(var(--banner-height) - 3.5rem) !important;
         min-height: calc(100vh - (var(--banner-height) - 3.5rem)) !important;
@@ -115,14 +115,14 @@ html.is-page-transitioning .banner-home-text-overlay {
 
 /* 移动端横幅优化 - 大屏手机 (481px - 640px) */
 @media (min-width: 481px) and (max-width: 640px) {
-    /* Banner wrapper 高度优化 - 优先保持banner显示 - 仅在首页应用 */
+    /* Banner wrapper 高度统一 65vh，让主内容区自然覆盖约 10% 横幅 */
     #wallpaper-wrapper:not(.mobile-hide-banner) {
-        height: 75vh !important;
+        height: 65vh !important;
         top: 0 !important;
         transform: none !important;
     }
 
-    /* 主内容区域位置调整 - 与桌面端使用相同的 calc 公式，确保 switchable 开关一致 */
+    /* 主内容区域位置调整 - 覆盖横幅约 10% */
     body.enable-banner .absolute.w-full.z-30:not(.no-banner-layout):not(.mobile-main-no-banner) {
         top: calc(var(--banner-height) - 3.5rem) !important;
         min-height: calc(100vh - (var(--banner-height) - 3.5rem)) !important;
@@ -162,14 +162,14 @@ html.is-page-transitioning .banner-home-text-overlay {
 
 /* 移动端横幅优化 - 超大屏手机/小平板 (641px - 767px) */
 @media (min-width: 641px) and (max-width: 767px) {
-    /* Banner wrapper 高度优化 - 仅在首页应用 */
+    /* Banner wrapper 高度统一 65vh，让主内容区自然覆盖约 10% 横幅 */
     #wallpaper-wrapper:not(.mobile-hide-banner) {
-        height: 72vh !important;
+        height: 65vh !important;
         top: 0 !important;
         transform: none !important;
     }
 
-    /* 主内容区域位置调整 - 与桌面端使用相同的 calc 公式，确保 switchable 开关一致 */
+    /* 主内容区域位置调整 - 覆盖横幅约 10% */
     body.enable-banner .absolute.w-full.z-30:not(.no-banner-layout):not(.mobile-main-no-banner) {
         top: calc(var(--banner-height) - 3.5rem) !important;
         min-height: calc(100vh - (var(--banner-height) - 3.5rem)) !important;
@@ -209,14 +209,14 @@ html.is-page-transitioning .banner-home-text-overlay {
 
 /* 平板设备横幅优化 (768px - 1023px) - Tailwind md 断点 */
 @media (min-width: 768px) and (max-width: 1023px) {
-    /* Banner wrapper 高度优化 - 仅在首页应用 */
+    /* Banner wrapper 高度统一 65vh，让主内容区自然覆盖约 10% 横幅 */
     #wallpaper-wrapper:not(.mobile-hide-banner) {
-        height: 70vh !important;
+        height: 65vh !important;
         top: 0 !important;
         transform: none !important;
     }
 
-    /* 主内容区域位置调整 - 与桌面端使用相同的 calc 公式，确保 switchable 开关一致 */
+    /* 主内容区域位置调整 - 与桌面端使用相同的 calc 公式 */
     body.enable-banner .absolute.w-full.z-30:not(.no-banner-layout):not(.mobile-main-no-banner) {
         top: calc(var(--banner-height) - 3.5rem) !important;
         min-height: calc(100vh - (var(--banner-height) - 3.5rem)) !important;
@@ -489,7 +489,7 @@ html[data-wallpaper-mode="fullscreen"] .absolute.w-full.z-30.no-banner-layout {
 @media (max-width: 1023px) and (orientation: landscape) {
     #wallpaper-wrapper:not(.mobile-hide-banner) {
         top: 0 !important; /* 横屏模式从顶部开始，避免被导航栏覆盖 */
-        height: 60vh !important;
+        height: 65vh !important;
         transform: none !important; /* 移除桌面端的translateY偏移 */
     }
     
