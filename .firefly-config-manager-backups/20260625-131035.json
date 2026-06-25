@@ -1,0 +1,17 @@
+{
+  "id": "20260625-131035",
+  "name": "",
+  "createdAt": "2026-06-25T05:10:36.392Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/config/coverImageConfig.ts: 随机封面加载状态 (coverImageConfig.randomCoverImage.showLoading)",
+  "files": [
+    {
+      "path": "src/config/coverImageConfig.ts",
+      "backupPath": "20260625-131035__src__config__coverImageConfig.ts.bak",
+      "existed": true,
+      "changes": [
+        "随机封面加载状态 (coverImageConfig.randomCoverImage.showLoading)"
+      ]
+    }
+  ]
+}
