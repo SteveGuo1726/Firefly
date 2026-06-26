@@ -43,8 +43,20 @@
 
 🔧 高度可配置: 大部分功能模組均可透過配置檔案自訂
 
-<img alt="firefly" src="./images/1.webp" />
-<img alt="Lighthouse" src="./images/Lighthouse.png" />
+<table width="100%" align="center">
+  <tr>
+    <td colspan="3" align="center">
+      <img src="./images/1.webp" >
+      <br>橫幅模式</td>
+    </td>
+  </tr>
+  <tr>
+    <td align="center"><img src="./images/3.webp" width="300"><br>透明模式</td>
+    <td align="center"><img src="./images/2.webp" width="300"><br>全螢幕桌布模式</td>
+    <td align="center"><img src="./images/4.webp" width="300"><br>純色模式</td>
+  </tr>
+</table>
+<img alt="Lighthouse" src="./docs/images/Lighthouse.png" />
 
 >[!TIP]
 >
