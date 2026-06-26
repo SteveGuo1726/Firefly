@@ -12,87 +12,67 @@ if (
 	process.exit(0);
 }
 
-const INCLUDE_KEY_PATTERNS = [
-	/^CI$/i,
-	/^CI_/i,
-	/^BUILD_/i,
-	/^RUN_/i,
-	/^PROJECT/i,
-	/^SERVICE/i,
-	/^REGION/i,
-	/^DEPLOY/i,
-	/^TRIGGER/i,
-	/^EXECUTOR/i,
-	/^MESSAGE/i,
-	/^GITHUB_/i,
-	/^CF_/i,
-	/^WORKERS_/i,
-	/^VERCEL/i,
-	/^NETLIFY/i,
-	/^EDGEONE/i,
-	/^TENCENT_EDGEONE/i,
-	/^ESA(?:_|$)/i,
-	/^ALIYUN/i,
-	/^ALIBABA/i,
-	/^ALIYUN_ESA/i,
-	/^ALIBABA_CLOUD_ESA/i,
-	/^PAGES_/i,
-	/^SITE_BUILD_PLATFORM$/i,
-	/^BUILD_PLATFORM_NAME$/i,
-	/^FIREFLY_BUILD_PLATFORM$/i,
-	/^FIRELY_BUILD_PLATFORM$/i,
-];
-
-const INCLUDE_VALUE_PATTERNS = [
-	/edgeone/i,
-	/tencent/i,
-	/esa/i,
-	/aliyun/i,
-	/alibaba/i,
-	/pages/i,
-	/pop/i,
-];
-
 const REDACT_VALUE_PATTERNS = [
 	/token/i,
 	/secret/i,
 	/password/i,
-	/key/i,
 	/cookie/i,
 	/credential/i,
 	/auth/i,
+	/^github_token$/i,
+	/^gitee_token$/i,
+	/^access_token$/i,
 ];
 
-function shouldIncludeKey(key) {
-	return INCLUDE_KEY_PATTERNS.some((pattern) => pattern.test(key));
-}
-
-function shouldIncludeValue(value) {
-	return INCLUDE_VALUE_PATTERNS.some((pattern) => pattern.test(value));
-}
+const URL_LIKE_KEY_PATTERNS = [
+	/url/i,
+	/endpoint/i,
+	/address/i,
+	/host/i,
+];
 
 function shouldRedactKey(key) {
 	return REDACT_VALUE_PATTERNS.some((pattern) => pattern.test(key));
 }
 
-const entries = Object.entries(process.env)
-	.filter(([key, value]) => {
-		return (
-			typeof value === "string" &&
-			(shouldIncludeKey(key) || shouldIncludeValue(value))
-		);
-	})
-	.sort(([a], [b]) => a.localeCompare(b));
+function isUrlLikeKey(key) {
+	return URL_LIKE_KEY_PATTERNS.some((pattern) => pattern.test(key));
+}
+
+function sanitizeValue(key, value) {
+	if (shouldRedactKey(key)) {
+		return "[REDACTED]";
+	}
+
+	if (isUrlLikeKey(key)) {
+		try {
+			const url = new URL(value);
+			return `[URL host=${url.host}]`;
+		} catch {
+			return value;
+		}
+	}
+
+	if (value.length > 240) {
+		return `${value.slice(0, 240)}...[TRUNCATED]`;
+	}
+
+	return value;
+}
+
+const entries = Object.entries(process.env).sort(([a], [b]) => a.localeCompare(b));
 
 console.log("[firefly] Build platform diagnostics enabled.");
 console.log(
 	`[firefly] ci-info: isCI=${String(ci.isCI)}, name=${ci.name ?? "null"}, id=${ci.id ?? "null"}, isPR=${String(ci.isPR)}`,
 );
-console.log("[firefly] Relevant environment variables:");
+console.log("[firefly] All environment variable keys (sorted):");
+console.log(entries.map(([key]) => key).join(", "));
+console.log("[firefly] Environment variable preview:");
 
 for (const [key, value] of entries) {
-	const safeValue = shouldRedactKey(key) ? "[REDACTED]" : value;
-	console.log(`${key}=${safeValue}`);
+	if (typeof value !== "string") continue;
+	console.log(`${key}=${sanitizeValue(key, value)}`);
 }
 
 console.log("[firefly] End of build platform diagnostics.");
