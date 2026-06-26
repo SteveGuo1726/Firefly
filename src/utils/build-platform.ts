@@ -103,6 +103,23 @@ function normalizePlatformName(value?: string | null): string | null {
 	return PLATFORM_NAME_ALIASES.get(normalized) ?? null;
 }
 
+function hasNonEmptyEnv(
+	env: Record<string, string | undefined>,
+	key: string,
+): boolean {
+	const value = env[key];
+	return typeof value === "string" && value.trim() !== "";
+}
+
+function envValueIncludes(
+	env: Record<string, string | undefined>,
+	key: string,
+	pattern: RegExp,
+): boolean {
+	const value = env[key];
+	return typeof value === "string" && pattern.test(value);
+}
+
 export function detectBuildPlatform({
 	env,
 	isCI,
@@ -154,6 +171,14 @@ export function detectBuildPlatform({
 
 	if (hasAnyEnv(env, ["NETLIFY", "NETLIFY_IMAGES_CDN_DOMAIN"])) {
 		return "Netlify";
+	}
+
+	if (hasNonEmptyEnv(env, "EDGEONE_PROJECT_ID")) {
+		return "EdgeOne Pages";
+	}
+
+	if (envValueIncludes(env, "er_address", /\.esa\./i)) {
+		return "ESA Pages";
 	}
 
 	if (
