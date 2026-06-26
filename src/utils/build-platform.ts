@@ -62,6 +62,10 @@ const ESA_STRONG_ENV_KEYS = [
 
 const ESA_WEAK_ENV_KEYS = ["ALIBABA_CLOUD_PAGES", "ESA_ENV", "ESA"];
 
+const EDGEONE_ENV_KEY_PATTERN = /^(?:EDGEONE(?:_|$)|TENCENT_EDGEONE(?:_|$))/i;
+const ESA_ENV_KEY_PATTERN =
+	/^(?:ESA(?:_|$)|ALIYUN_ESA(?:_|$)|ALIBABA_CLOUD_ESA(?:_|$))/i;
+
 function hasAnyEnv(
 	env: Record<string, string | undefined>,
 	keys: string[],
@@ -80,6 +84,17 @@ function countEnv(
 		const value = env[key];
 		return typeof value === "string" && value.trim() !== "" ? count + 1 : count;
 	}, 0);
+}
+
+function hasEnvKeyMatching(
+	env: Record<string, string | undefined>,
+	pattern: RegExp,
+): boolean {
+	return Object.entries(env).some(([key, value]) => {
+		return (
+			pattern.test(key) && typeof value === "string" && value.trim() !== ""
+		);
+	});
 }
 
 function normalizePlatformName(value?: string | null): string | null {
@@ -114,6 +129,11 @@ export function detectBuildPlatform({
 		return normalizedCiName;
 	}
 
+	const normalizedCiNameEnv = normalizePlatformName(env.CI_NAME);
+	if (normalizedCiNameEnv) {
+		return normalizedCiNameEnv;
+	}
+
 	if (
 		hasAnyEnv(env, ["GITHUB_ACTIONS", "GITHUB_RUN_ID", "GITHUB_REPOSITORY"])
 	) {
@@ -138,6 +158,7 @@ export function detectBuildPlatform({
 
 	if (
 		hasAnyEnv(env, EDGEONE_STRONG_ENV_KEYS) ||
+		hasEnvKeyMatching(env, EDGEONE_ENV_KEY_PATTERN) ||
 		countEnv(env, EDGEONE_WEAK_ENV_KEYS) >= 2
 	) {
 		return "EdgeOne Pages";
@@ -145,6 +166,7 @@ export function detectBuildPlatform({
 
 	if (
 		hasAnyEnv(env, ESA_STRONG_ENV_KEYS) ||
+		hasEnvKeyMatching(env, ESA_ENV_KEY_PATTERN) ||
 		countEnv(env, ESA_WEAK_ENV_KEYS) >= 2
 	) {
 		return "ESA Pages";
