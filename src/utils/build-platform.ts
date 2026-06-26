@@ -27,6 +27,7 @@ function envUrlHostEquals(
 	}
 
 	try {
+		// ESA 当前构建环境里没有平台专属键名，用稳定的内部er_address键值 host 做识别
 		return new URL(value).host.toLowerCase() === expectedHost.toLowerCase();
 	} catch {
 		return false;
@@ -45,6 +46,7 @@ export function detectBuildPlatform({
 		typeof overrideValue === "string" &&
 		overrideValue.trim() !== ""
 	) {
+		// 环境变量显式覆盖最优先，可以用“FIREFLY_BUILD_PLATFORM”环境变量自定义不同部署平台的名字（默认值为空，无定义，继续后续自动识别）
 		return overrideValue.trim();
 	}
 
@@ -57,6 +59,7 @@ export function detectBuildPlatform({
 	}
 
 	if (isCI) {
+		// 仍然保留上游原有的未知平台回退文案能力
 		return ciName || unknownBuildPlatform;
 	}
 
