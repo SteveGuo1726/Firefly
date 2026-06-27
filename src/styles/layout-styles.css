@@ -80,7 +80,7 @@ html.is-page-transitioning .banner-home-text-overlay {
         top: calc(var(--banner-height) - 3.5rem) !important;
         min-height: calc(100vh - (var(--banner-height) - 3.5rem)) !important;
     }
-    
+
     /* 横幅文本覆盖层优化 */
     .banner-home-text-overlay {
         align-items: center !important; /* 垂直居中 */
@@ -88,7 +88,7 @@ html.is-page-transitioning .banner-home-text-overlay {
         padding: 1rem !important;
         text-align: center !important; /* 文字居中对齐 */
     }
-    
+
     /* 文本容器优化 */
     .banner-home-text-overlay > div {
         margin-bottom: 0 !important; /* 移除底部边距，保持居中 */
@@ -127,7 +127,7 @@ html.is-page-transitioning .banner-home-text-overlay {
         top: calc(var(--banner-height) - 3.5rem) !important;
         min-height: calc(100vh - (var(--banner-height) - 3.5rem)) !important;
     }
-    
+
     /* 横幅文本覆盖层优化 */
     .banner-home-text-overlay {
         align-items: center !important; /* 垂直居中 */
@@ -135,7 +135,7 @@ html.is-page-transitioning .banner-home-text-overlay {
         padding: 1.5rem !important;
         text-align: center !important; /* 文字居中对齐 */
     }
-    
+
     /* 文本容器优化 */
     .banner-home-text-overlay > div {
         margin-bottom: 0 !important; /* 移除底部边距，保持居中 */
@@ -174,7 +174,7 @@ html.is-page-transitioning .banner-home-text-overlay {
         top: calc(var(--banner-height) - 3.5rem) !important;
         min-height: calc(100vh - (var(--banner-height) - 3.5rem)) !important;
     }
-    
+
     /* 横幅文本覆盖层优化 */
     .banner-home-text-overlay {
         align-items: center !important; /* 垂直居中 */
@@ -221,7 +221,7 @@ html.is-page-transitioning .banner-home-text-overlay {
         top: calc(var(--banner-height) - 3.5rem) !important;
         min-height: calc(100vh - (var(--banner-height) - 3.5rem)) !important;
     }
-    
+
     /* 横幅文本覆盖层优化 */
     .banner-home-text-overlay {
         align-items: center !important; /* 垂直居中 */
@@ -229,7 +229,7 @@ html.is-page-transitioning .banner-home-text-overlay {
         padding: 2rem !important;
         text-align: center !important; /* 文字居中对齐 */
     }
-    
+
     /* 文本容器优化 */
     .banner-home-text-overlay > div {
         margin-bottom: 0 !important; /* 移除底部边距，保持居中 */

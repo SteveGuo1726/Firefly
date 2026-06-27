@@ -197,6 +197,7 @@ import "@/styles/fancybox-custom.css";
       Fancybox.close();
       Fancybox.unbind(document.body);
     }
+    // 恢复原始 URL 并清除标记，避免 blob URL 被 revoke 后图片损坏
     document.querySelectorAll<HTMLElement>("[data-svg-fixed]").forEach((el) => {
       const original = el.dataset.originalSrc;
       if (!original) return;
