@@ -201,18 +201,6 @@ export const friendsConfig: FriendLink[] = [
 		],
 		weight: 19,
 		enabled: true
-	},
-	{
-		title: "Eric-Termina的博客",
-		imgurl: "https://assets.ericterminal.com/logo-transparent.png",
-		desc: "刃は鞘に、心は花に",
-		siteurl: "https://blog.ericterminal.com",
-		fetchFeed: true,
-		tags: [
-			"Blog"
-		],
-		weight: 20,
-		enabled: true
 	}
 ];
 
