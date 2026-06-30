@@ -152,6 +152,14 @@ if (isLocalSrcLogo) {
                 <Search
                     client:load
                 />
+                <a
+                    href={url("/write/")}
+                    aria-label="管理"
+                    class="btn-plain scale-animation rounded-lg h-11 w-11 active:scale-90"
+                    title="管理"
+                >
+                    <Icon is:inline name="material-symbols:edit-square-outline" class="text-[1.25rem]"></Icon>
+                </a>
                 {musicPlayerConfig.showInNavbar && (
                     <button aria-label={i18n(I18nKey.music)} class="btn-plain scale-animation rounded-lg h-11 w-11 active:scale-90" id="music-player-switch">
                         <Icon is:inline name="material-symbols:music-note-rounded" class="text-[1.25rem]"></Icon>
