@@ -213,18 +213,6 @@ export const friendsConfig: FriendLink[] = [
 		],
 		weight: 20,
 		enabled: true
-	},
-	{
-		title: "SengokuCola’sBlog",
-		imgurl: "https://lsky.nibutupaopao.top/i/2026/07/09/6a4fc40211f69.png",
-		desc: "留白里 见光辉",
-		siteurl: "https://home.nibutupaopao.top",
-		fetchFeed: true,
-		tags: [
-			"Blog"
-		],
-		weight: 21,
-		enabled: true
 	}
 ];
 
