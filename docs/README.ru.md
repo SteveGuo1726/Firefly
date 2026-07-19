@@ -5,20 +5,20 @@
 
 # Firefly
 > Свежий и красивый шаблон темы блога Astro
-> 
-> ![Node.js >= 22](https://img.shields.io/badge/node.js-%3E%3D22-brightgreen) 
+>
+> ![Node.js >= 22](https://img.shields.io/badge/node.js-%3E%3D22-brightgreen)
 ![pnpm >= 9](https://img.shields.io/badge/pnpm-%3E%3D9-blue)
-![Astro](https://img.shields.io/badge/Astro-7.0.2-orange)
+![Astro](https://img.shields.io/badge/Astro-7.0.7-orange)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9.2-blue)
 >
 > [![Stars](https://img.shields.io/github/stars/CuteLeaf/Firefly?style=social)](https://github.com/CuteLeaf/Firefly/stargazers)
 [![Forks](https://img.shields.io/github/forks/CuteLeaf/Firefly?style=social)](https://github.com/CuteLeaf/Firefly/network/members)
 [![Issues](https://img.shields.io/github/issues/CuteLeaf/Firefly)](https://github.com/CuteLeaf/Firefly/issues)
-> 
+>
 > [![ko-fi](https://ko-fi.com/img/githubbutton_sm.svg)](https://ko-fi.com/Z8Z41NQALY)
 >
 > **QQ交流群：[1087127207](https://qm.qq.com/q/ZGsFa8qX2G)**
-> 
+>
 > ![GitHub License](https://img.shields.io/github/license/CuteLeaf/Firefly)
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/CuteLeaf/Firefly)
 [![Afdian Sponsor](https://img.shields.io/badge/Afdian-Поддержать%20автора-ff69b4.svg)](https://ifdian.net/a/cuteleaf)
@@ -28,7 +28,7 @@
 
 ---
 📖 README:
-**[简体中文](../README.md)** | **[繁體中文](README.zh-TW.md)** | **[English](../README.en.md)** | **[日本語](README.ja.md)** | **[Русский](README.ru.md)** 
+**[简体中文](../README.md)** | **[繁體中文](README.zh-TW.md)** | **[English](../README.en.md)** | **[日本語](README.ja.md)** | **[Русский](README.ru.md)**
 
 🚀 Быстрое руководство:
 [**🖥️Демо**](https://firefly.cuteleaf.cn/) /
@@ -83,8 +83,8 @@
 - [x] **Astro + Tailwind CSS** - Сверхбыстрая генерация статических сайтов на основе современного технологического стека
 - [x] **Плавная анимация** - Анимация переходов между страницами Swup для шелковисто-плавного просмотра
 - [x] **Адаптивный дизайн** - Идеальная адаптация для настольных компьютеров, планшетов и мобильных устройств
-- [x] **Многоязычная поддержка** - Интернационализация i18n UI, поддержка упрощенного китайского, традиционного китайского, английского, японского, русского
-- [x] **Полнотекстовый поиск** - Клиентский поиск на основе Pagefind, поддержка индексации содержимого статей. 
+- [x] **Многоязычная поддержка** - Интернационализация i18n UI, поддержка упрощенного китайского, традиционного китайского, английского, японского, русского, корейского
+- [x] **Полнотекстовый поиск** - Клиентский поиск на основе Pagefind, поддержка индексации содержимого статей.
 
 ### Персонализация
 - [x] **Динамическая боковая панель** - Поддержка одиночной и двойной боковой панели
@@ -113,7 +113,7 @@
    git clone https://github.com/Cuteleaf/Firefly.git
    cd Firefly
    ```
-   
+
    **Сначала создайте [Fork](https://github.com/CuteLeaf/Firefly/fork) в свой репозиторий, затем клонируйте (рекомендуется). Не забудьте нажать Star перед Fork!**
 
    ```bash
@@ -124,7 +124,7 @@
    ```bash
    # Установите pnpm, если еще не установлен
    npm install -g pnpm
-   
+
    # Установить зависимости проекта
    pnpm install
    ```
@@ -174,6 +174,7 @@ const SITE_LANG = "zh_CN";
 - `en` - Английский
 - `ja` - Японский
 - `ru` - Русский
+- `ko` - Корейский
 
 
 ### Структура конфигурационных файлов
@@ -188,6 +189,7 @@ src/
 │   ├── backgroundWallpaper.ts    # Конфигурация фоновых обоев
 │   ├── commentConfig.ts          # Конфигурация системы комментариев
 │   ├── coverImageConfig.ts       # Конфигурация обложек статей
+│   ├── dynamicConfig.ts          # Конфигурация страницы публикаций
 │   ├── effectsConfig.ts          # Конфигурация анимационных эффектов (сакура и др.)
 │   ├── expressiveCodeConfig.ts   # Конфигурация подсветки кода
 │   ├── fontConfig.ts             # Конфигурация шрифтов
@@ -198,6 +200,7 @@ src/
 │   ├── musicConfig.ts            # Конфигурация музыкального плеера
 │   ├── navBarConfig.ts           # Конфигурация навигационной панели
 │   ├── pioConfig.ts              # Конфигурация маскота
+│   ├── mermaidConfig.ts          # Конфигурация диаграмм Mermaid
 │   ├── plantumlConfig.ts         # Конфигурация диаграмм PlantUML
 │   ├── profileConfig.ts          # Конфигурация профиля пользователя
 │   ├── sidebarConfig.ts          # Конфигурация макета боковой панели
@@ -222,6 +225,24 @@ comment: true    # Включить комментарии
 ---
 ```
 
+## Публикации
+
+Публикации хранятся в `src/content/dynamic/`: один Markdown-файл соответствует одной публикации. Создать публикацию можно командой:
+
+```bash
+pnpm new-d Сегодня прекрасная погода
+```
+
+`pnpm new-dynamic <content>` — эквивалентная полная команда.
+
+```yaml
+---
+published: 2026-07-15 16:15:29
+---
+
+В содержимом можно использовать Markdown.
+```
+
 ## 📖 Расширения Markdown
 
 Помимо поддержки [GitHub Flavored Markdown](https://github.github.com/gfm/) по умолчанию в Astro, есть несколько дополнительных функций Markdown:
@@ -234,17 +255,19 @@ comment: true    # Включить комментарии
 
 Все команды должны выполняться в корневом каталоге проекта:
 
-| Команда                    | Действие                                            |
-|:---------------------------|:----------------------------------------------------|
-| `pnpm install`             | Установить зависимости                              |
+| Команда                    | Действие                                                  |
+| :------------------------- | :-------------------------------------------------------- |
+| `pnpm install`             | Установить зависимости                                    |
 | `pnpm dev`                 | Запустить локальный сервер разработки на `localhost:4321` |
-| `pnpm build`               | Собрать сайт в `./dist/`                            |
-| `pnpm preview`             | Локальный предварительный просмотр собранного сайта |
-| `pnpm check`               | Проверить код на наличие ошибок                     |
-| `pnpm format`              | Отформатировать код с помощью Biome                 |
-| `pnpm new-post <filename>` | Создать новую статью                                |
-| `pnpm astro ...`           | Выполнить `astro add`, `astro check` и другие команды |
-| `pnpm astro --help`        | Показать справку Astro CLI                          |
+| `pnpm build`               | Собрать сайт в `./dist/`                                  |
+| `pnpm preview`             | Локальный предварительный просмотр собранного сайта       |
+| `pnpm check`               | Проверить код на наличие ошибок                           |
+| `pnpm format`              | Отформатировать код с помощью Biome                       |
+| `pnpm new-post <filename>` | Создать новую статью                                      |
+| `pnpm new-d <content>`     | Создать новую публикацию                                  |
+| `pnpm new-dynamic <content>` | Создать новую публикацию (полная команда)               |
+| `pnpm astro ...`           | Выполнить `astro add`, `astro check` и другие команды     |
+| `pnpm astro --help`        | Показать справку Astro CLI                                |
 
 ## 🙏 Благодарности
 
@@ -254,8 +277,8 @@ comment: true    # Включить комментарии
 
 ### Технический стек
 
-- [Astro](https://astro.build) 
-- [Tailwind CSS](https://tailwindcss.com) 
+- [Astro](https://astro.build)
+- [Tailwind CSS](https://tailwindcss.com)
 - [Iconify](https://iconify.design)
 
 ### Проекты вдохновения
@@ -273,7 +296,7 @@ comment: true    # Включить комментарии
 
 Этот проект распространяется под лицензией [MIT license](https://mit-license.org/), подробности см. в файле [LICENSE](../LICENSE).
 
-Первоначально ветвлено из [saicaca/fuwari](https://github.com/saicaca/fuwari). Благодарим автора оригинального проекта за вклад. 
+Первоначально ветвлено из [saicaca/fuwari](https://github.com/saicaca/fuwari). Благодарим автора оригинального проекта за вклад.
 
 **Уведомление об авторских правах:**
 - Copyright (c) 2024 [saicaca](https://github.com/saicaca) - [fuwari](https://github.com/saicaca/fuwari)
