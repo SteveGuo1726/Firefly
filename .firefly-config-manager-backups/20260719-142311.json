@@ -1,0 +1,18 @@
+{
+  "id": "20260719-142311",
+  "name": "",
+  "createdAt": "2026-07-19T06:23:11.915Z",
+  "reason": "save-before",
+  "summary": "保存前备份，涉及 1 个文件：src/content/dynamic/2026-07-19-142036.md: 新建动态；src/content/dynamic/2026-07-19-142036.md: 动态发布时间或正文",
+  "files": [
+    {
+      "path": "src/content/dynamic/2026-07-19-142036.md",
+      "backupPath": "20260719-142311__src__content__dynamic__2026-07-19-142036.md.bak",
+      "existed": false,
+      "changes": [
+        "新建动态",
+        "动态发布时间或正文"
+      ]
+    }
+  ]
+}
