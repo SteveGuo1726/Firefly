@@ -67,7 +67,7 @@ function slugify(value: string): string {
 }
 
 function cloneManifest(value: GalleryManifest): GalleryManifest {
-	return structuredClone(value);
+	return JSON.parse(JSON.stringify(value)) as GalleryManifest;
 }
 
 function setMessage(message: string, error = false) {
