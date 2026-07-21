@@ -163,3 +163,35 @@ export async function saveRepoFile(options: {
 		commitUrl: payload?.commit?.html_url ?? null,
 	};
 }
+
+export async function deleteRepoFile(options: {
+	config: GitHubRepoConfig;
+	filePath: string;
+	message: string;
+	sha: string;
+}): Promise<{ commitUrl: string | null }> {
+	const response = await fetch(
+		`https://api.github.com/repos/${encodeURIComponent(options.config.owner)}/${encodeURIComponent(options.config.repo)}/contents/${encodePath(options.filePath)}`,
+		{
+			method: "DELETE",
+			headers: {
+				...getHeaders(options.config.token),
+				"Content-Type": "application/json",
+			},
+			body: JSON.stringify({
+				message: options.message,
+				branch: options.config.branch,
+				sha: options.sha,
+			}),
+		},
+	);
+
+	const payload = await response.json();
+	if (!response.ok) {
+		throw new Error(payload.message || `删除文件失败：${response.status}`);
+	}
+
+	return {
+		commitUrl: payload?.commit?.html_url ?? null,
+	};
+}

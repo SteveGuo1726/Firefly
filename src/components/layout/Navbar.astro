@@ -6,6 +6,7 @@ import { Icon } from "astro-icon/components";
 import DisplaySettings from "@/components/controls/DisplaySettingsIntegrated.svelte";
 import LightDarkSwitch from "@/components/controls/LightDarkSwitch.svelte";
 import Search from "@/components/controls/Search.svelte";
+import GitHubAdminLogin from "@/components/features/GitHubAdminLogin.svelte";
 import MusicPlayer from "@/components/features/MusicPlayer.astro";
 import { backgroundWallpaper, navBarConfig, siteConfig } from "@/config";
 import { musicPlayerConfig } from "@/config/musicConfig";
@@ -138,7 +139,7 @@ if (isLocalSrcLogo) {
                 </div>
             </a>
             <div class:list={[
-                "hidden lg:flex items-center space-x-1 col-start-2",
+				"hidden 2xl:flex items-center space-x-1 col-start-2",
                 isNavbarMenuCentered
                     ? "justify-center"
                     : "justify-start pl-2"
@@ -148,6 +149,7 @@ if (isLocalSrcLogo) {
                 })}
             </div>
             <div class="flex col-start-3 justify-self-end">
+				<GitHubAdminLogin client:load />
                 <!--<SearchPanel client:load>-->
                 <Search
                     client:load
@@ -184,7 +186,7 @@ if (isLocalSrcLogo) {
                 )}
                 {/* @ts-ignore */}
                 <LightDarkSwitch client:load></LightDarkSwitch>
-                <button aria-label="Menu" name="Nav Menu" class="btn-plain scale-animation rounded-lg w-9 h-9 md:w-11 md:h-11 active:scale-90 lg:hidden!" id="nav-menu-switch">
+				<button aria-label="Menu" name="Nav Menu" class="btn-plain scale-animation rounded-lg w-9 h-9 md:w-11 md:h-11 active:scale-90 2xl:hidden!" id="nav-menu-switch">
                     <Icon is:inline name="material-symbols:menu-rounded" class="text-[1.25rem]"></Icon>
                 </button>
             </div>

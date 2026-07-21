@@ -1,6 +1,11 @@
 <script lang="ts">
 import { onMount, tick } from "svelte";
 import { coverImageConfig, siteConfig } from "@/config";
+import { githubAdminConfig } from "@/config/githubAdminConfig";
+import {
+	GITHUB_SESSION_CHANGED_EVENT,
+	getGitHubAdminSession,
+} from "@/utils/admin/github-session";
 import { getApiUrlList } from "@/utils/image-utils";
 import type { PostFrontmatter } from "@/utils/write/frontmatter";
 import { buildPostSource, parsePostSource } from "@/utils/write/frontmatter";
@@ -48,7 +53,6 @@ type ImageItem = {
 	size: number;
 };
 
-const STORAGE_KEY = "FIREFLY_WRITE_REPO_CONFIG";
 const IMAGE_BED_STORAGE_KEY = "FIREFLY_WRITE_IMAGE_BED_CONFIG";
 const DEFAULT_POST_BODY = `# 新文章
 
@@ -87,9 +91,9 @@ let loadingImages = false;
 let uploadingImage = false;
 
 let repoForm: RepoForm = {
-	owner: "",
-	repo: "",
-	branch: "master",
+	owner: githubAdminConfig.owner,
+	repo: githubAdminConfig.repo,
+	branch: githubAdminConfig.branch,
 	token: "",
 };
 
@@ -163,20 +167,6 @@ function normalizeRepoConfig(formValue: RepoForm): GitHubRepoConfig | null {
 	};
 }
 
-function persistRepoConfig() {
-	if (!mounted) return;
-
-	localStorage.setItem(
-		STORAGE_KEY,
-		JSON.stringify({
-			owner: repoForm.owner.trim(),
-			repo: repoForm.repo.trim(),
-			branch: repoForm.branch.trim(),
-			token: repoForm.token.trim(),
-		}),
-	);
-}
-
 function persistImageBedConfig() {
 	if (!mounted) return;
 
@@ -188,23 +178,6 @@ function persistImageBedConfig() {
 			folder: imageBedForm.folder.trim() || "blog",
 		}),
 	);
-}
-
-function loadStoredRepoConfig() {
-	const raw = localStorage.getItem(STORAGE_KEY);
-	if (!raw) return;
-
-	try {
-		const parsed = JSON.parse(raw) as Partial<RepoForm>;
-		repoForm = {
-			owner: parsed.owner || "",
-			repo: parsed.repo || "",
-			branch: parsed.branch || "master",
-			token: parsed.token || "",
-		};
-	} catch {
-		// ignore malformed storage
-	}
 }
 
 function loadStoredImageBedConfig() {
@@ -674,6 +647,31 @@ async function connectRepository() {
 	}
 }
 
+function syncGitHubSession() {
+	const session = getGitHubAdminSession();
+	if (!session) {
+		repoForm = {
+			owner: githubAdminConfig.owner,
+			repo: githubAdminConfig.repo,
+			branch: githubAdminConfig.branch,
+			token: "",
+		};
+		isConnected = false;
+		posts = [];
+		filteredPosts = [];
+		errorMessage = "请先使用网页右上角的 GitHub 登录按钮完成验证。";
+		return;
+	}
+
+	repoForm = {
+		owner: session.owner,
+		repo: session.repo,
+		branch: session.branch,
+		token: session.token,
+	};
+	void connectRepository();
+}
+
 async function openPost(post: PostListItem) {
 	const repoConfig = normalizeRepoConfig(repoForm);
 	if (!repoConfig) {
@@ -779,7 +777,6 @@ async function saveCurrentPost() {
 }
 
 $: refreshFilteredPosts();
-$: persistRepoConfig();
 $: persistImageBedConfig();
 $: targetFilePath = (() => {
 	const slugPath = normalizeSlugPath(form.slug.trim());
@@ -818,85 +815,40 @@ $: if (mounted && isConnected && previewTrigger) {
 
 onMount(() => {
 	mounted = true;
-	loadStoredRepoConfig();
 	loadStoredImageBedConfig();
 	createNewPost();
+	localStorage.removeItem("FIREFLY_WRITE_REPO_CONFIG");
+	syncGitHubSession();
+	window.addEventListener(GITHUB_SESSION_CHANGED_EVENT, syncGitHubSession);
+	return () =>
+		window.removeEventListener(GITHUB_SESSION_CHANGED_EVENT, syncGitHubSession);
 });
 </script>
 
 {#if !isConnected}
-	<section class="write-auth-shell">
-		<div class="write-auth-card">
-			<div class="write-auth-header">
-				<div class="write-auth-title">连接写作仓库</div>
-				<div class="write-auth-subtitle">
-					先确认 GitHub 仓库连接，再进入写作工作台。未连接前不会加载文章列表。
-				</div>
-			</div>
+	<div class="write-session-notice">
+		当前未登录 GitHub。工作台已直接开放；读取文章和提交保存前，请使用网页右上角的 GitHub 登录按钮。
+	</div>
+{/if}
 
-			<div class="write-form-stack">
-				<label class="write-field">
-					<span>Owner</span>
-					<input bind:value={repoForm.owner} placeholder="SteveGuo1726" />
-				</label>
-				<label class="write-field">
-					<span>Repo</span>
-					<input bind:value={repoForm.repo} placeholder="Firefly" />
-				</label>
-				<label class="write-field">
-					<span>Branch</span>
-					<input bind:value={repoForm.branch} placeholder="master" />
-				</label>
-				<label class="write-field">
-					<span>GitHub Token</span>
-					<input
-						bind:value={repoForm.token}
-						type="password"
-						placeholder="github_pat_xxx"
-					/>
-				</label>
-			</div>
-
-			<button
-				type="button"
-				class="write-primary-button write-connect-button"
-				disabled={isConnecting}
-				onclick={connectRepository}
-			>
-				{isConnecting ? "连接中..." : "进入写作管理"}
-			</button>
-
-			{#if errorMessage}
-				<div class="write-message write-message-error">{errorMessage}</div>
-			{/if}
-		</div>
-	</section>
-{:else}
-	<div class="write-workbench">
+<div class="write-workbench">
 		<aside class="write-panel write-panel-left">
 			<section class="write-card">
 				<div class="write-card-header">
 					<div>
-						<div class="write-card-title">仓库连接</div>
+						<div class="write-card-title">GitHub 会话</div>
 						<div class="write-card-subtitle">
-							当前连接已确认。切换仓库信息后需要重新连接。
+							{isConnected ? "已复用右上角登录状态。" : "尚未登录，当前只可编辑本地表单。"}
 						</div>
 					</div>
+					<button type="button" class="write-ghost-button" disabled={!isConnected || loadingPosts} onclick={fetchPostList}>
+						{loadingPosts ? "读取中..." : "刷新文章"}
+					</button>
 				</div>
 
-				<div class="write-form-stack">
-					<label class="write-field">
-						<span>Owner</span>
-						<input bind:value={repoForm.owner} placeholder="SteveGuo1726" />
-					</label>
-					<label class="write-field">
-						<span>Repo</span>
-						<input bind:value={repoForm.repo} placeholder="Firefly" />
-					</label>
-					<label class="write-field">
-						<span>Branch</span>
-						<input bind:value={repoForm.branch} placeholder="master" />
-					</label>
+				<div class="write-session-repo">
+					<strong>{repoForm.owner}/{repoForm.repo}</strong>
+					<span>{repoForm.branch}</span>
 				</div>
 			</section>
 
@@ -1212,53 +1164,30 @@ onMount(() => {
 			</section>
 		</aside>
 	</div>
-{/if}
 
 <style>
-	.write-auth-shell {
-		display: flex;
-		justify-content: center;
-		padding: 3rem 0 1rem;
-	}
-
-	.write-auth-card {
-		width: min(36rem, 100%);
-		padding: 1.2rem;
-		border-radius: var(--radius-large);
-		border: 1px solid var(--line-divider);
-		background: color-mix(in oklab, var(--card-bg) 92%, transparent);
-		backdrop-filter: blur(12px);
-		box-shadow: 0 18px 50px rgb(0 0 0 / 0.06);
-	}
-
-	.write-auth-header {
+	.write-session-notice {
 		margin-bottom: 1rem;
-	}
-
-	.write-auth-title {
-		font-size: 1.05rem;
-		font-weight: 700;
-		color: rgb(20 20 24 / 0.92);
-	}
-
-	:global(.dark) .write-auth-title {
-		color: rgb(255 255 255 / 0.92);
-	}
-
-	.write-auth-subtitle {
-		margin-top: 0.4rem;
+		padding: 0.8rem 1rem;
+		border: 1px solid color-mix(in oklab, var(--primary) 35%, var(--line-divider));
+		border-radius: var(--radius-large);
+		background: color-mix(in oklab, var(--primary) 8%, var(--card-bg));
 		font-size: 0.86rem;
 		line-height: 1.6;
-		color: rgb(20 20 24 / 0.54);
 	}
 
-	:global(.dark) .write-auth-subtitle {
-		color: rgb(255 255 255 / 0.52);
+	.write-session-repo {
+		display: flex;
+		justify-content: space-between;
+		gap: 0.75rem;
+		padding: 0.7rem 0.8rem;
+		border-radius: 0.55rem;
+		background: color-mix(in oklab, var(--card-bg) 82%, var(--primary) 8%);
+		font-size: 0.82rem;
 	}
 
-	.write-connect-button {
-		width: 100%;
-		margin-top: 1rem;
+	.write-session-repo span {
+		opacity: 0.58;
 	}
 
 	.write-workbench {
