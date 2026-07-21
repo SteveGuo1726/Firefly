@@ -2,7 +2,10 @@
 import { Icon } from "astro-icon/components";
 import GalleryBrowser from "@/components/pages/gallery/GalleryBrowser.svelte";
 import { galleryConfig, siteConfig } from "@/config";
-import { galleryManagedSeed } from "@/config/galleryManagedSeed";
+import {
+	createManagedPublicAlbum,
+	galleryManagedSeed,
+} from "@/config/galleryManagedSeed";
 import I18nKey from "@/i18n/i18nKey";
 import { i18n } from "@/i18n/translation";
 import MainGridLayout from "@/layouts/MainGridLayout.astro";
@@ -38,26 +41,11 @@ const staticAlbums: PublicGalleryAlbum[] = galleryConfig.albums.map((album) => {
 		coverUrl: getAlbumCover(album, urls),
 	};
 });
-const imageBedUrl = (key: string) =>
-	`https://img.casto.top/file/${key.split("/").map(encodeURIComponent).join("/")}`;
 const managedFallbackAlbums: PublicGalleryAlbum[] = galleryManagedSeed.albums
 	.filter(
 		(album) => !staticAlbums.some((candidate) => candidate.id === album.id),
 	)
-	.map((album) => {
-		const photos = album.photoOrder.map((key) => ({
-			key,
-			url: imageBedUrl(key),
-			name: key.split("/").pop() || key,
-			size: 0,
-		}));
-		return {
-			...album,
-			photos,
-			photoCount: photos.length,
-			coverUrl: album.cover ? imageBedUrl(album.cover) : photos[0]?.url || "",
-		};
-	});
+	.map(createManagedPublicAlbum);
 const initialAlbums: PublicGalleryAlbum[] = [
 	...staticAlbums,
 	...managedFallbackAlbums,

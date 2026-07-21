@@ -1,13 +1,23 @@
 ---
 import GalleryAlbumRuntime from "@/components/pages/gallery/GalleryAlbumRuntime.svelte";
 import { galleryConfig, siteConfig } from "@/config";
+import {
+	createManagedPublicAlbum,
+	galleryManagedSeed,
+} from "@/config/galleryManagedSeed";
 import MainGridLayout from "@/layouts/MainGridLayout.astro";
 
 if (!siteConfig.pages.gallery) {
 	return Astro.redirect("/404/");
 }
+
+const initialAlbums = galleryManagedSeed.albums.map(createManagedPublicAlbum);
 ---
 
 <MainGridLayout title="相册" description="">
-	<GalleryAlbumRuntime client:load columnWidth={galleryConfig.columnWidth || 240} />
+	<GalleryAlbumRuntime
+		client:load
+		{initialAlbums}
+		columnWidth={galleryConfig.columnWidth || 240}
+	/>
 </MainGridLayout>

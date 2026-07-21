@@ -1,4 +1,32 @@
-import type { GalleryManifest } from "@/types/galleryAdmin";
+import type {
+	GalleryManifest,
+	ManagedGalleryAlbum,
+	PublicGalleryAlbum,
+} from "@/types/galleryAdmin";
+
+function imageBedUrl(key: string): string {
+	return `https://img.casto.top/file/${key
+		.split("/")
+		.map(encodeURIComponent)
+		.join("/")}`;
+}
+
+export function createManagedPublicAlbum(
+	album: ManagedGalleryAlbum,
+): PublicGalleryAlbum {
+	const photos = album.photoOrder.map((key) => ({
+		key,
+		url: imageBedUrl(key),
+		name: key.split("/").pop() || key,
+		size: 0,
+	}));
+	return {
+		...album,
+		photos,
+		photoCount: photos.length,
+		coverUrl: album.cover ? imageBedUrl(album.cover) : photos[0]?.url || "",
+	};
+}
 
 export const galleryManagedSeed: GalleryManifest = {
 	version: 1,

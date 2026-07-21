@@ -8,12 +8,14 @@ import { url } from "@/utils/url-utils";
 interface Props {
 	albumId?: string;
 	initialAlbum?: PublicGalleryAlbum | null;
+	initialAlbums?: PublicGalleryAlbum[];
 	columnWidth?: number;
 }
 
 const {
 	albumId = "",
 	initialAlbum = null,
+	initialAlbums = [],
 	columnWidth = 240,
 }: Props = $props();
 let album = $state<PublicGalleryAlbum | null>(initialAlbum);
@@ -68,12 +70,24 @@ async function loadAlbum(): Promise<void> {
 		loading = false;
 		return;
 	}
+	const fallbackAlbum =
+		initialAlbum?.id === id
+			? initialAlbum
+			: initialAlbums.find((candidate) => candidate.id === id) || null;
+	if (fallbackAlbum) album = fallbackAlbum;
+	errorMessage = "";
 	try {
-		const payload = await fetchPublicGallery(id);
-		album = payload.albums[0] || initialAlbum;
+		let payload: { albums: PublicGalleryAlbum[] };
+		try {
+			payload = await fetchPublicGallery(id);
+		} catch {
+			await new Promise((resolve) => window.setTimeout(resolve, 600));
+			payload = await fetchPublicGallery(id);
+		}
+		album = payload.albums[0] || fallbackAlbum;
 		if (!album) errorMessage = "相册不存在或尚未发布。";
 	} catch (error) {
-		if (!album)
+		if (!fallbackAlbum)
 			errorMessage = error instanceof Error ? error.message : "相册读取失败。";
 	} finally {
 		loading = false;
