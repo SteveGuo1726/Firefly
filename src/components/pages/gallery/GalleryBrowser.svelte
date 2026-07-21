@@ -11,6 +11,7 @@ interface Props {
 
 const { initialAlbums, staticAlbumIds }: Props = $props();
 let albums = $state<PublicGalleryAlbum[]>(initialAlbums);
+let loading = $state(true);
 let query = $state("");
 let selectedTag = $state("all");
 
@@ -54,11 +55,22 @@ onMount(async () => {
 		];
 	} catch {
 		// Keep build-time albums when the Worker or image bed is temporarily unavailable.
+	} finally {
+		loading = false;
 	}
 });
 </script>
 
-{#if albums.length > 0}
+{#if loading}
+	<div class="album-grid loading-grid" aria-label="正在读取最新相册" aria-busy="true">
+		{#each Array(3) as _}
+			<div class="album-skeleton" aria-hidden="true">
+				<div class="skeleton-line skeleton-title"></div>
+				<div class="skeleton-line skeleton-copy"></div>
+			</div>
+		{/each}
+	</div>
+{:else if albums.length > 0}
 	<div class="filters">
 		<label class="search-field">
 			<span aria-hidden="true">⌕</span>
@@ -75,7 +87,7 @@ onMount(async () => {
 	</div>
 {/if}
 
-{#if filteredAlbums.length > 0}
+{#if !loading && filteredAlbums.length > 0}
 	<div class="album-grid">
 		{#each filteredAlbums as album (album.id)}
 			<a class="album-card" href={albumHref(album.id)} data-tags={(album.tags || []).join(",")}>
@@ -104,7 +116,7 @@ onMount(async () => {
 			</a>
 		{/each}
 	</div>
-{:else}
+{:else if !loading}
 	<div class="empty">没有匹配的相册。</div>
 {/if}
 
@@ -117,6 +129,12 @@ onMount(async () => {
 	.tag-list button { padding: 0.36rem 0.7rem; border: 1px solid var(--line-divider); border-radius: 999px; background: transparent; color: inherit; font-size: 0.78rem; cursor: pointer; }
 	.tag-list button.active { border-color: var(--primary); background: var(--primary); color: white; }
 	.album-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1rem 0; }
+	.loading-grid { margin-top: 0; }
+	.album-skeleton { position: relative; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 0.5rem; background: rgb(127 127 127 / 0.12); }
+	.album-skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.18), transparent); animation: gallery-shimmer 1.3s infinite; }
+	.skeleton-line { position: absolute; z-index: 1; left: 0.9rem; height: 0.65rem; border-radius: 0.2rem; background: rgb(127 127 127 / 0.24); }
+	.skeleton-title { right: 42%; bottom: 2.1rem; height: 0.9rem; }
+	.skeleton-copy { right: 20%; bottom: 0.9rem; }
 	.album-card { display: block; min-width: 0; overflow: hidden; border-radius: 0.5rem; transition: transform 180ms ease, box-shadow 180ms ease; }
 	.album-card:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgb(0 0 0 / 0.14); }
 	.cover { position: relative; aspect-ratio: 4 / 3; overflow: hidden; background: rgb(127 127 127 / 0.12); }
@@ -132,6 +150,8 @@ onMount(async () => {
 	.card-tags { display: flex; gap: 0.25rem; flex-wrap: wrap; margin-top: 0.4rem; }
 	.card-tags span { padding: 0.15rem 0.35rem; border-radius: 0.25rem; background: rgb(255 255 255 / 0.18); font-size: 0.6rem; }
 	.empty { padding: 3rem 1rem; text-align: center; opacity: 0.55; }
+	@keyframes gallery-shimmer { to { transform: translateX(100%); } }
+	@media (prefers-reduced-motion: reduce) { .album-skeleton::after { animation: none; } }
 	@media (max-width: 900px) { .album-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 	@media (max-width: 560px) { .album-grid { grid-template-columns: 1fr; } }
 </style>

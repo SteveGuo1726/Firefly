@@ -1,4 +1,5 @@
 <script lang="ts">
+import type { FancyboxOptions } from "@fancyapps/ui";
 import { onMount } from "svelte";
 import type { PublicGalleryAlbum } from "@/types/galleryAdmin";
 import { fetchPublicGallery } from "@/utils/admin/imagebed-client";
@@ -18,8 +19,48 @@ const {
 let album = $state<PublicGalleryAlbum | null>(initialAlbum);
 let loading = $state(!initialAlbum);
 let errorMessage = $state("");
+let galleryRoot: HTMLDivElement;
+let lightboxPromise: Promise<typeof import("@fancyapps/ui").Fancybox> | null =
+	null;
 
-onMount(async () => {
+const photoSelector = "a[data-gallery-photo]";
+const lightboxOptions: Partial<FancyboxOptions> = {
+	Thumbs: {
+		autoStart: true,
+		showOnStart: "yes",
+	},
+	Toolbar: {
+		display: {
+			left: ["infobar"],
+			middle: [
+				"zoomIn",
+				"zoomOut",
+				"toggle1to1",
+				"rotateCCW",
+				"rotateCW",
+				"flipX",
+				"flipY",
+			],
+			right: ["slideshow", "thumbs", "close"],
+		},
+	},
+	animated: true,
+	dragToClose: true,
+	fitToView: true,
+	preload: 3,
+	infinite: true,
+	caption: false,
+};
+
+async function openPhoto(event: MouseEvent): Promise<void> {
+	event.preventDefault();
+	const trigger = event.currentTarget;
+	if (!(trigger instanceof HTMLElement)) return;
+	const Fancybox = await lightboxPromise;
+	Fancybox?.fromTriggerEl(trigger, lightboxOptions);
+}
+
+async function loadAlbum(): Promise<void> {
 	const id =
 		albumId || new URLSearchParams(window.location.search).get("album") || "";
 	if (!id) {
@@ -37,9 +78,25 @@ onMount(async () => {
 	} finally {
 		loading = false;
 	}
+}
+
+onMount(() => {
+	const root = galleryRoot;
+	lightboxPromise = import("@fancyapps/ui").then(({ Fancybox }) => {
+		Fancybox.bind(root, photoSelector, lightboxOptions);
+		return Fancybox;
+	});
+	void loadAlbum();
+
+	return () => {
+		void lightboxPromise?.then((Fancybox) => {
+			Fancybox.unbind(root, photoSelector);
+		});
+	};
 });
 </script>
 
+<div class="gallery-runtime" bind:this={galleryRoot}>
 {#if album}
 	<section class="album-hero">
 		{#if album.coverUrl}<img src={album.coverUrl} alt={album.name} />{/if}
@@ -61,7 +118,7 @@ onMount(async () => {
 		{#if album.photos.length > 0}
 			<div class="masonry" style={`--column-width: ${columnWidth}px`}>
 				{#each album.photos as photo (photo.key)}
-					<a class="photo" href={photo.url} data-fancybox={`gallery-${album.id}`} data-src={photo.url}>
+					<a class="photo" href={photo.url} data-fancybox={`gallery-${album.id}`} data-gallery-photo data-src={photo.url} onclick={openPhoto}>
 						<img src={photo.url} alt={photo.name} loading="lazy" decoding="async" />
 					</a>
 				{/each}
@@ -75,6 +132,7 @@ onMount(async () => {
 {:else}
 	<div class="status card-base">{errorMessage || "相册不存在。"}</div>
 {/if}
+</div>
 
 <style>
 	.album-hero { position: relative; width: 100%; min-height: 13rem; max-height: 22rem; aspect-ratio: 3 / 1; overflow: hidden; border-radius: var(--radius-large); background: rgb(127 127 127 / 0.15); color: white; }
