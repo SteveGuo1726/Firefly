@@ -24,5 +24,19 @@ export const galleryManagedSeed: GalleryManifest = {
 				"photos/castorice/m2.webp",
 			],
 		},
+		{
+			id: "test",
+			sourceDir: "photos/test",
+			name: "test",
+			description: "这是一个测试相册管理功能的相册，放点杂图",
+			date: "2026-07-21",
+			location: "test",
+			tags: [],
+			cover: "",
+			photoOrder: [
+				"photos/test/ENDFIELD_SHARE_1784526812.png",
+				"photos/test/ENDFIELD_SHARE_1784527037.png",
+			],
+		},
 	],
 };
