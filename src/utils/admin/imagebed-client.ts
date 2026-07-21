@@ -11,6 +11,12 @@ type ImageBedListResponse = {
 	directories: string[];
 };
 
+const GALLERY_API_ORIGIN = "https://gallery-api.casto.top";
+
+function apiUrl(path: string): URL {
+	return new URL(path, GALLERY_API_ORIGIN);
+}
+
 function adminHeaders(contentType?: string): HeadersInit {
 	const session = getGitHubAdminSession();
 	if (!session) throw new Error("GitHub 登录已失效，请重新登录。");
@@ -34,7 +40,7 @@ async function readJson<T>(response: Response): Promise<T> {
 }
 
 export async function fetchGalleryAdminState(): Promise<GalleryAdminState> {
-	const response = await fetch("/api/admin/gallery/state", {
+	const response = await fetch(apiUrl("/api/admin/gallery/state"), {
 		headers: adminHeaders(),
 		cache: "no-store",
 	});
@@ -44,7 +50,7 @@ export async function fetchGalleryAdminState(): Promise<GalleryAdminState> {
 export async function fetchPublicGallery(
 	albumId = "",
 ): Promise<{ albums: PublicGalleryAlbum[] }> {
-	const url = new URL("/api/gallery/public", window.location.origin);
+	const url = apiUrl("/api/gallery/public");
 	if (albumId) url.searchParams.set("album", albumId);
 	const response = await fetch(url, { cache: "no-store" });
 	return readJson<{ albums: PublicGalleryAlbum[] }>(response);
@@ -53,7 +59,7 @@ export async function fetchPublicGallery(
 export async function saveGalleryManifest(
 	manifest: GalleryManifest,
 ): Promise<GalleryManifest> {
-	const response = await fetch("/api/admin/gallery/manifest", {
+	const response = await fetch(apiUrl("/api/admin/gallery/manifest"), {
 		method: "PUT",
 		headers: adminHeaders("application/json"),
 		body: JSON.stringify(manifest),
@@ -65,7 +71,7 @@ export async function saveGalleryManifest(
 export async function listImageBedFiles(
 	dir: string,
 ): Promise<ImageBedListResponse> {
-	const url = new URL("/api/admin/imagebed/list", window.location.origin);
+	const url = apiUrl("/api/admin/imagebed/list");
 	url.searchParams.set("dir", dir);
 	url.searchParams.set("recursive", "true");
 	const response = await fetch(url, {
@@ -81,7 +87,7 @@ export async function uploadImageBedFile(
 ): Promise<ManagedGalleryPhoto> {
 	const formData = new FormData();
 	formData.append("file", file);
-	const url = new URL("/api/admin/imagebed/upload", window.location.origin);
+	const url = apiUrl("/api/admin/imagebed/upload");
 	url.searchParams.set("folder", folder);
 	const response = await fetch(url, {
 		method: "POST",
@@ -92,7 +98,7 @@ export async function uploadImageBedFile(
 }
 
 export async function deleteImageBedFile(key: string): Promise<void> {
-	const response = await fetch("/api/admin/imagebed/delete", {
+	const response = await fetch(apiUrl("/api/admin/imagebed/delete"), {
 		method: "POST",
 		headers: adminHeaders("application/json"),
 		body: JSON.stringify({ key }),
@@ -104,7 +110,7 @@ export async function renameImageBedFile(
 	key: string,
 	newKey: string,
 ): Promise<{ newKey: string }> {
-	const response = await fetch("/api/admin/imagebed/rename", {
+	const response = await fetch(apiUrl("/api/admin/imagebed/rename"), {
 		method: "POST",
 		headers: adminHeaders("application/json"),
 		body: JSON.stringify({ key, newKey }),
@@ -113,7 +119,7 @@ export async function renameImageBedFile(
 }
 
 export async function deleteImageBedAlbum(sourceDir: string): Promise<void> {
-	const response = await fetch("/api/admin/gallery/delete-album", {
+	const response = await fetch(apiUrl("/api/admin/gallery/delete-album"), {
 		method: "POST",
 		headers: adminHeaders("application/json"),
 		body: JSON.stringify({ sourceDir }),
@@ -125,7 +131,7 @@ export async function renameImageBedAlbum(
 	sourceDir: string,
 	newSourceDir: string,
 ): Promise<Record<string, string>> {
-	const response = await fetch("/api/admin/gallery/rename-album", {
+	const response = await fetch(apiUrl("/api/admin/gallery/rename-album"), {
 		method: "POST",
 		headers: adminHeaders("application/json"),
 		body: JSON.stringify({ sourceDir, newSourceDir }),

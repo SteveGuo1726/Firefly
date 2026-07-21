@@ -1,14 +1,8 @@
 name = 'firefly-blog'
-main = "./worker/index.ts"
 compatibility_date = "2026-05-08" # 更为今日
 
 [assets]
 directory = "./dist"
-binding = "ASSETS"
-run_worker_first = ["/api/*"]
 
 [vars]
 NODE_VERSION = "22"
-IMAGEBED_BASE_URL = "https://img.casto.top"
-GITHUB_ADMIN_LOGIN = "SteveGuo1726"
-GITHUB_REPO = "SteveGuo1726/Firefly"

@@ -8,11 +8,12 @@ import type {
 } from "../src/types/galleryAdmin";
 
 type Env = {
-	ASSETS: { fetch(request: Request): Promise<Response> };
+	ASSETS?: { fetch(request: Request): Promise<Response> };
 	IMAGEBED_TOKEN?: string;
 	IMAGEBED_BASE_URL?: string;
 	GITHUB_ADMIN_LOGIN?: string;
 	GITHUB_REPO?: string;
+	ALLOWED_ORIGIN?: string;
 };
 
 type ImageBedFile = {
@@ -45,6 +46,27 @@ function json(data: unknown, init: ResponseInit = {}): Response {
 
 function errorResponse(message: string, status: number): Response {
 	return json({ error: message }, { status });
+}
+
+function isAllowedOrigin(request: Request, env: Env): boolean {
+	const origin = request.headers.get("Origin");
+	return !origin || origin === (env.ALLOWED_ORIGIN || "https://blog.casto.top");
+}
+
+function withCors(response: Response, request: Request, env: Env): Response {
+	const origin = request.headers.get("Origin");
+	if (!origin || !isAllowedOrigin(request, env)) return response;
+	const headers = new Headers(response.headers);
+	headers.set("Access-Control-Allow-Origin", origin);
+	headers.set("Access-Control-Allow-Headers", "Authorization, Content-Type");
+	headers.set("Access-Control-Allow-Methods", "GET, POST, PUT, OPTIONS");
+	headers.set("Access-Control-Max-Age", "86400");
+	headers.append("Vary", "Origin");
+	return new Response(response.body, {
+		status: response.status,
+		statusText: response.statusText,
+		headers,
+	});
 }
 
 function imageBedBaseUrl(env: Env): string {
@@ -629,12 +651,18 @@ async function handleAdminApi(request: Request, env: Env): Promise<Response> {
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const pathname = new URL(request.url).pathname;
+		if (pathname.startsWith("/api/") && !isAllowedOrigin(request, env)) {
+			return errorResponse("请求来源不受信任。", 403);
+		}
+		if (pathname.startsWith("/api/") && request.method === "OPTIONS") {
+			return withCors(new Response(null, { status: 204 }), request, env);
+		}
 		if (pathname === "/api/gallery/public" && request.method === "GET") {
-			return handlePublicGallery(request, env);
+			return withCors(await handlePublicGallery(request, env), request, env);
 		}
 		if (pathname.startsWith("/api/admin/")) {
-			return handleAdminApi(request, env);
+			return withCors(await handleAdminApi(request, env), request, env);
 		}
-		return env.ASSETS.fetch(request);
+		return env.ASSETS?.fetch(request) ?? errorResponse("接口不存在。", 404);
 	},
 };

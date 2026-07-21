@@ -1,0 +1,19 @@
+{
+	"$schema": "./node_modules/wrangler/config-schema.json",
+	"name": "firefly-gallery-api",
+	"main": "./worker/index.ts",
+	"compatibility_date": "2026-07-21",
+	"compatibility_flags": ["nodejs_compat"],
+	"routes": [
+		{
+			"pattern": "gallery-api.casto.top",
+			"custom_domain": true
+		}
+	],
+	"vars": {
+		"ALLOWED_ORIGIN": "https://blog.casto.top",
+		"IMAGEBED_BASE_URL": "https://img.casto.top",
+		"GITHUB_ADMIN_LOGIN": "SteveGuo1726",
+		"GITHUB_REPO": "SteveGuo1726/Firefly"
+	}
+}
