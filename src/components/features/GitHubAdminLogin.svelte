@@ -88,6 +88,7 @@ onMount(() => {
 				</div>
 				<a href={url("/write/")} onclick={() => (menuOpen = false)}>写作管理</a>
 				<a href={url("/dynamic/#dynamic-admin")} onclick={() => (menuOpen = false)}>动态管理</a>
+				<a href={url("/gallery/manage/")} onclick={() => (menuOpen = false)}>相册管理</a>
 				<button type="button" class="logout-button" onclick={logout}>退出登录</button>
 			</div>
 		{/if}

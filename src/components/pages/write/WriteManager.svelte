@@ -6,6 +6,12 @@ import {
 	GITHUB_SESSION_CHANGED_EVENT,
 	getGitHubAdminSession,
 } from "@/utils/admin/github-session";
+import {
+	deleteImageBedFile,
+	listImageBedFiles,
+	renameImageBedFile,
+	uploadImageBedFile,
+} from "@/utils/admin/imagebed-client";
 import { getApiUrlList } from "@/utils/image-utils";
 import type { PostFrontmatter } from "@/utils/write/frontmatter";
 import { buildPostSource, parsePostSource } from "@/utils/write/frontmatter";
@@ -41,19 +47,12 @@ type RepoForm = {
 	token: string;
 };
 
-type ImageBedForm = {
-	baseUrl: string;
-	token: string;
-	folder: string;
-};
-
 type ImageItem = {
 	key: string;
 	url: string;
 	size: number;
 };
 
-const IMAGE_BED_STORAGE_KEY = "FIREFLY_WRITE_IMAGE_BED_CONFIG";
 const DEFAULT_POST_BODY = `# 新文章
 
 这里开始写正文。
@@ -97,11 +96,7 @@ let repoForm: RepoForm = {
 	token: "",
 };
 
-let imageBedForm: ImageBedForm = {
-	baseUrl: "",
-	token: "",
-	folder: "blog",
-};
+let imageFolder = "blog";
 
 let posts: PostListItem[] = [];
 let filteredPosts: PostListItem[] = [];
@@ -165,35 +160,6 @@ function normalizeRepoConfig(formValue: RepoForm): GitHubRepoConfig | null {
 		branch: formValue.branch.trim(),
 		token: formValue.token.trim(),
 	};
-}
-
-function persistImageBedConfig() {
-	if (!mounted) return;
-
-	localStorage.setItem(
-		IMAGE_BED_STORAGE_KEY,
-		JSON.stringify({
-			baseUrl: imageBedForm.baseUrl.trim(),
-			token: imageBedForm.token.trim(),
-			folder: imageBedForm.folder.trim() || "blog",
-		}),
-	);
-}
-
-function loadStoredImageBedConfig() {
-	const raw = localStorage.getItem(IMAGE_BED_STORAGE_KEY);
-	if (!raw) return;
-
-	try {
-		const parsed = JSON.parse(raw) as Partial<ImageBedForm>;
-		imageBedForm = {
-			baseUrl: parsed.baseUrl || "",
-			token: parsed.token || "",
-			folder: parsed.folder || "blog",
-		};
-	} catch {
-		// ignore malformed storage
-	}
 }
 
 function refreshFilteredPosts() {
@@ -387,14 +353,6 @@ function handleCoverPreviewError() {
 	coverPreviewSource = coverPreviewCandidates[0] || "";
 }
 
-function normalizeImageBedUrl(): string {
-	return imageBedForm.baseUrl.trim().replace(/\/+$/, "");
-}
-
-function canUseImageBed(): boolean {
-	return !!normalizeImageBedUrl() && !!imageBedForm.token.trim();
-}
-
 function buildMarkdownImage(url: string, alt = ""): string {
 	return `![${alt}](${url})`;
 }
@@ -424,7 +382,7 @@ function insertImageIntoArticle(image: ImageItem) {
 }
 
 async function fetchImageList() {
-	if (!canUseImageBed()) {
+	if (!getGitHubAdminSession()) {
 		imageItems = [];
 		return;
 	}
@@ -433,42 +391,12 @@ async function fetchImageList() {
 	imageErrorMessage = "";
 
 	try {
-		const listUrl = new URL("/api/manage/list", normalizeImageBedUrl());
-		listUrl.searchParams.set("dir", imageBedForm.folder.trim() || "blog");
-		listUrl.searchParams.set("recursive", "true");
-		listUrl.searchParams.set("count", "-1");
-
-		const response = await fetch(listUrl.toString(), {
-			headers: {
-				Authorization: imageBedForm.token.trim(),
-			},
-		});
-
-		if (!response.ok) {
-			throw new Error(`图床列表加载失败：${response.status}`);
-		}
-
-		const payload = (await response.json()) as {
-			files?: Array<{
-				name?: string;
-				metadata?: Record<string, string | number>;
-			}>;
-		};
-
-		imageItems = (payload.files || [])
-			.filter(
-				(
-					item,
-				): item is {
-					name: string;
-					metadata?: Record<string, string | number>;
-				} => typeof item.name === "string",
-			)
-			.map((item) => ({
-				key: item.name,
-				size: Number(item.metadata?.FileSizeBytes || 0),
-				url: `${normalizeImageBedUrl()}/file/${item.name}`,
-			}));
+		const payload = await listImageBedFiles(imageFolder.trim() || "blog");
+		imageItems = payload.files.map((item) => ({
+			key: item.key,
+			size: item.size,
+			url: item.url,
+		}));
 	} catch (error) {
 		imageErrorMessage =
 			error instanceof Error ? error.message : "图床列表加载失败";
@@ -480,46 +408,14 @@ async function fetchImageList() {
 async function uploadImage(event: Event) {
 	const target = event.currentTarget as HTMLInputElement;
 	const file = target.files?.[0];
-	if (!file || !canUseImageBed()) return;
+	if (!file || !getGitHubAdminSession()) return;
 
 	uploadingImage = true;
 	imageErrorMessage = "";
 
 	try {
-		const formData = new FormData();
-		formData.append("file", file);
-
-		const uploadUrl = new URL("/upload", normalizeImageBedUrl());
-		uploadUrl.searchParams.set(
-			"uploadFolder",
-			imageBedForm.folder.trim() || "blog",
-		);
-
-		const response = await fetch(uploadUrl.toString(), {
-			method: "POST",
-			headers: {
-				Authorization: imageBedForm.token.trim(),
-			},
-			body: formData,
-		});
-
-		if (!response.ok) {
-			throw new Error(`图床上传失败：${response.status}`);
-		}
-
-		const payload = (await response.json()) as Array<{
-			src?: string;
-			publicUrl?: string;
-		}>;
-		const imageUrl =
-			payload[0]?.publicUrl ||
-			(payload[0]?.src ? `${normalizeImageBedUrl()}${payload[0].src}` : "");
-
-		if (!imageUrl) {
-			throw new Error("图床没有返回可用的图片地址");
-		}
-
-		insertTextAtCursor(`${buildMarkdownImage(imageUrl, file.name)}\n`);
+		const image = await uploadImageBedFile(file, imageFolder.trim() || "blog");
+		insertTextAtCursor(`${buildMarkdownImage(image.url, file.name)}\n`);
 		await fetchImageList();
 	} catch (error) {
 		imageErrorMessage = error instanceof Error ? error.message : "图床上传失败";
@@ -530,25 +426,12 @@ async function uploadImage(event: Event) {
 }
 
 async function deleteImage(image: ImageItem) {
-	if (!canUseImageBed()) return;
+	if (!getGitHubAdminSession()) return;
+	if (!confirm(`确定从图床删除 ${image.key}？`)) return;
 
 	imageErrorMessage = "";
 	try {
-		const deleteUrl = new URL(
-			`/api/manage/delete/${image.key}`,
-			normalizeImageBedUrl(),
-		);
-		const response = await fetch(deleteUrl.toString(), {
-			method: "GET",
-			headers: {
-				Authorization: imageBedForm.token.trim(),
-			},
-		});
-
-		if (!response.ok) {
-			throw new Error(`图床删除失败：${response.status}`);
-		}
-
+		await deleteImageBedFile(image.key);
 		await fetchImageList();
 	} catch (error) {
 		imageErrorMessage = error instanceof Error ? error.message : "图床删除失败";
@@ -556,32 +439,18 @@ async function deleteImage(image: ImageItem) {
 }
 
 async function renameImage(image: ImageItem) {
-	if (!canUseImageBed()) return;
+	if (!getGitHubAdminSession()) return;
 
-	const nextName = window.prompt("输入新的图片文件名", image.key);
-	if (!nextName || nextName.trim() === image.key) {
+	const currentName = image.key.split("/").pop() || image.key;
+	const nextName = window.prompt("输入新的图片文件名", currentName)?.trim();
+	if (!nextName || nextName === currentName || nextName.includes("/")) {
 		return;
 	}
 
 	imageErrorMessage = "";
 	try {
-		const renameUrl = new URL("/api/manage/rename", normalizeImageBedUrl());
-		const response = await fetch(renameUrl.toString(), {
-			method: "POST",
-			headers: {
-				Authorization: imageBedForm.token.trim(),
-				"Content-Type": "application/json",
-			},
-			body: JSON.stringify({
-				oldKey: image.key,
-				newKey: nextName.trim(),
-			}),
-		});
-
-		if (!response.ok) {
-			throw new Error(`图床重命名失败：${response.status}`);
-		}
-
+		const directory = image.key.split("/").slice(0, -1).join("/");
+		await renameImageBedFile(image.key, `${directory}/${nextName}`);
 		await fetchImageList();
 	} catch (error) {
 		imageErrorMessage =
@@ -659,6 +528,7 @@ function syncGitHubSession() {
 		isConnected = false;
 		posts = [];
 		filteredPosts = [];
+		imageItems = [];
 		errorMessage = "请先使用网页右上角的 GitHub 登录按钮完成验证。";
 		return;
 	}
@@ -670,6 +540,7 @@ function syncGitHubSession() {
 		token: session.token,
 	};
 	void connectRepository();
+	void fetchImageList();
 }
 
 async function openPost(post: PostListItem) {
@@ -777,7 +648,6 @@ async function saveCurrentPost() {
 }
 
 $: refreshFilteredPosts();
-$: persistImageBedConfig();
 $: targetFilePath = (() => {
 	const slugPath = normalizeSlugPath(form.slug.trim());
 	if (slugPath) {
@@ -815,7 +685,6 @@ $: if (mounted && isConnected && previewTrigger) {
 
 onMount(() => {
 	mounted = true;
-	loadStoredImageBedConfig();
 	createNewPost();
 	localStorage.removeItem("FIREFLY_WRITE_REPO_CONFIG");
 	syncGitHubSession();
@@ -857,7 +726,7 @@ onMount(() => {
 					<div>
 						<div class="write-card-title">图床接入</div>
 						<div class="write-card-subtitle">
-							填写图床地址和 API Token 后，可以列图、上传、删除、重命名，并快速插入正文。
+							登录后通过站点安全代理管理图床，图床 Token 不会发送到浏览器。
 						</div>
 					</div>
 					<button
@@ -872,27 +741,12 @@ onMount(() => {
 
 				<div class="write-form-stack">
 					<label class="write-field">
-						<span>图床地址</span>
-						<input
-							bind:value={imageBedForm.baseUrl}
-							placeholder="https://img.casto.top"
-						/>
-					</label>
-					<label class="write-field">
-						<span>API Token</span>
-						<input
-							bind:value={imageBedForm.token}
-							type="password"
-							placeholder="图床 API Token"
-						/>
-					</label>
-					<label class="write-field">
 						<span>目录</span>
-						<input bind:value={imageBedForm.folder} placeholder="blog" />
+						<input bind:value={imageFolder} placeholder="blog" />
 					</label>
 					<label class="write-field">
 						<span>上传图片</span>
-						<input type="file" accept="image/*" oninput={uploadImage} />
+						<input type="file" accept="image/*" oninput={uploadImage} disabled={!isConnected || uploadingImage} />
 					</label>
 				</div>
 

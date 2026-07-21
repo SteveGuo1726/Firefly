@@ -1,0 +1,61 @@
+---
+import { Icon } from "astro-icon/components";
+import GalleryAdminManager from "@/components/pages/gallery/GalleryAdminManager.svelte";
+import MainGridLayout from "@/layouts/MainGridLayout.astro";
+
+const title = "相册管理";
+const description = "管理图床 photos 目录中的相册、元数据与展示顺序。";
+---
+
+<MainGridLayout title={title} description={description}>
+	<section class="gallery-admin-page">
+		<header class="gallery-admin-heading card-base">
+			<div class="gallery-admin-icon" aria-hidden="true">
+				<Icon is:inline name="material-symbols:photo-library-rounded" />
+			</div>
+			<div>
+				<h1>{title}</h1>
+				<p>{description}</p>
+			</div>
+		</header>
+		<GalleryAdminManager client:only="svelte" />
+	</section>
+</MainGridLayout>
+
+<style>
+	.gallery-admin-page {
+		width: 100%;
+	}
+
+	.gallery-admin-heading {
+		display: flex;
+		align-items: center;
+		gap: 0.9rem;
+		padding: 1rem 1.1rem;
+		margin-bottom: 1rem;
+	}
+
+	.gallery-admin-icon {
+		display: grid;
+		place-items: center;
+		width: 2.75rem;
+		height: 2.75rem;
+		border-radius: 0.5rem;
+		background: var(--primary);
+		color: white;
+		font-size: 1.45rem;
+		flex: none;
+	}
+
+	.gallery-admin-heading h1 {
+		margin: 0;
+		font-size: 1.35rem;
+		font-weight: 800;
+	}
+
+	.gallery-admin-heading p {
+		margin: 0.25rem 0 0;
+		font-size: 0.84rem;
+		opacity: 0.62;
+	}
+</style>
