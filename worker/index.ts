@@ -385,6 +385,29 @@ function buildAlbums(
 	});
 }
 
+function reconcileManifestAlbums(
+	manifest: GalleryManifest,
+	albums: PublicGalleryAlbum[],
+): GalleryManifest | null {
+	const albumsById = new Map(albums.map((album) => [album.id, album]));
+	let changed = false;
+	const reconciled = manifest.albums.map((album) => {
+		const discovered = albumsById.get(album.id);
+		if (!discovered) return album;
+		const photoOrder = discovered.photos.map((photo) => photo.key);
+		const cover = photoOrder.includes(album.cover)
+			? album.cover
+			: photoOrder[0] || "";
+		const orderChanged =
+			photoOrder.length !== album.photoOrder.length ||
+			photoOrder.some((key, index) => key !== album.photoOrder[index]);
+		if (!orderChanged && cover === album.cover) return album;
+		changed = true;
+		return { ...album, photoOrder, cover };
+	});
+	return changed ? { ...manifest, albums: reconciled } : null;
+}
+
 async function loadGalleryState(
 	env: Env,
 	force = false,
@@ -409,10 +432,18 @@ async function loadGalleryState(
 				.filter(isUserAlbumDir),
 		),
 	).sort();
-	const mapped = new Set(manifest.albums.map((album) => album.sourceDir));
+	const discoveredAlbums = buildAlbums(manifest, photos);
+	const reconciled = reconcileManifestAlbums(manifest, discoveredAlbums);
+	const activeManifest = reconciled
+		? await saveManifest(env, reconciled)
+		: manifest;
+	const albums = reconciled
+		? buildAlbums(activeManifest, photos)
+		: discoveredAlbums;
+	const mapped = new Set(activeManifest.albums.map((album) => album.sourceDir));
 	const state = {
-		manifest,
-		albums: buildAlbums(manifest, photos),
+		manifest: activeManifest,
+		albums,
 		directories,
 		unmappedDirectories: directories.filter(
 			(directory) => !mapped.has(directory),
@@ -512,7 +543,14 @@ async function handlePublicGallery(
 ): Promise<Response> {
 	try {
 		const url = new URL(request.url);
-		const manifest = await loadManifest(env);
+		let manifest = await loadManifest(env);
+		if (
+			manifest.albums.some(
+				(album) => album.photoOrder.length === 0 && album.cover.length > 0,
+			)
+		) {
+			manifest = (await loadGalleryState(env)).manifest;
+		}
 		const albumId = url.searchParams.get("album")?.trim();
 		const summary = url.searchParams.get("summary") === "true";
 		const publicAlbums = buildManifestAlbums(env, manifest);
