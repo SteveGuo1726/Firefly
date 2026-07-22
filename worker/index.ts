@@ -550,7 +550,7 @@ async function handleAdminApi(request: Request, env: Env): Promise<Response> {
 			url.pathname === "/api/admin/gallery/state" &&
 			request.method === "GET"
 		) {
-			return json(await loadGalleryState(env, true), {
+			return json(await loadGalleryState(env), {
 				headers: { "Cache-Control": "no-store" },
 			});
 		}
