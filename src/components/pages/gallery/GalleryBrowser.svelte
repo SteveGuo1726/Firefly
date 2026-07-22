@@ -7,10 +7,16 @@ import { url } from "@/utils/url-utils";
 interface Props {
 	initialAlbums: PublicGalleryAlbum[];
 	staticAlbumIds: string[];
+	managedAlbumIds: string[];
 }
 
-const { initialAlbums, staticAlbumIds }: Props = $props();
-let albums = $state<PublicGalleryAlbum[]>(initialAlbums);
+const { initialAlbums, staticAlbumIds, managedAlbumIds }: Props = $props();
+let albums = $state<PublicGalleryAlbum[]>(
+	initialAlbums.filter(
+		(album) =>
+			staticAlbumIds.includes(album.id) && !managedAlbumIds.includes(album.id),
+	),
+);
 let loading = $state(true);
 let query = $state("");
 let selectedTag = $state("all");
@@ -47,30 +53,21 @@ function albumHref(id: string): string {
 
 onMount(async () => {
 	try {
-		const payload = await fetchPublicGallery();
+		const payload = await fetchPublicGallery("", true);
 		const managedIds = new Set(payload.albums.map((album) => album.id));
 		albums = [
 			...payload.albums,
 			...initialAlbums.filter((album) => !managedIds.has(album.id)),
 		];
 	} catch {
-		// Keep build-time albums when the Worker or image bed is temporarily unavailable.
+		albums = initialAlbums;
 	} finally {
 		loading = false;
 	}
 });
 </script>
 
-{#if loading}
-	<div class="album-grid loading-grid" aria-label="正在读取最新相册" aria-busy="true">
-		{#each Array(3) as _}
-			<div class="album-skeleton" aria-hidden="true">
-				<div class="skeleton-line skeleton-title"></div>
-				<div class="skeleton-line skeleton-copy"></div>
-			</div>
-		{/each}
-	</div>
-{:else if albums.length > 0}
+{#if albums.length > 0}
 	<div class="filters">
 		<label class="search-field">
 			<span aria-hidden="true">⌕</span>
@@ -87,8 +84,8 @@ onMount(async () => {
 	</div>
 {/if}
 
-{#if !loading && filteredAlbums.length > 0}
-	<div class="album-grid">
+{#if filteredAlbums.length > 0 || loading}
+	<div class="album-grid" aria-label={loading ? "正在读取最新相册" : undefined} aria-busy={loading}>
 		{#each filteredAlbums as album (album.id)}
 			<a class="album-card" href={albumHref(album.id)} data-tags={(album.tags || []).join(",")}>
 				<div class="cover">
@@ -115,8 +112,16 @@ onMount(async () => {
 				</div>
 			</a>
 		{/each}
+		{#if loading}
+			{#each Array(Math.max(1, managedAlbumIds.length)) as _}
+				<div class="album-skeleton" aria-hidden="true">
+					<div class="skeleton-line skeleton-title"></div>
+					<div class="skeleton-line skeleton-copy"></div>
+				</div>
+			{/each}
+		{/if}
 	</div>
-{:else if !loading}
+{:else}
 	<div class="empty">没有匹配的相册。</div>
 {/if}
 
@@ -129,7 +134,6 @@ onMount(async () => {
 	.tag-list button { padding: 0.36rem 0.7rem; border: 1px solid var(--line-divider); border-radius: 999px; background: transparent; color: inherit; font-size: 0.78rem; cursor: pointer; }
 	.tag-list button.active { border-color: var(--primary); background: var(--primary); color: white; }
 	.album-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem; margin: 1rem 0; }
-	.loading-grid { margin-top: 0; }
 	.album-skeleton { position: relative; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 0.5rem; background: rgb(127 127 127 / 0.12); }
 	.album-skeleton::after { content: ""; position: absolute; inset: 0; transform: translateX(-100%); background: linear-gradient(90deg, transparent, rgb(255 255 255 / 0.18), transparent); animation: gallery-shimmer 1.3s infinite; }
 	.skeleton-line { position: absolute; z-index: 1; left: 0.9rem; height: 0.65rem; border-radius: 0.2rem; background: rgb(127 127 127 / 0.24); }

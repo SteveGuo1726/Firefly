@@ -51,6 +51,7 @@ const initialAlbums: PublicGalleryAlbum[] = [
 	...managedFallbackAlbums,
 ];
 const staticAlbumIds = galleryConfig.albums.map((album) => album.id);
+const managedAlbumIds = galleryManagedSeed.albums.map((album) => album.id);
 ---
 
 <MainGridLayout title={title} description={description}>
@@ -65,7 +66,7 @@ const staticAlbumIds = galleryConfig.albums.map((album) => album.id);
 			</div>
 		</header>
 
-		<GalleryBrowser client:load {initialAlbums} {staticAlbumIds} />
+		<GalleryBrowser client:load {initialAlbums} {staticAlbumIds} {managedAlbumIds} />
 	</section>
 </MainGridLayout>
 

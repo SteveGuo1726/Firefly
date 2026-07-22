@@ -31,10 +31,12 @@ const MANIFEST_DIR = "photos/.firefly-gallery";
 const MANIFEST_VERSION = 1;
 const MAX_FILE_BYTES = 30 * 1024 * 1024;
 const AUTH_CACHE_MS = 5 * 60 * 1000;
-const GALLERY_CACHE_MS = 60 * 1000;
+const GALLERY_CACHE_MS = 10 * 1000;
 
 const authCache = new Map<string, number>();
 let galleryCache: { expiresAt: number; state: GalleryAdminState } | null = null;
+let manifestCache: { expiresAt: number; manifest: GalleryManifest } | null =
+	null;
 
 function json(data: unknown, init: ResponseInit = {}): Response {
 	const headers = new Headers(init.headers);
@@ -294,7 +296,10 @@ function normalizeManifest(input: unknown): GalleryManifest {
 	};
 }
 
-async function loadManifest(env: Env): Promise<GalleryManifest> {
+async function loadManifest(env: Env, force = false): Promise<GalleryManifest> {
+	if (!force && manifestCache && manifestCache.expiresAt > Date.now()) {
+		return manifestCache.manifest;
+	}
 	try {
 		const list = await listRemoteFiles(env, MANIFEST_DIR, false);
 		const keys = (list.files || [])
@@ -310,7 +315,12 @@ async function loadManifest(env: Env): Promise<GalleryManifest> {
 			);
 			if (!response.ok) continue;
 			try {
-				return normalizeManifest(await response.json());
+				const manifest = normalizeManifest(await response.json());
+				manifestCache = {
+					expiresAt: Date.now() + GALLERY_CACHE_MS,
+					manifest,
+				};
+				return manifest;
 			} catch {
 				// Try an older manifest if the newest upload is incomplete.
 			}
@@ -318,7 +328,30 @@ async function loadManifest(env: Env): Promise<GalleryManifest> {
 	} catch {
 		// The seed keeps existing albums available before the first manifest save.
 	}
-	return cloneSeed();
+	const manifest = cloneSeed();
+	manifestCache = { expiresAt: Date.now() + GALLERY_CACHE_MS, manifest };
+	return manifest;
+}
+
+function buildManifestAlbums(
+	env: Env,
+	manifest: GalleryManifest,
+): PublicGalleryAlbum[] {
+	return manifest.albums.map((album) => {
+		const photos = album.photoOrder.map((key) => ({
+			key,
+			url: `${imageBedBaseUrl(env)}/file/${encodeKey(key)}`,
+			name: key.split("/").pop() || key,
+			size: 0,
+		}));
+		const cover = album.cover || photos[0]?.key || "";
+		return {
+			...album,
+			photos,
+			photoCount: photos.length,
+			coverUrl: cover ? `${imageBedBaseUrl(env)}/file/${encodeKey(cover)}` : "",
+		};
+	});
 }
 
 function buildAlbums(
@@ -360,7 +393,7 @@ async function loadGalleryState(
 		return galleryCache.state;
 	}
 	const [manifest, list] = await Promise.all([
-		loadManifest(env),
+		loadManifest(env, force),
 		listRemoteFiles(env, "photos", true),
 	]);
 	const photos = (list.files || [])
@@ -465,7 +498,11 @@ async function saveManifest(
 	await Promise.allSettled(
 		previousKeys.map((key) => deleteRemoteKey(env, key)),
 	);
-	clearGalleryCache();
+	galleryCache = null;
+	manifestCache = {
+		expiresAt: Date.now() + GALLERY_CACHE_MS,
+		manifest,
+	};
 	return manifest;
 }
 
@@ -474,16 +511,24 @@ async function handlePublicGallery(
 	env: Env,
 ): Promise<Response> {
 	try {
-		const state = await loadGalleryState(env);
-		const albumId = new URL(request.url).searchParams.get("album")?.trim();
+		const url = new URL(request.url);
+		const manifest = await loadManifest(env);
+		const albumId = url.searchParams.get("album")?.trim();
+		const summary = url.searchParams.get("summary") === "true";
+		const publicAlbums = buildManifestAlbums(env, manifest);
 		const albums = albumId
-			? state.albums.filter((album) => album.id === albumId)
-			: state.albums;
+			? publicAlbums.filter((album) => album.id === albumId)
+			: publicAlbums;
 		return json(
-			{ albums, updatedAt: state.manifest.updatedAt },
+			{
+				albums: summary
+					? albums.map((album) => ({ ...album, photos: [] }))
+					: albums,
+				updatedAt: manifest.updatedAt,
+			},
 			{
 				headers: {
-					"Cache-Control": "public, max-age=60, stale-while-revalidate=300",
+					"Cache-Control": "public, max-age=10, must-revalidate",
 				},
 			},
 		);

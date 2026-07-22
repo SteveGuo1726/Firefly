@@ -49,10 +49,12 @@ export async function fetchGalleryAdminState(): Promise<GalleryAdminState> {
 
 export async function fetchPublicGallery(
 	albumId = "",
+	summary = false,
 ): Promise<{ albums: PublicGalleryAlbum[] }> {
 	const url = apiUrl("/api/gallery/public");
 	if (albumId) url.searchParams.set("album", albumId);
-	const response = await fetch(url, { cache: "no-store" });
+	if (summary) url.searchParams.set("summary", "true");
+	const response = await fetch(url);
 	return readJson<{ albums: PublicGalleryAlbum[] }>(response);
 }
 

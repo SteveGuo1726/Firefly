@@ -30,7 +30,7 @@ export function createManagedPublicAlbum(
 
 export const galleryManagedSeed: GalleryManifest = {
 	version: 1,
-	updatedAt: "2026-07-21T00:00:00.000Z",
+	updatedAt: "2026-07-23T00:00:00.000Z",
 	albums: [
 		{
 			id: "castorice-2026",
@@ -56,12 +56,20 @@ export const galleryManagedSeed: GalleryManifest = {
 			id: "test",
 			sourceDir: "photos/test",
 			name: "test",
-			description: "这是一个测试相册管理功能的相册，放点杂图",
-			date: "2026-07-21",
+			description: "这是一个用于测试手机同步功能的相册。",
+			date: "2026-07-22",
 			location: "test",
 			tags: [],
-			cover: "",
+			cover: "photos/test/ENDFIELD_SHARE_1784526812.png",
 			photoOrder: [
+				"photos/test/1750521068016.jpg",
+				"photos/test/1751328966507.jpg",
+				"photos/test/1751723204251.webp",
+				"photos/test/1758430420145.png",
+				"photos/test/1762689391165.jpeg",
+				"photos/test/1782174530943.jpeg",
+				"photos/test/1783175257280.jpeg",
+				"photos/test/1784453238201.jpeg",
 				"photos/test/ENDFIELD_SHARE_1784526812.png",
 				"photos/test/ENDFIELD_SHARE_1784527037.png",
 			],
