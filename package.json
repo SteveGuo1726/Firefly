@@ -1,0 +1,9 @@
+{
+  "name": "firefly-friend-circle-data",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Static deploy bundle for Firefly friend circle data.",
+  "scripts": {
+    "build": "node build.mjs"
+  }
+}
