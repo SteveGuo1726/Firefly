@@ -249,18 +249,6 @@ export const friendsConfig: FriendLink[] = [
 		],
 		weight: 23,
 		enabled: true
-	},
-	{
-		title: "星空驿站 Starlight Station",
-		imgurl: "https://baiyangmu.xyz/static/favicon-96x96.png",
-		desc: "一座漂浮在深空中的小小驿站",
-		siteurl: "https://baiyangmu.xyz",
-		fetchFeed: true,
-		tags: [
-			"Blog"
-		],
-		weight: 24,
-		enabled: true
 	}
 ];
 
