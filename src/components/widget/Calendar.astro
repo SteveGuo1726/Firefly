@@ -62,15 +62,15 @@ const postUrlPrefix = url("/posts/");
   <div class="calendar-container">
     <div class="flex justify-between items-center mb-2">
         <button id="prev-month-btn" class="btn-plain rounded-lg w-8 h-8 flex items-center justify-center hover:bg-(--btn-plain-bg-hover) transition-colors" aria-label="Previous Month">
-            <Icon is:inline name="fa7-solid:chevron-left" class="text-sm" />
+            <Icon name="fa7-solid:chevron-left" class="text-sm" />
         </button>
         <div id="current-month-display" class="text-lg font-bold text-neutral-900 dark:text-neutral-100 cursor-pointer hover:text-(--primary) transition-colors select-none"></div>
         <div class="flex gap-2">
             <button id="reset-month-btn" class="btn-plain rounded-lg w-8 h-8 flex items-center justify-center hover:bg-(--btn-plain-bg-hover) transition-colors" aria-label="Back to Today">
-                <Icon is:inline name="fa7-solid:arrow-rotate-left" class="text-sm" />
+                <Icon name="fa7-solid:arrow-rotate-left" class="text-sm" />
             </button>
             <button id="next-month-btn" class="btn-plain rounded-lg w-8 h-8 flex items-center justify-center hover:bg-(--btn-plain-bg-hover) transition-colors" aria-label="Next Month">
-                <Icon is:inline name="fa7-solid:chevron-right" class="text-sm" />
+                <Icon name="fa7-solid:chevron-right" class="text-sm" />
             </button>
         </div>
     </div>
@@ -110,7 +110,7 @@ const postUrlPrefix = url("/posts/");
     <div id="year-view-container" class="grid grid-cols-3 gap-2" style="display: none;">
       <!-- 将由 JavaScript 填充 -->
     </div>
-    
+
     <!-- 文章列表 -->
     <div id="calendar-posts" class="mt-3">
       <div class="border-t border-neutral-200 dark:border-neutral-700 mb-2" id="calendar-posts-divider" style="display: none;"></div>
@@ -140,7 +140,7 @@ const postUrlPrefix = url("/posts/");
         allPostsData = await response.json();
         window.__allPostMetaCache = allPostsData;
       }
-      
+
       // Reconstruct postDateMap and availableYears
       postDateMap = {};
       const yearsSet = new Set();
@@ -153,9 +153,9 @@ const postUrlPrefix = url("/posts/");
         postDateMap[dateKey].push({ id: post.id, title: post.title, published: post.published });
         yearsSet.add(date.getFullYear());
       });
-      
+
       availableYears = Array.from(yearsSet).sort((a, b) => b - a);
-      
+
       renderCalendar();
     } catch (error) {
       console.error("Failed to fetch calendar data", error);
@@ -262,7 +262,7 @@ const postUrlPrefix = url("/posts/");
     const monthContainer = document.getElementById('month-view-container');
     const yearContainer = document.getElementById('year-view-container');
     const postsContainer = document.getElementById('calendar-posts');
-    
+
     // Update visibility
     if (container) container.style.display = currentView === 'day' ? 'block' : 'none';
     if (monthContainer) monthContainer.style.display = currentView === 'month' ? 'grid' : 'none';
@@ -287,7 +287,7 @@ const postUrlPrefix = url("/posts/");
     const resetBtn = document.getElementById('reset-month-btn');
     const prevBtn = document.getElementById('prev-month-btn');
     const nextBtn = document.getElementById('next-month-btn');
-    
+
     if (navDisplay) {
       if (currentView === 'day') {
         if (currentLang.startsWith('zh') || currentLang.startsWith('ja')) {
@@ -307,7 +307,7 @@ const postUrlPrefix = url("/posts/");
       const isCurrent = displayYear === now.getFullYear() && displayMonth === now.getMonth();
       resetBtn.style.display = (currentView === 'day' && isCurrent) ? 'none' : 'flex';
     }
-    
+
     // Hide prev/next buttons in year view as we show all years
     if (prevBtn) prevBtn.style.visibility = currentView === 'year' ? 'hidden' : 'visible';
     if (nextBtn) nextBtn.style.visibility = currentView === 'year' ? 'hidden' : 'visible';
@@ -319,24 +319,24 @@ const postUrlPrefix = url("/posts/");
     const currentMonth = displayMonth;
     const currentDate = now.getDate();
     const isCurrentMonth = currentYear === now.getFullYear() && currentMonth === now.getMonth();
-    
+
     // 获取月份的第一天是星期几
     const firstDayOfMonth = new Date(currentYear, currentMonth, 1).getDay();
-    
+
     // 获取当月天数
     const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
-    
+
     // 生成日历格子
     const calendarGrid = document.getElementById('calendar-grid');
     if (!calendarGrid) return;
-    
+
     const calendarDays = [];
-    
+
     // 添加空白格子（月初空白）
     for (let i = 0; i < firstDayOfMonth; i++) {
       calendarDays.push({ day: null, hasPost: false, count: 0, dateKey: "" });
     }
-    
+
     // 添加每一天
     for (let day = 1; day <= daysInMonth; day++) {
       const dateKey = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -349,14 +349,14 @@ const postUrlPrefix = url("/posts/");
         dateKey
       });
     }
-    
+
     // 渲染日历格子
     calendarGrid.innerHTML = calendarDays.map(({day, hasPost, count, dateKey}) => {
       const isToday = day === currentDate && isCurrentMonth;
       const classes = [
         "calendar-day aspect-square flex items-center justify-center rounded-sm text-sm relative cursor-pointer"
       ];
-      
+
       if (!day) {
         classes.push("text-neutral-400 dark:text-neutral-600");
       } else if (!hasPost) {
@@ -364,11 +364,11 @@ const postUrlPrefix = url("/posts/");
       } else {
         classes.push("text-neutral-900 dark:text-neutral-100 font-bold");
       }
-      
+
       if (isToday) {
         classes.push("ring-2 ring-(--primary)");
       }
-      
+
       return `
         <div
           class="${classes.join(' ')}"
@@ -381,16 +381,16 @@ const postUrlPrefix = url("/posts/");
         </div>
       `;
     }).join('');
-    
+
     // 获取当月所有文章
     const currentMonthPosts = allPostsData.filter(post => {
       const date = new Date(post.published);
       return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
     });
-    
+
     // 显示当月文章列表
     showMonthlyPosts(currentMonthPosts);
-    
+
     // 添加点击事件监听
     setupClickHandlers(currentMonthPosts);
   }
@@ -419,9 +419,9 @@ const postUrlPrefix = url("/posts/");
       } else {
         classes.push("text-neutral-700 dark:text-neutral-300");
       }
-      
+
       const dotHtml = hasPost ? '<span class="absolute bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-(--primary)"></span>' : '';
-      
+
       return `<div class="${classes.join(' ')}" data-month="${index}">${name}${dotHtml}</div>`;
     }).join('');
 
@@ -459,7 +459,7 @@ const postUrlPrefix = url("/posts/");
       });
     });
   }
-  
+
   // 显示当月所有文章
   function showMonthlyPosts(currentMonthPosts) {
     const postsWrapper = document.getElementById('calendar-posts');
@@ -469,7 +469,7 @@ const postUrlPrefix = url("/posts/");
     if (postsWrapper) {
       postsWrapper.style.display = currentMonthPosts.length > 0 ? 'block' : 'none';
     }
-    
+
     if (postsList) {
       postsList.innerHTML = currentMonthPosts.map(post => {
         const date = new Date(post.published);
@@ -480,30 +480,30 @@ const postUrlPrefix = url("/posts/");
           <span class="text-xs text-neutral-500 dark:text-neutral-400 ml-2 whitespace-nowrap">${dateStr}</span>
         </a>
       `}).join('');
-      
+
       // 显示/隐藏分割线
       if (divider) {
         divider.style.display = currentMonthPosts.length > 0 ? 'block' : 'none';
       }
     }
   }
-  
+
   // 设置日历格子点击事件
   function setupClickHandlers(currentMonthPosts) {
     const postsWrapper = document.getElementById('calendar-posts');
     const calendarDays = document.querySelectorAll('.calendar-day[data-date]');
     const postsList = document.getElementById('calendar-posts-list');
     const divider = document.getElementById('calendar-posts-divider');
-    
+
     let currentSelectedDay = null;
-    
+
     calendarDays.forEach(dayElement => {
       dayElement.addEventListener('click', () => {
         const dateKey = dayElement.getAttribute('data-date');
         const hasPost = dayElement.getAttribute('data-has-post') === 'true';
-        
+
         if (!hasPost || !dateKey) return;
-        
+
         // 切换选中状态
         if (currentSelectedDay === dayElement) {
           // 取消选中，恢复显示当月所有文章
@@ -512,19 +512,19 @@ const postUrlPrefix = url("/posts/");
           showMonthlyPosts(currentMonthPosts);
           return;
         }
-        
+
         // 移除之前选中的样式
         if (currentSelectedDay) {
           currentSelectedDay.classList.remove('calendar-day-selected');
         }
-        
+
         // 添加选中样式
         dayElement.classList.add('calendar-day-selected');
         currentSelectedDay = dayElement;
-        
+
         // 获取该日期的文章
         const posts = postDateMap[dateKey] || [];
-        
+
         if (posts.length > 0 && postsList) {
           if (postsWrapper) {
             postsWrapper.style.display = 'block';
@@ -540,7 +540,7 @@ const postUrlPrefix = url("/posts/");
               <span class="text-xs text-neutral-500 dark:text-neutral-400 ml-2 whitespace-nowrap">${dateStr}</span>
             </a>
           `}).join('');
-          
+
           // 显示分割线
           if (divider) {
             divider.style.display = 'block';
@@ -579,19 +579,19 @@ const postUrlPrefix = url("/posts/");
       const now = new Date();
       displayYear = now.getFullYear();
       displayMonth = now.getMonth();
-      
+
       fetchData();
-      
+
       // Bind events
       const prevBtn = document.getElementById('prev-month-btn');
       const nextBtn = document.getElementById('next-month-btn');
       const resetBtn = document.getElementById('reset-month-btn');
       const navDisplay = document.getElementById('current-month-display');
-      
+
       if (prevBtn) prevBtn.onclick = () => changeMonth(-1);
       if (nextBtn) nextBtn.onclick = () => changeMonth(1);
       if (resetBtn) resetBtn.onclick = () => resetToToday();
-      
+
       if (navDisplay) {
         navDisplay.onclick = () => {
           if (currentView === 'day') {
@@ -603,14 +603,18 @@ const postUrlPrefix = url("/posts/");
         };
       }
   }
-  
+
   // 页面加载时渲染日历
   initCalendar();
 
-  // 页面切换时重新渲染
-  document.addEventListener("swup:contentReplaced", () => {
-    setTimeout(initCalendar, 100);
-  });
+  // 防止 Swup 切页重跑脚本时重复注册监听器（此脚本的 data-swup-ignore-script 在 define:vars 构建时可能丢失）
+  if (!window.__calendarInit) {
+    window.__calendarInit = true;
+    // 页面切换时重新渲染
+    document.addEventListener("swup:contentReplaced", () => {
+      setTimeout(initCalendar, 100);
+    });
+  }
 </script>
 
 <style>
