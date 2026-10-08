@@ -521,6 +521,14 @@ enum I18nKey {
 	exitImmersiveReading = "exitImmersiveReading",
 	tocExpand = "tocExpand",
 	tocCollapse = "tocCollapse",
+	anime = "anime",
+	animeSubtitle = "animeSubtitle",
+	animeSource = "animeSource",
+	animeNotConfigured = "animeNotConfigured",
+	animeNotConfiguredDesc = "animeNotConfiguredDesc",
+	animeTmdbAvg = "animeTmdbAvg",
+	animeDualSynced = "animeDualSynced",
+	animeViewTmdb = "animeViewTmdb",
 }
 
 export default I18nKey;

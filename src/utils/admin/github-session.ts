@@ -68,7 +68,7 @@ export function getGitHubAdminSession(): GitHubAdminSession | null {
 }
 
 export function getGitHubRepoConfigFromSession(
-	session = getGitHubAdminSession(),
+	session: GitHubAdminSession | null = getGitHubAdminSession(),
 ): GitHubRepoConfig | null {
 	if (!session) return null;
 	return {

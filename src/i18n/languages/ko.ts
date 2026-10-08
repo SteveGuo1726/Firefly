@@ -537,4 +537,12 @@ export const ko: Translation = {
 	[Key.exitImmersiveReading]: "몰입형 읽기 종료",
 	[Key.tocExpand]: "목차 펼치기",
 	[Key.tocCollapse]: "목차 접기",
+	[Key.anime]: "애니메이션",
+	[Key.animeSubtitle]: "저의 애니메이션 시청 기록, Bilibili와 TMDB 데이터 기반",
+	[Key.animeSource]: "출처",
+	[Key.animeNotConfigured]: "애니메이션 데이터 소스가 설정되지 않았습니다",
+	[Key.animeNotConfiguredDesc]: "src/config/siteConfig.ts에서 Bilibili UID 또는 TMDB API 키를 설정하세요",
+	[Key.animeTmdbAvg]: "TMDB 평균",
+	[Key.animeDualSynced]: "이중 동기화됨",
+	[Key.animeViewTmdb]: "TMDB 상세 정보 보기",
 };

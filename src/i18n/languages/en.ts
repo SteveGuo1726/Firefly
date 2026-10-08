@@ -540,4 +540,12 @@ export const en: Translation = {
 	[Key.exitImmersiveReading]: "Exit Immersive Reading",
 	[Key.tocExpand]: "Expand directory",
 	[Key.tocCollapse]: "Collapse directory",
+	[Key.anime]: "Anime",
+	[Key.animeSubtitle]: "My anime tracking list, data from Bilibili and TMDB",
+	[Key.animeSource]: "Source",
+	[Key.animeNotConfigured]: "Anime data source not configured",
+	[Key.animeNotConfiguredDesc]: "Please configure Bilibili UID or TMDB API Key in src/config/siteConfig.ts",
+	[Key.animeTmdbAvg]: "TMDB Avg",
+	[Key.animeDualSynced]: "Dual Synced",
+	[Key.animeViewTmdb]: "View TMDB Details",
 };

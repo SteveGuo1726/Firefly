@@ -292,7 +292,7 @@ async function getExpressiveCodeRenderer(): Promise<ExpressiveCodeRenderer> {
 								collapseButtonText: i18n(I18nKey.codeCollapsibleShowLess),
 								expandedAnnouncement: i18n(I18nKey.codeCollapsibleExpanded),
 								collapsedAnnouncement: i18n(I18nKey.codeCollapsibleCollapsed),
-							}),
+							}) as unknown as ReturnType<typeof pluginCollapsibleSections>,
 						]
 					: []),
 			],
