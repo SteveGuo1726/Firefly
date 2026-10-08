@@ -1,14 +1,11 @@
 ---
-import "@fancyapps/ui/dist/fancybox/fancybox.css";
-import "@/styles/fancybox-custom.css";
 // Fancybox 管理器组件
 ---
 
 <script>
   let Fancybox: any;
-  const IMG_SELECTOR = ".custom-md img, #post-cover img, .moment-images img";
-  const LINK_SELECTOR =
-    ".moment-images a[data-fancybox], [data-fancybox]:not(.moment-images a)";
+  const IMG_SELECTOR = ".custom-md img:not(.card-wiki-link img), #post-cover img, .moment-images img";
+  const LINK_SELECTOR = ".moment-images a[data-fancybox], [data-fancybox]:not(.moment-images a)";
   const svgBlobUrlCache = new Map<string, string>();
 
   function isSvgSrc(src: string): boolean {
@@ -17,9 +14,7 @@ import "@/styles/fancybox-custom.css";
       const url = new URL(src, location.href);
       if (url.pathname.toLowerCase().endsWith(".svg")) return true;
       if (url.searchParams.get("f")?.toLowerCase() === "svg") return true;
-    } catch {
-      return false;
-    }
+    } catch { return false; }
     return false;
   }
 
@@ -28,55 +23,61 @@ import "@/styles/fancybox-custom.css";
     svgBlobUrlCache.clear();
   }
 
-  async function getSvgBlobUrl(
-    src: string,
-    fallbackW: number,
-    fallbackH: number,
-  ): Promise<string | null> {
+  /**
+   * 灯箱 CSS 按需注入：用 ?url 拿静态资源地址，Astro 不会把 ?url 导入的样式打进页面头部。
+   * 仅在页面存在可点开图片时才真正加载；Swup 换页被 updateHead 顶掉后，下次 setup() 会重新注入
+   * （网络层有 hash 缓存，不产生额外请求）。
+   */
+  let cssUrls: string[] = [];
+  async function injectFancyboxCss(): Promise<void> {
+    if (cssUrls.length === 0) {
+      const [fancyboxCss, customCss] = await Promise.all([
+        import("@fancyapps/ui/dist/fancybox/fancybox.css?url"),
+        import("@/styles/fancybox-custom.css?url"),
+      ]);
+      cssUrls = [fancyboxCss.default, customCss.default].filter(
+        (u): u is string => typeof u === "string",
+      );
+    }
+    for (const url of cssUrls) {
+      if (!document.head.querySelector(`link[href="${url}"]`)) {
+        const link = document.createElement("link");
+        link.rel = "stylesheet";
+        link.href = url;
+        document.head.appendChild(link);
+      }
+    }
+  }
+
+  async function getSvgBlobUrl(src: string, fallbackW: number, fallbackH: number): Promise<string | null> {
     const cached = svgBlobUrlCache.get(src);
     if (cached) return cached;
     try {
       const resp = await fetch(src);
-      if (!resp.ok) {
-        console.debug("[Fancybox] SVG fetch failed:", resp.status, src);
-        return null;
-      }
+      if (!resp.ok) { console.debug("[Fancybox] SVG fetch failed:", resp.status, src); return null; }
       const svgText = await resp.text();
       const parser = new DOMParser();
       const doc = parser.parseFromString(svgText, "image/svg+xml");
-      if (doc.querySelector("parsererror")) {
-        console.debug("[Fancybox] SVG parse error:", src);
-        return null;
-      }
+      if (doc.querySelector("parsererror")) { console.debug("[Fancybox] SVG parse error:", src); return null; }
       const svgEl = doc.querySelector("svg");
-      if (!svgEl) {
-        console.debug("[Fancybox] No <svg> element:", src);
-        return null;
-      }
+      if (!svgEl) { console.debug("[Fancybox] No <svg> element:", src); return null; }
       if (!svgEl.getAttribute("width") || !svgEl.getAttribute("height")) {
         const vb = svgEl.getAttribute("viewBox");
-        let w = String(fallbackW);
-        let h = String(fallbackH);
+        let w = String(fallbackW), h = String(fallbackH);
         if (vb) {
           const parts = vb.split(/[\s,]+/);
           if (parts.length >= 4 && Number(parts[2]) > 0 && Number(parts[3]) > 0) {
-            w = parts[2];
-            h = parts[3];
+            w = parts[2]; h = parts[3];
           }
         }
         if (!svgEl.getAttribute("width")) svgEl.setAttribute("width", w);
         if (!svgEl.getAttribute("height")) svgEl.setAttribute("height", h);
       }
-      const blob = new Blob([new XMLSerializer().serializeToString(svgEl)], {
-        type: "image/svg+xml",
-      });
+      const blob = new Blob([new XMLSerializer().serializeToString(svgEl)], { type: "image/svg+xml" });
       const blobUrl = URL.createObjectURL(blob);
       svgBlobUrlCache.set(src, blobUrl);
       return blobUrl;
-    } catch (err) {
-      console.debug("[Fancybox] SVG preprocess error:", src, err);
-      return null;
-    }
+    } catch (err) { console.debug("[Fancybox] SVG preprocess error:", src, err); return null; }
   }
 
   function getCommonOptions() {
@@ -140,7 +141,7 @@ import "@/styles/fancybox-custom.css";
             img.src = blobUrl;
             img.dataset.svgFixed = "true";
           }
-        }),
+        })
       );
     });
 
@@ -156,7 +157,7 @@ import "@/styles/fancybox-custom.css";
             el.setAttribute(attr, blobUrl);
             el.dataset.svgFixed = "true";
           }
-        }),
+        })
       );
     });
 
@@ -164,9 +165,9 @@ import "@/styles/fancybox-custom.css";
   }
 
   async function setup() {
-    if (!document.querySelector(IMG_SELECTOR) && !document.querySelector(LINK_SELECTOR)) {
-      return;
-    }
+    if (!document.querySelector(IMG_SELECTOR) && !document.querySelector(LINK_SELECTOR)) return;
+
+    await injectFancyboxCss();
 
     if (!Fancybox) {
       const mod = await import("@fancyapps/ui");
@@ -216,12 +217,22 @@ import "@/styles/fancybox-custom.css";
     revokeAllSvgBlobUrls();
   }
 
+  // 初始化
   setup();
 
-  document.addEventListener("swup:content:replace", setup);
-  document.addEventListener("dynamic-gallery:ready", setup);
+  // Swup 生命周期整合
+  // 切页换入后延到下一帧再 setup：让首帧先绘制，避免每趟对全图 querySelectorAll +
+  // fetch(blob) 的同步长任务阻塞换入瞬间（尤其文章页图多时）。setup 内部有
+  // data-svg-fixed / Fancybox.unbind 守卫，延一帧不会重绑或丢图。
+  document.addEventListener("swup:content:replace", () => {
+    requestAnimationFrame(setup);
+  });
+  document.addEventListener("dynamic-gallery:ready", () => {
+    requestAnimationFrame(setup);
+  });
   document.addEventListener("swup:visit:start", cleanupFancybox);
 
+  // 加密文章解密后重新绑定灯箱
   document.addEventListener("password:decrypted", () => {
     setTimeout(setup, 200);
   });
