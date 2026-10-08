@@ -5,7 +5,6 @@ type DetectBuildPlatformOptions = {
 	isDev?: boolean;
 	unknownBuildPlatform?: string;
 };
-
 //“FIREFLY_BUILD_PLATFORM”环境变量自定义命名构建平台
 const BUILD_PLATFORM_OVERRIDE_KEY = "FIREFLY_BUILD_PLATFORM";
 
@@ -47,13 +46,11 @@ export function detectBuildPlatform({
 		// 环境变量显式覆盖最优先，可以用“FIREFLY_BUILD_PLATFORM”环境变量自定义不同部署平台的名字（默认值为空，无定义，继续后续自动识别）
 		return overrideValue.trim();
 	}
-
 	// ciName 自动识别
 	if (ciName?.trim()) {
 		return ciName.trim();
 	}
 	//补充EdgeOne Pages 和 ESA Pages 识别逻辑
-
 	if (hasNonEmptyEnv(env, "EDGEONE_PROJECT_ID")) {
 		return "EdgeOne Pages";
 	}
@@ -63,8 +60,7 @@ export function detectBuildPlatform({
 	}
 
 	if (isCI) {
-		// 仍然保留上游原有的未知平台回退文案能力
-		return ciName || unknownBuildPlatform;
+		return unknownBuildPlatform;
 	}
 
 	return isDev ? "Local Dev" : "Local";
