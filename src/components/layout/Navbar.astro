@@ -380,35 +380,29 @@ if (document.readyState === 'loading') {
 {
     import.meta.env.PROD && (
         <script is:inline data-swup-ignore-script define:vars={{ scriptUrl: url('/pagefind/pagefind.js') }}>
-            {/* 你的 loadPagefind 函数的完整内容放在这里 */}
-            async function loadPagefind() {
-                try {
-                    const response = await fetch(scriptUrl, { method: 'HEAD' });
-                    if (!response.ok) {
-                        throw new Error(`Pagefind script not found: ${response.status}`);
-                    }
-                    const pagefind = await import(scriptUrl);
-                    await pagefind.options({
-                        excerptLength: 20
-                    });
-                    window.pagefind = pagefind;
-                    document.dispatchEvent(new CustomEvent('pagefindready'));
-                    console.log('Pagefind loaded and initialized successfully, event dispatched.');
-                } catch (error) {
-                    console.error('Failed to load Pagefind:', error);
-                    window.pagefind = {
-                        search: () => Promise.resolve({ results: [] }),
-                        options: () => Promise.resolve(),
-                    };
-                    document.dispatchEvent(new CustomEvent('pagefindloaderror'));
-                    console.log('Pagefind load error, event dispatched.');
+            // Defer Pagefind until search is opened; avoid loading on every page.
+            if (!window.__fireflyPagefindLoaderInstalled) {
+                window.__fireflyPagefindLoaderInstalled = true;
+                function loadPagefind() {
+                    if (window.pagefind || window.__fireflyPagefindLoading) return;
+                    window.__fireflyPagefindLoading = import(scriptUrl)
+                        .then(async (pagefind) => {
+                            await pagefind.options({ excerptLength: 20 });
+                            window.pagefind = pagefind;
+                            document.dispatchEvent(new Event('pagefindready'));
+                        })
+                        .catch((error) => {
+                            window.__fireflyPagefindLoading = null;
+                            console.warn('Failed to load search index:', error);
+                            document.dispatchEvent(new Event('pagefindloaderror'));
+                        });
                 }
-            }
-
-            if (document.readyState === 'loading') {
-                document.addEventListener('DOMContentLoaded', loadPagefind);
-            } else {
-                loadPagefind();
+                document.addEventListener('focusin', function(event) {
+                    if (event.target?.closest?.('#search-bar, #search-bar-inside')) loadPagefind();
+                });
+                document.addEventListener('click', function(event) {
+                    if (event.target?.closest?.('#search-switch')) loadPagefind();
+                });
             }
         </script>
     )
