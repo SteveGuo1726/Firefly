@@ -1,15 +1,46 @@
 {
-  "checkedUrl": "https://casto-test.netlify.app/",
+  "url": "https://casto-test.netlify.app/",
   "responseStatus": 200,
   "htmlBytes": 402803,
-  "totalLinkTags": 0,
-  "preloadLinks": [],
+  "totalLinkTags": 17,
+  "imageTags": 19,
+  "preloadLinks": [
+    {
+      "media": "(min-width: 1024px)",
+      "href": "/_astro/d1.BQFDgVOj_ZpyeMN.webp",
+      "imagesrcset": "/_astro/d1.BQFDgVOj_2cMwaY.webp 1280w, /_astro/d1.BQFDgVOj_ZI3t1M.webp 1920w, /_astro/d1.BQFDgVOj_2u2ePb.webp 2560w",
+      "imagesizes": "100vw",
+      "fetchpriority": "high",
+      "tag": "<link rel=\"preload\" as=\"image\" media=\"(min-width: 1024px)\" href=\"/_astro/d1.BQFDgVOj_ZpyeMN.webp\" imagesrcset=\"/_astro/d1.BQFDgVOj_2cMwaY.webp 1280w, /_astro/d1.BQFDgVOj_ZI3t1M.webp 1920w, /_astro/d1.BQFDgVOj_2u2ePb.webp 2560w\" imagesizes=\"100vw\" fetchpriority=\"high\">"
+    }
+  ],
   "firstImages": {
     "Mobile": {
-      "found": false
+      "found": true,
+      "loading": "lazy",
+      "priority": "high",
+      "src": "/_astro/m1.7GkZSNaY_Z2nQW1L.webp",
+      "srcset": "/_astro/m1.7GkZSNaY_ZsKogH.webp 640w, /_astro/m1.7GkZSNaY_MQM6I.webp 750w, /_astro/m1.7GkZSNaY_Z1Nz0JM.webp 1080w",
+      "pictureSources": [
+        {
+          "type": "image/webp",
+          "srcset": "/_astro/m1.7GkZSNaY_ZsKogH.webp 640w, /_astro/m1.7GkZSNaY_MQM6I.webp 750w, /_astro/m1.7GkZSNaY_Z1Nz0JM.webp 1080w"
+        }
+      ]
     },
     "Desktop": {
-      "found": false
+      "found": true,
+      "loading": "lazy",
+      "priority": "high",
+      "src": "/_astro/d1.BQFDgVOj_hbMjJ.webp",
+      "srcset": "/_astro/d1.BQFDgVOj_oS1Va.webp 1280w, /_astro/d1.BQFDgVOj_Z2wvyek.webp 1920w, /_astro/d1.BQFDgVOj_Z1fn5FN.webp 2560w",
+      "pictureSources": [
+        {
+          "type": "image/webp",
+          "srcset": "/_astro/d1.BQFDgVOj_oS1Va.webp 1280w, /_astro/d1.BQFDgVOj_Z2wvyek.webp 1920w, /_astro/d1.BQFDgVOj_Z1fn5FN.webp 2560w"
+        }
+      ]
     }
-  }
+  },
+  "htmlSnippet": "<!DOCTYPE html><html lang=\"zh-CN\" class=\"bg-(--page-bg) text-[14px] md:text-[16px]\" data-wallpaper-mode=\"banner\" style=\"--configHue: 295;--page-width: 100rem;--banner-height-home: 65vh;--banner-height: 35vh;\" data-astro-cid-ju4pidww><head><meta charset=\"UTF-8\">\n<!-- This site is hosted on Netlify. Anyone can build and deploy a site\n     like this one for free: https://netlify.new/?utm_campaign=loops&utm_source=ai-leg"
 }
