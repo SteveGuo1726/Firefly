@@ -1,8 +1,18 @@
 export type { AnalyticsConfig } from "./analyticsConfig";
 export type { AnnouncementConfig } from "./announcementConfig";
-export type { BackgroundWallpaperConfig } from "./backgroundWallpaper";
+export type {
+	BackgroundWallpaperConfig,
+	FullscreenWallpaperLayout,
+} from "./backgroundWallpaper";
+export type {
+	BooknavFaviconConfig,
+	BooknavGroup,
+	BooknavItem,
+	BooknavPageConfig,
+} from "./booknavConfig";
 export type { CommentConfig } from "./commentConfig";
 export type { CoverImageConfig } from "./coverImageConfig";
+export type { DisplaySettingsConfig } from "./displaySettingsConfig";
 export type { DynamicConfig } from "./dynamicConfig";
 export type { SakuraConfig } from "./effectsConfig";
 
@@ -12,12 +22,7 @@ export type {
 	PluginLanguageBadgeConfig,
 } from "./expressiveCodeConfig";
 export type { FontSelectionConfig } from "./fontConfig";
-export type { FooterConfig } from "./footerConfig";
-export type {
-	FriendCircleConfig,
-	FriendLink,
-	FriendsPageConfig,
-} from "./friendsConfig";
+export type { FriendLink, FriendsPageConfig } from "./friendsConfig";
 export type { GalleryAlbum, GalleryConfig } from "./galleryConfig";
 export type { LicenseConfig } from "./licenseConfig";
 export type { MermaidConfig } from "./mermaidConfig";
@@ -58,3 +63,7 @@ export type ResponsiveImageLayout = "constrained" | "full-width" | "none";
 
 // 图像格式类型
 export type ImageFormat = "avif" | "webp" | "png" | "jpg" | "jpeg" | "gif";
+
+export type { FooterConfig } from "./footerConfig";
+
+export type { FriendCircleConfig } from "./friendsConfig";
