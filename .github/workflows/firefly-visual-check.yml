@@ -53,7 +53,7 @@ jobs:
               process.exit(1);
             }
             if (u.pathname !== "/" || u.search || u.hash) {
-              console.error("Use only a Netlify deployment's root URL");
+              console.error("Use only a Netlify deployment root URL");
               process.exit(1);
             }
           '
