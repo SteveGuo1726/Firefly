@@ -1,0 +1,15 @@
+{
+  "checkedUrl": "https://casto-test.netlify.app/",
+  "responseStatus": 200,
+  "htmlBytes": 402803,
+  "totalLinkTags": 0,
+  "preloadLinks": [],
+  "firstImages": {
+    "Mobile": {
+      "found": false
+    },
+    "Desktop": {
+      "found": false
+    }
+  }
+}
