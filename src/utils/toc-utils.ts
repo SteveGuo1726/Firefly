@@ -10,7 +10,6 @@ import {
 	renderTocItemHTML,
 	type TocInput,
 } from "@/utils/toc-shared";
-import { isArticleDetailPage } from "@/utils/url-utils";
 
 export interface TOCConfig {
 	contentId: string;
@@ -426,8 +425,8 @@ export class TOCManager {
 }
 
 /**
- * 检查是否为文章/项目详情页
+ * 检查是否为文章页面
  */
 export function isPostPage(): boolean {
-	return isArticleDetailPage(window.location.pathname);
+	return window.location.pathname.includes("/posts/");
 }
