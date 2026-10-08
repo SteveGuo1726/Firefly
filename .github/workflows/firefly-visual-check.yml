@@ -1,0 +1,169 @@
+# Place this workflow on the repository's DEFAULT branch (master) once.
+# It never writes to the repository. Trigger via workflow_dispatch on master.
+name: Firefly Preview Visual Check
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_sha:
+        description: 'Exact 40-character SHA currently deployed to Netlify'
+        type: string
+        required: true
+      deploy_url:
+        description: 'HTTPS Netlify preview or immutable deploy URL for casto-test'
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: firefly-preview-visual-${{ inputs.expected_sha }}
+  cancel-in-progress: false
+
+jobs:
+  inspect:
+    if: github.repository == 'SteveGuo1726/Firefly' && github.actor == 'SteveGuo1726'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      TARGET_URL: ${{ inputs.deploy_url }}
+      EXPECTED_SHA: ${{ inputs.expected_sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ai/preview-test
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Validate exact version and allowed Netlify target
+        shell: bash
+        run: |
+          set -euo pipefail
+          ACTUAL_SHA="$(git rev-parse HEAD)"
+          if [[ ! "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]] || [[ "$ACTUAL_SHA" != "$EXPECTED_SHA" ]]; then
+            echo "Expected SHA doesn't match the current staging branch. Expected: $EXPECTED_SHA; actual: $ACTUAL_SHA" >&2
+            exit 1
+          fi
+          node -e '
+            const u = new URL(process.env.TARGET_URL);
+            if (u.protocol !== "https:" || u.username || u.password || u.port ||
+                !/^(?:casto-test\.netlify\.app|[a-z0-9-]+--casto-test\.netlify\.app)$/.test(u.hostname)) {
+              console.error("URL must be a casto-test Netlify HTTPS deployment");
+              process.exit(1);
+            }
+            if (u.pathname !== "/" || u.search || u.hash) {
+              console.error("Use only a Netlify deployment's root URL");
+              process.exit(1);
+            }
+          '
+
+      - name: Set up Chromium (free GitHub-hosted runner)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/firefly-browser"
+          npm install --prefix "$RUNNER_TEMP/firefly-browser" --no-audit --no-fund playwright@1.56.1
+          "$RUNNER_TEMP/firefly-browser/node_modules/.bin/playwright" install --with-deps chromium
+
+      - name: Capture desktop, mobile, errors and Web Vitals
+        shell: bash
+        run: |
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const { chromium } = require(path.join(process.env.RUNNER_TEMP, 'firefly-browser/node_modules/playwright'));
+
+          (async () => {
+            const url = new URL(process.env.TARGET_URL);
+            const out = path.join(process.env.RUNNER_TEMP, 'firefly-visual-report');
+            fs.mkdirSync(out, {recursive: true});
+            const browser = await chromium.launch({headless: true});
+            const runs = [];
+            const cases = [
+              {id:'home-desktop', path:'/', size:{width:1440,height:900}},
+              {id:'home-mobile', path:'/', size:{width:390,height:844}},
+              {id:'archive-desktop', path:'/archive/', size:{width:1440,height:900}},
+              {id:'gallery-mobile', path:'/gallery/', size:{width:390,height:844}},
+            ];
+            let fatal = false;
+            for (const test of cases) {
+              const context = await browser.newContext({
+                viewport: test.size,
+                deviceScaleFactor: 1,
+                isMobile: test.size.width < 600,
+                hasTouch: test.size.width < 600,
+                reducedMotion: 'reduce',
+              });
+              const page = await context.newPage();
+              const errors = [], requestFailures = [];
+              page.on('pageerror', e => errors.push(String(e.message).slice(0,500)));
+              page.on('requestfailed', r => {
+                try {
+                  if (new URL(r.url()).hostname === url.hostname) requestFailures.push({url:r.url().slice(0,250),failure:r.failure()?.errorText});
+                } catch {}
+              });
+              await page.addInitScript(() => {
+                window.__fireflyPerf = {lcp:0, cls:0};
+                try {new PerformanceObserver(list => {
+                  for (const entry of list.getEntries()) window.__fireflyPerf.lcp = Math.round(entry.startTime);
+                }).observe({type:'largest-contentful-paint',buffered:true});} catch {}
+                try {new PerformanceObserver(list => {
+                  for (const entry of list.getEntries()) {
+                    if (!entry.hadRecentInput) window.__fireflyPerf.cls += entry.value;
+                  }
+                }).observe({type:'layout-shift',buffered:true});} catch {}
+              });
+              let response, navigationError;
+              try { response = await page.goto(new URL(test.path, url).toString(),{waitUntil:'domcontentloaded',timeout:45000}); }
+              catch(e) { navigationError = String(e.message).slice(0,500); }
+              await page.waitForTimeout(2200);
+              const metrics = await page.evaluate(() => {
+                const nav = performance.getEntriesByType('navigation')[0];
+                const files = performance.getEntriesByType('resource');
+                const img = document.querySelector(window.innerWidth < 1024
+                  ? 'img[alt="Mobile background image of the blog"]'
+                  : 'img[alt="Desktop background image of the blog"]');
+                return {
+                  title: document.title,
+                  heading: document.querySelector('h1')?.textContent?.trim()?.slice(0,100) || null,
+                  lcpMs: window.__fireflyPerf?.lcp || null,
+                  cls: Math.round((window.__fireflyPerf?.cls || 0) * 10000) / 10000,
+                  domContentLoadedMs: nav ? Math.round(nav.domContentLoadedEventEnd) : null,
+                  responseEndMs: nav ? Math.round(nav.responseEnd) : null,
+                  resourceRequests:files.length,
+                  transferBytesReported: files.reduce((s,x)=>s+(x.transferSize||0),0),
+                  horizontalOverflowPx:Math.max(0,document.documentElement.scrollWidth-innerWidth),
+                  activeBanner:img ? {loaded:img.complete && img.naturalWidth > 0,src:img.currentSrc,loading:img.loading} : null,
+                  internalLinks:document.querySelectorAll('a[href^="/"]').length,
+                };
+              }).catch(e=>({evaluationError:String(e)}));
+              const shot = path.join(out, test.id + '.jpg');
+              await page.screenshot({path:shot,type:'jpeg',quality:62,fullPage:false,animations:'disabled'});
+              const item = {id:test.id,url:page.url(),status:response?.status()??null,navigationError,metrics,errors,requestFailures};
+              if (!response?.ok() || navigationError || metrics.evaluationError) fatal=true;
+              runs.push(item);
+              // Screenshots are also encoded into job logs so this ChatGPT session
+              // can inspect pixels with the existing read-only GitHub connector.
+              const b64=fs.readFileSync(shot).toString('base64');
+              console.log('FIREFLY_SCREENSHOT_BEGIN|' + test.id + '|' + b64.length);
+              for (let i=0;i<b64.length;i+=3000) console.log('FIREFLY_SCREENSHOT_CHUNK|' + b64.slice(i,i+3000));
+              console.log('FIREFLY_SCREENSHOT_END|' + test.id);
+              console.log('FIREFLY_CASE|' + JSON.stringify(item));
+              await context.close();
+            }
+            await browser.close();
+            fs.writeFileSync(path.join(out,'report.json'),JSON.stringify({target:process.env.TARGET_URL,expectedSha:process.env.EXPECTED_SHA,runs},null,2));
+            console.log('FIREFLY_VISUAL_SUMMARY|' + JSON.stringify({passed:!fatal,expectedSha:process.env.EXPECTED_SHA,runs:runs.map(x=>({id:x.id,status:x.status,lcp:x.metrics.lcpMs,cls:x.metrics.cls,errors:x.errors.length,failedRequests:x.requestFailures.length}))}));
+            if (fatal) process.exitCode=1;
+          })().catch(e=>{console.error(e);process.exitCode=1});
+          NODE
+
+      - name: Upload screenshots and performance JSON
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: firefly-visual-${{ inputs.expected_sha }}
+          path: ${{ runner.temp }}/firefly-visual-report/
+          if-no-files-found: warn
+          retention-days: 14
