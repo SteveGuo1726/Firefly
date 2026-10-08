@@ -108,7 +108,12 @@ export default defineConfig({
 			],
 			smoothScrolling: false,
 			cache: true,
-			preload: true,
+			// Visible-link preloading can compete with banner LCP and image requests.
+			// Keep hover prefetch on desktop, avoid prefetching every visible link.
+			preload: {
+				hover: true,
+				visible: false,
+			},
 			accessibility: true,
 			updateHead: true,
 			updateBodyClass: false,
