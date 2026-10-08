@@ -1,0 +1,2 @@
+Firefly staging GitHub Actions patch bot smoke test.
+This file does not alter the public website.
