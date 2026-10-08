@@ -1,4 +1,6 @@
 import type { SiteConfig } from "@/types/siteConfig";
+import { resolvePageToggles } from "../utils/page-toggle-utils";
+import { resolveSiteLang } from "../utils/site-config-utils";
 
 // 定义站点语言
 // 语言代码，例如：'zh_CN', 'zh_TW', 'en', 'ja', 'ru', 'ko'。
@@ -104,7 +106,7 @@ export const siteConfig: SiteConfig = {
 	timezone: "Asia/Shanghai",
 
 	// 页面开关配置 - 控制特定页面的访问权限，设为false会返回404并自动隐藏对应的导航栏菜单项
-	pages: {
+	pages: resolvePageToggles({
 		// 友链页面开关
 		friends: true,
 		// 打赏页面开关
@@ -116,16 +118,15 @@ export const siteConfig: SiteConfig = {
 		// 相册页面开关
 		gallery: true,
 		// 追番页面开关
-		anime: true,
 		// 新上游页面开关：保留原有页面设置，新功能使用上游初始选项
 		booknav: true,
 		projects: true,
-		bilibili: false,
+		bilibili: true,
 		vndb: false,
 		mal: false,
 		// 动态页面开关
 		dynamic: true,
-	},
+	}),
 
 	// 分类导航栏开关，在首页和归档页顶部显示分类快捷导航
 	categoryBar: true,
@@ -225,21 +226,8 @@ export const siteConfig: SiteConfig = {
 		categoryOrder: ["anime", "book", "music", "game"],
 	},
 
-	// 追番配置（Bilibili + TMDB）
-	anime: {
-		// Bilibili 配置
-		bilibili: {
-			// 你的 Bilibili 用户 UID
-			uid: "393766623",
-		},
-		// TMDB 配置（可选，需要翻墙）
-		// tmdb: {
-		//   // TMDB API 密钥
-		//   apiKey: "your_tmdb_api_key",
-		//   // TMDB 列表 ID
-		//   listId: "your_list_id",
-		// },
-	},
+	// 新版 Firefly Bilibili 页面直接使用原有个人 UID
+	bilibili: { uid: "393766623" },
 
 	// 分页配置
 	pagination: {
@@ -267,5 +255,5 @@ export const siteConfig: SiteConfig = {
 	},
 
 	// 站点语言，在本配置文件顶部SITE_LANG定义
-	lang: SITE_LANG,
+	lang: resolveSiteLang(SITE_LANG),
 };
