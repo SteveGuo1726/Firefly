@@ -1,0 +1,167 @@
+# Install this workflow ONCE on the default branch (master).
+# It only modifies the ai/preview-test branch. Never master.
+name: Firefly AI Patch Bot
+
+on:
+  workflow_dispatch:
+    inputs:
+      expected_head:
+        description: 'Current full 40-character SHA of ai/preview-test (prevents stale changes)'
+        required: true
+        type: string
+      patch_b64:
+        description: 'gzip+base64 unified diff from ChatGPT (paste the whole string)'
+        required: true
+        type: string
+      commit_message:
+        description: 'Commit message (optional)'
+        required: false
+        default: 'chore: apply reviewed Firefly patch'
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: firefly-ai-patch-bot
+  cancel-in-progress: false
+
+jobs:
+  apply:
+    # Only the repository owner can trigger writes with this workflow.
+    if: github.repository == 'SteveGuo1726/Firefly' && github.actor == 'SteveGuo1726'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout ONLY the staging branch
+        uses: actions/checkout@v4
+        with:
+          ref: ai/preview-test
+          persist-credentials: true
+          fetch-depth: 1
+
+      - name: Verify, decode, and apply patch
+        shell: bash
+        env:
+          PATCH_B64: ${{ inputs.patch_b64 }}
+          EXPECTED_HEAD: ${{ inputs.expected_head }}
+        run: |
+          python3 - <<'PY'
+          import base64
+          import gzip
+          import io
+          import os
+          import pathlib
+          import re
+          import subprocess
+          import sys
+
+          def fail(reason):
+              raise SystemExit(f"Refusing to apply patch: {reason}")
+
+          def run(*args):
+              return subprocess.run(args, text=True, check=True, capture_output=True).stdout.strip()
+
+          def allowed(path):
+              p = pathlib.PurePosixPath(path)
+              if p.is_absolute() or '..' in p.parts or '\\' in path:
+                  return False
+              if any(part.startswith('.') for part in p.parts):
+                  return False
+              if p.parts and p.parts[0] in {'src', 'public', 'docs', 'scripts', 'tests', 'worker'} and len(p.parts) >= 2:
+                  return True
+              return path in {
+                  'astro.config.mjs', 'package.json', 'pnpm-lock.yaml',
+                  'postcss.config.mjs', 'pagefind.yml', 'svelte.config.js',
+                  'tsconfig.json', 'biome.json', 'vercel.json',
+                  'wrangler.toml', 'wrangler.jsonc', 'wrangler.gallery.jsonc',
+                  '_frontmatter.json', 'README.md', 'README.en.md'
+              }
+
+          expected = os.environ.get('EXPECTED_HEAD', '').strip().lower()
+          if not re.fullmatch(r'[0-9a-f]{40}', expected):
+              fail('expected_head must be a full 40-character SHA')
+          head = run('git', 'rev-parse', 'HEAD').lower()
+          if head != expected:
+              fail(f'stale branch: expected {expected}, actual {head}')
+          branch = run('git', 'branch', '--show-current')
+          if branch != 'ai/preview-test':
+              fail(f'wrong checked-out branch: {branch}')
+          if run('git', 'status', '--porcelain'):
+              fail('working tree is not clean')
+
+          encoded = ''.join(os.environ.get('PATCH_B64', '').split())
+          if not encoded or len(encoded) > 65000:
+              fail('encoded patch missing or exceeds 65000 chars')
+          try:
+              compressed = base64.b64decode(encoded, validate=True)
+              with gzip.GzipFile(fileobj=io.BytesIO(compressed)) as z:
+                  raw = z.read(2_000_001)
+              if len(raw) > 2_000_000:
+                  fail('uncompressed patch exceeds 2 MB')
+              patch = raw.decode('utf-8')
+          except (ValueError, OSError, UnicodeError) as e:
+              fail(f'invalid gzip+base64 patch: {e}')
+          if not patch.startswith('diff --git a/'):
+              fail('expected git-style unified diff')
+          if '\x00' in patch or '\r' in patch:
+              fail('invalid patch control characters')
+          if any(x in patch for x in ('GIT binary patch', 'Binary files ', 'rename from ', 'rename to ', 'copy from ', 'copy to ')):
+              fail('binary or rename/copy patches not supported')
+          paths = []
+          current_path = None
+          for line in patch.splitlines():
+              if line.startswith('diff --git '):
+                  match = re.fullmatch(r'diff --git a/(.+) b/(.+)', line)
+                  if not match or match.group(1) != match.group(2):
+                      fail('malformed or cross-path diff header')
+                  path = match.group(1)
+                  if not allowed(path):
+                      fail(f'path not allowlisted: {path}')
+                  current_path = path
+                  paths.append(path)
+              if line.startswith('--- ') and current_path is not None:
+                  if line[4:] not in ('/dev/null', f'a/{current_path}'):
+                      fail(f'inconsistent old-file header: {line}')
+              if line.startswith('+++ ') and current_path is not None:
+                  if line[4:] not in ('/dev/null', f'b/{current_path}'):
+                      fail(f'inconsistent new-file header: {line}')
+              if re.match(r'(new file mode|deleted file mode|old mode|new mode) ', line):
+                  mode = line.split()[-1]
+                  if mode != '100644':
+                      fail(f'unsafe file mode: {line}')
+          if not paths or len(paths) > 40 or len(set(paths)) != len(paths):
+              fail('patch must change 1-40 distinct allowlisted files')
+
+          pathlib.Path('/tmp/firefly-patch.diff').write_text(patch, encoding='utf-8')
+          subprocess.run(['git', 'apply', '--check', '/tmp/firefly-patch.diff'], check=True)
+          subprocess.run(['git', 'apply', '/tmp/firefly-patch.diff'], check=True)
+          subprocess.run(['git', 'add', '-A', '--', *paths], check=True)
+          changed = run('git', 'diff', '--cached', '--name-only').splitlines()
+          if not changed:
+              fail('patch resulted in no changes')
+          if any(p not in paths or not allowed(p) for p in changed):
+              fail('staged paths failed validation')
+          for p in changed:
+              fp = pathlib.Path(p)
+              if fp.is_symlink():
+                  fail(f'symlink not allowed: {p}')
+          subprocess.run(['git', 'diff', '--cached', '--check'], check=True)
+          print(f'Validated patch touching {len(changed)} file(s):')
+          print('\n'.join(changed))
+          PY
+
+      - name: Commit and push ONLY to ai/preview-test
+        shell: bash
+        env:
+          MESSAGE: ${{ inputs.commit_message }}
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          message="${MESSAGE:-chore: apply reviewed Firefly patch}"
+          # A commit message is data; it is never evaluated as shell code.
+          git commit -m "$message"
+          git push origin HEAD:refs/heads/ai/preview-test
+          echo "### Patch committed to ai/preview-test" >> "$GITHUB_STEP_SUMMARY"
+          echo "Commit: $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
+          echo 'Netlify should receive the GitHub push; check its deploy status separately.' >> "$GITHUB_STEP_SUMMARY"
