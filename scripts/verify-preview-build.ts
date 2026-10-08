@@ -11,6 +11,7 @@ const required = [
   "gallery/index.html",
   "search/index.html",
   "pagefind/pagefind.js",
+  "rss.xml",
 ];
 const errors: string[] = [];
 for (const relative of required) {
