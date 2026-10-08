@@ -5,7 +5,8 @@ import SpineModel from "@components/features/SpineModel.astro";
 import Footer from "@components/layout/Footer.astro";
 import Navbar from "@components/layout/Navbar.astro";
 import SideBar from "@components/layout/SideBar.astro";
-import type { MarkdownHeading } from "astro";
+import type { ImageMetadata, MarkdownHeading } from "astro";
+import { getImage } from "astro:assets";
 import { Icon } from "astro-icon/components";
 import ImageWrapper from "@/components/common/ImageWrapper.astro";
 import FloatingControls from "@/components/controls/FloatingControls.astro";
@@ -27,7 +28,7 @@ import {
 import I18nKey from "@/i18n/i18nKey";
 import { i18n } from "@/i18n/translation";
 import { formatDateToYYYYMMDD } from "@/utils/date-utils";
-import { getImageQuality } from "@/utils/image-utils";
+import { getFallbackFormat, getImageFormats, getImageQuality } from "@/utils/image-utils";
 import { getBackgroundImages, isHomePage } from "@/utils/layout-utils";
 import {
 	generateGridClasses,
@@ -265,6 +266,32 @@ const stickyNavbar = siteConfig.navbar.stickyNavbar ?? false;
 // 获取图片质量配置
 const configQuality = getImageQuality();
 const mobileQuality = Math.round(configQuality * 0.9);
+// Preload the homepage banner selected by the current viewport without
+// eagerly downloading the hidden mobile/desktop counterpart.
+const bannerAssetFiles = import.meta.glob<ImageMetadata>("../assets/images/**/*.{png,jpg,jpeg,webp,avif}", {
+	import: "default",
+});
+const getBannerPreload = async (src: string | undefined, widths: number[], quality: number) => {
+	if (!src || getImageFormats().length !== 1) return null;
+	const loadAsset = bannerAssetFiles[`../${src}`];
+	if (!loadAsset) return null;
+	const img = await getImage({
+		src: await loadAsset(),
+		format: getFallbackFormat(),
+		widths,
+		sizes: "100vw",
+		quality,
+		layout: "constrained",
+	});
+	return img.srcSet?.attribute ? { href: img.src, srcset: img.srcSet.attribute } : null;
+};
+const shouldPreloadBanner = isHomePageCheck && isBannerMode && isBackgroundEnabled;
+const mobileBannerPreload = shouldPreloadBanner
+	? await getBannerPreload(backgroundImages.mobile[0], [640, 750, 1080], mobileQuality)
+	: null;
+const desktopBannerPreload = shouldPreloadBanner
+	? await getBannerPreload(backgroundImages.desktop[0], [1280, 1920, 2560], configQuality)
+	: null;
 const bannerCarouselEnabledDefault =
 	backgroundWallpaper.common?.carousel?.enable ?? false;
 const bannerCarouselSwitchable =
@@ -291,6 +318,16 @@ const hasMultipleImages =
 
 <!-- Navbar -->
 <slot slot="head" name="head"></slot>
+{mobileBannerPreload && (
+	<link slot="head" rel="preload" as="image" media="(max-width: 1023px)"
+		href={mobileBannerPreload.href} imagesrcset={mobileBannerPreload.srcset}
+		imagesizes="100vw" fetchpriority="high" />
+)}
+{desktopBannerPreload && (
+	<link slot="head" rel="preload" as="image" media="(min-width: 1024px)"
+		href={desktopBannerPreload.href} imagesrcset={desktopBannerPreload.srcset}
+		imagesizes="100vw" fetchpriority="high" />
+)}
 <div
     id="top-row"
     class="z-50 pointer-events-none relative transition-all duration-700 mx-auto"
@@ -343,7 +380,7 @@ const hasMultipleImages =
                     position={backgroundWallpaper.banner?.position}
                     widths={[640, 750, 1080]}
                     sizes="100vw"
-                    loading={index === 0 ? "eager" : "lazy"}
+                    loading={index === 0 && !mobileBannerPreload ? "eager" : "lazy"}
                     fetchpriority={index === 0 ? "high" : undefined}
                     quality={mobileQuality}
                 />
@@ -359,7 +396,7 @@ const hasMultipleImages =
                     position={backgroundWallpaper.banner?.position}
                     widths={[1280, 1920, 2560]}
                     sizes="100vw"
-                    loading={index === 0 ? "eager" : "lazy"}
+                    loading={index === 0 && !desktopBannerPreload ? "eager" : "lazy"}
                     fetchpriority={index === 0 ? "high" : undefined}
                     quality={configQuality}
                 />
@@ -378,7 +415,7 @@ const hasMultipleImages =
                     position={backgroundWallpaper.banner?.position}
                     widths={[640, 750, 1080]}
                     sizes="100vw"
-                    loading="eager"
+                    loading={mobileBannerPreload ? "lazy" : "eager"}
                     fetchpriority="high"
                     quality={mobileQuality}
                 />
@@ -394,7 +431,7 @@ const hasMultipleImages =
                     position={backgroundWallpaper.banner?.position}
                     widths={[1280, 1920, 2560]}
                     sizes="100vw"
-                    loading="eager"
+                    loading={desktopBannerPreload ? "lazy" : "eager"}
                     fetchpriority="high"
                     quality={configQuality}
                 />
