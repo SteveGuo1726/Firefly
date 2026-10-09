@@ -4,7 +4,7 @@ import "@fancyapps/ui/dist/fancybox/fancybox.css";
 import "@/styles/fancybox-custom.css";
 import { onMount } from "svelte";
 import type { PublicGalleryAlbum } from "@/types/galleryAdmin";
-import { fetchPublicGallery } from "@/utils/admin/imagebed-client";
+import { fetchPublicGallery } from "@/utils/gallery-public-client";
 import { url } from "@/utils/url-utils";
 
 interface Props {
