@@ -211,3 +211,27 @@ test("missing static post can render from live content shell", async () => {
 	assert.match(html, /live body/);
 	assert.equal(response.headers.get("X-Firefly-Live-Post"), "rev-1");
 });
+
+
+test("public draft overlay signals static pages to hide", async () => {
+	const store = makeStore();
+	const handle = createService(store);
+	const save = await handle(request("/api/live-content/item", {
+		method: "PUT",
+		headers: adminHeaders(),
+		body: JSON.stringify({
+			kind: "post",
+			id: "draft-live",
+			path: "src/content/posts/draft-live.md",
+			source: "draft body",
+			meta: { title: "Draft", html: "<p>draft</p>", draft: true },
+		}),
+	}));
+	assert.equal(save.status, 200);
+	const publicItem = await handle(
+		request("/api/live-content/item?kind=post&id=draft-live"),
+	);
+	assert.equal(publicItem.status, 410);
+	const payload = await publicItem.json();
+	assert.equal(payload.hidden, true);
+});

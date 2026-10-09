@@ -12,7 +12,7 @@ type BasePost={id:string;path:string;title:string;description:string;published:s
 type Row=BasePost&{live:boolean;baseGitSha:string;revision:string};
 
 let rows:Row[]=[];let query="";let loading=false;let opening=false;let saving=false;let deleting=false;
-let currentId="";let currentPath="";let baseGitSha="";let liveRevision="";let originalSource="";
+let currentId="";let currentPath="";let loadedPath="";let baseGitSha="";let liveRevision="";let originalSource="";
 let fields:AdminPostFields=emptyPostFields();let body="";let tagsText="";let previewHtml="";let message="";let error="";
 let previewTimer:ReturnType<typeof setTimeout>|null=null;
 
@@ -20,6 +20,7 @@ function filtered(){const n=query.trim().toLowerCase();return !n?rows:rows.filte
 function idFromPath(path:string){return path.replace(/^src\/content\/posts\//,"").replace(/\.(?:md|mdx)$/i,"");}
 function normalizePath(value:string){const relative=value.trim().replace(/^src\/content\/posts\//,"").replace(/^\/+/, "");if(!relative||relative.includes("..")||relative.includes("\\")||!/\.(md|mdx)$/i.test(relative))throw new Error("文件路径必须位于 src/content/posts/ 下，并以 .md 或 .mdx 结尾。");return"src/content/posts/"+relative;}
 function baseMeta(){return{title:fields.title.trim(),description:fields.description.trim(),published:fields.published,updated:fields.updated,category:fields.category.trim(),tags:tagsText.split(/[,\n]/).map(v=>v.trim()).filter(Boolean),draft:fields.draft,pinned:fields.pinned,image:fields.image.trim(),protected:Boolean(fields.password)};}
+function needsStaticSecurityRebuild(){return Boolean(baseGitSha&&(fields.draft||fields.password.trim()));}
 async function liveMeta(){
 	const html=await renderFireflyPreview({source:body,calloutTheme:siteConfig.post.rehypeCallouts.theme,isMdx:currentPath.endsWith(".mdx")});
 	return{...baseMeta(),html};
@@ -51,12 +52,12 @@ async function open(row:Row){
 		if(row.live){const live=await fetchLiveContentItem("post",row.id,session);if(live?.source){source=live.source;sha=live.baseGitSha||sha;liveRevision=live.revision||row.revision||"";}}else{liveRevision="";}
 		if(!source){const git=await fetchGitContentSource(session,row.path);source=git.source;sha=git.sha;}
 		const parsed=parsePostDocument(source);
-		currentId=row.id;currentPath=row.path;baseGitSha=sha;originalSource=source;fields=parsed.fields;body=parsed.body;tagsText=fields.tags.join(", ");
+		currentId=row.id;currentPath=row.path;loadedPath=row.path;baseGitSha=sha;originalSource=source;fields=parsed.fields;body=parsed.body;tagsText=fields.tags.join(", ");
 		await updatePreview();
 	}catch(e){error=e instanceof Error?e.message:"读取文章失败。";}finally{opening=false;}
 }
 
-function createNew(){const stamp=new Date().toISOString().replace(/[-:]/g,"").slice(0,13).replace("T","-").toLowerCase();currentId="";currentPath=`src/content/posts/${stamp}.md`;baseGitSha="";liveRevision="";originalSource="";fields=emptyPostFields();body="# 新文章\n\n";tagsText="";message="新文章尚未写入 Blob。";error="";void updatePreview();}
+function createNew(){const stamp=new Date().toISOString().replace(/[-:]/g,"").slice(0,13).replace("T","-").toLowerCase();currentId="";currentPath=`src/content/posts/${stamp}.md`;loadedPath="";baseGitSha="";liveRevision="";originalSource="";fields=emptyPostFields();body="# 新文章\n\n";tagsText="";message="新文章尚未写入 Blob。";error="";void updatePreview();}
 
 async function save(){
 	if(!fields.title.trim()){error="标题不能为空。";return;}
@@ -65,15 +66,15 @@ async function save(){
 	const nextId=idFromPath(path);if(rows.some((row)=>row.id===nextId&&row.id!==currentId)){error="目标文章路径已经存在，请换一个文件路径。";return;}const source=buildPostDocument(fields,body,originalSource);saving=true;error="";message="";
 	try{
 		const publicMeta=await liveMeta();
-		const result=await saveLiveContentItem({session,kind:"post",id:nextId,path,source,meta:publicMeta,baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision,previousId:currentId&&currentId!==nextId?currentId:undefined,previousPath:currentId&&currentId!==nextId?currentPath:undefined,previousBaseGitSha:currentId&&currentId!==nextId?baseGitSha:undefined,previousBaseGitBranch:session.branch});
-		currentId=nextId;currentPath=path;liveRevision=result.revision;originalSource=source;message=`实时版本已保存：${result.revision.slice(0,8)}。未创建 Git commit。`;await refresh();
+		const result=await saveLiveContentItem({session,kind:"post",id:nextId,path,source,meta:publicMeta,baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision,previousId:currentId&&currentId!==nextId?currentId:undefined,previousPath:currentId&&currentId!==nextId?loadedPath:undefined,previousBaseGitSha:currentId&&currentId!==nextId?baseGitSha:undefined,previousBaseGitBranch:session.branch});
+		currentId=nextId;currentPath=path;loadedPath=path;liveRevision=result.revision;originalSource=source;message=`实时版本已保存：${result.revision.slice(0,8)}。未创建 Git commit。`;await refresh();
 	}catch(e){error=e instanceof Error?e.message:"保存失败。";}finally{saving=false;}
 }
 
 async function remove(){
 	if(!currentId||!confirm(`确定将 ${currentPath} 从实时内容中删除？Git 归档前不会删除仓库文件。`))return;
 	deleting=true;error="";message="";
-	try{await deleteLiveContentItem({session,kind:"post",id:currentId,path:currentPath,meta:baseMeta(),baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision});currentId="";currentPath="";originalSource="";await refresh();message="已写入实时删除标记；Git 仓库尚未改动。";}
+	try{await deleteLiveContentItem({session,kind:"post",id:currentId,path:loadedPath||currentPath,meta:baseMeta(),baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision});currentId="";currentPath="";loadedPath="";originalSource="";await refresh();message="已写入实时删除标记；Git 仓库尚未改动。";}
 	catch(e){error=e instanceof Error?e.message:"删除失败。";}finally{deleting=false;}
 }
 
@@ -103,11 +104,14 @@ onMount(()=>{void refresh();return()=>{if(previewTimer)clearTimeout(previewTimer
 </div>
 <div class="checks"><label><input type="checkbox" bind:checked={fields.draft}/>草稿</label><label><input type="checkbox" bind:checked={fields.pinned}/>置顶</label><label><input type="checkbox" bind:checked={fields.comment}/>评论</label></div>
 <label class="body"><span>正文 Markdown / MDX</span><textarea bind:value={body} oninput={schedulePreview}></textarea></label>
+{#if needsStaticSecurityRebuild()}
+<div class="security-warning">这篇文章已经存在于当前静态构建中。实时层可以立刻把它从索引隐藏并让正常浏览跳转 404，但旧 HTML 仍可能被直接缓存或读取；密码保护/真正下线需要后续 Git 归档并重新构建后才彻底生效。</div>
+{/if}
 <div class="status"><div>{#if opening}<span>读取源码...</span>{/if}{#if message}<span class="ok">{message}</span>{/if}{#if error}<span class="bad">{error}</span>{/if}</div><div class="actions"><button class="danger" onclick={remove} disabled={!currentId||saving||deleting}>删除实时版本</button><button class="primary" onclick={save} disabled={saving||deleting||opening}>{saving?"保存中...":"实时保存"}</button></div></div>
 </div>
 <div class="preview"><strong>正文预览</strong><div class="prose prose-base max-w-none custom-md dark:prose-invert">{@html previewHtml}</div></div>
 </div>
 </section>
 <style>
-.manager{overflow:hidden}header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem;border-bottom:1px solid var(--line-divider)}h2{margin:0;font-size:1.05rem}header p{margin:.25rem 0 0;font-size:.76rem;opacity:.58}.actions{display:flex;gap:.45rem}button{border:1px solid var(--line-divider);border-radius:.55rem;background:transparent;color:inherit;padding:.55rem .7rem;font:inherit;font-size:.76rem;font-weight:700;cursor:pointer}button.primary{background:var(--primary);border-color:var(--primary);color:white}button.danger{color:#c43d3d;border-color:rgb(196 61 61/.3)}button:disabled{opacity:.5;cursor:not-allowed}.layout{display:grid;grid-template-columns:17rem minmax(28rem,1fr) minmax(22rem,.8fr);min-height:68vh}aside{padding:.75rem;border-right:1px solid var(--line-divider)}.search,.grid input,.grid textarea,.body textarea{width:100%;border:1px solid var(--line-divider);border-radius:.55rem;background:transparent;color:inherit;font:inherit}.search{padding:.62rem}.list{display:grid;gap:.3rem;margin-top:.6rem;max-height:64vh;overflow:auto}.list button{display:grid;text-align:left;gap:.15rem}.list button.active{border-color:var(--primary);background:color-mix(in oklab,var(--primary) 9%,transparent)}.list span,.list small{font-size:.67rem;opacity:.55;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.editor{padding:.9rem;border-right:1px solid var(--line-divider);min-width:0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}.grid label,.body{display:grid;gap:.3rem;font-size:.72rem;font-weight:700}.grid .wide{grid-column:span 2}.grid input,.grid textarea{padding:.6rem}.checks{display:flex;gap:1rem;margin:.8rem 0;font-size:.76rem}.checks label{display:flex;align-items:center;gap:.3rem}.body textarea{min-height:25rem;padding:.7rem;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.6}.status{display:flex;justify-content:space-between;gap:.7rem;align-items:center;margin-top:.7rem;font-size:.7rem}.status>div:first-child{display:grid}.ok{color:#059669}.bad{color:#c43d3d}.preview{padding:1rem;overflow:auto;max-height:68vh}.preview>strong{display:block;margin-bottom:.8rem}@media(max-width:1380px){.layout{grid-template-columns:16rem minmax(0,1fr)}.preview{grid-column:1/-1;border-top:1px solid var(--line-divider);max-height:none}}@media(max-width:800px){header{align-items:flex-start;flex-direction:column}.layout{grid-template-columns:1fr}aside,.editor{border-right:0;border-bottom:1px solid var(--line-divider)}.list{max-height:16rem}.grid{grid-template-columns:1fr}.grid .wide{grid-column:auto}.status{align-items:flex-start;flex-direction:column}}
+.manager{overflow:hidden}header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem;border-bottom:1px solid var(--line-divider)}h2{margin:0;font-size:1.05rem}header p{margin:.25rem 0 0;font-size:.76rem;opacity:.58}.actions{display:flex;gap:.45rem}button{border:1px solid var(--line-divider);border-radius:.55rem;background:transparent;color:inherit;padding:.55rem .7rem;font:inherit;font-size:.76rem;font-weight:700;cursor:pointer}button.primary{background:var(--primary);border-color:var(--primary);color:white}button.danger{color:#c43d3d;border-color:rgb(196 61 61/.3)}button:disabled{opacity:.5;cursor:not-allowed}.layout{display:grid;grid-template-columns:17rem minmax(28rem,1fr) minmax(22rem,.8fr);min-height:68vh}aside{padding:.75rem;border-right:1px solid var(--line-divider)}.search,.grid input,.grid textarea,.body textarea{width:100%;border:1px solid var(--line-divider);border-radius:.55rem;background:transparent;color:inherit;font:inherit}.search{padding:.62rem}.list{display:grid;gap:.3rem;margin-top:.6rem;max-height:64vh;overflow:auto}.list button{display:grid;text-align:left;gap:.15rem}.list button.active{border-color:var(--primary);background:color-mix(in oklab,var(--primary) 9%,transparent)}.list span,.list small{font-size:.67rem;opacity:.55;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.editor{padding:.9rem;border-right:1px solid var(--line-divider);min-width:0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}.grid label,.body{display:grid;gap:.3rem;font-size:.72rem;font-weight:700}.grid .wide{grid-column:span 2}.grid input,.grid textarea{padding:.6rem}.checks{display:flex;gap:1rem;margin:.8rem 0;font-size:.76rem}.checks label{display:flex;align-items:center;gap:.3rem}.body textarea{min-height:25rem;padding:.7rem;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.6}.status{display:flex;justify-content:space-between;gap:.7rem;align-items:center;margin-top:.7rem;font-size:.7rem}.status>div:first-child{display:grid}.ok{color:#059669}.bad{color:#c43d3d}.security-warning{margin-top:.7rem;padding:.7rem .8rem;border:1px solid rgb(217 119 6/.28);border-radius:.55rem;background:rgb(217 119 6/.08);color:#b45309;font-size:.72rem;line-height:1.55}.preview{padding:1rem;overflow:auto;max-height:68vh}.preview>strong{display:block;margin-bottom:.8rem}@media(max-width:1380px){.layout{grid-template-columns:16rem minmax(0,1fr)}.preview{grid-column:1/-1;border-top:1px solid var(--line-divider);max-height:none}}@media(max-width:800px){header{align-items:flex-start;flex-direction:column}.layout{grid-template-columns:1fr}aside,.editor{border-right:0;border-bottom:1px solid var(--line-divider)}.list{max-height:16rem}.grid{grid-template-columns:1fr}.grid .wide{grid-column:auto}.status{align-items:flex-start;flex-direction:column}}
 </style>

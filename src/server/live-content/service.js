@@ -286,7 +286,10 @@ export function createLiveContentService({
 		}
 
 		if (kind === "post" && (item.meta?.draft || item.meta?.protected)) {
-			return json({ error: "Not Found" }, 404);
+			return json(
+				{ error: "Hidden by live content state", hidden: true },
+				410,
+			);
 		}
 
 		return json({
