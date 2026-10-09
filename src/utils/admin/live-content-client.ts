@@ -27,6 +27,7 @@ function endpoint(path: string, params?: Record<string, string>): string {
 
 async function readJson(response: Response) {
 	const payload = await response.json().catch(() => ({}));
+	if (response.status === 409) throw new Error(`远端实时版本已变化，保存已取消。请先复制当前编辑内容，再重新打开最新版本并合并修改。${payload?.error ? `（${payload.error}）` : ""}`);
 	if (!response.ok) throw new Error(payload?.error || `实时内容服务请求失败：${response.status}`);
 	return payload;
 }
