@@ -13,7 +13,14 @@
 	"vars": {
 		"ALLOWED_ORIGIN": "https://blog.casto.top",
 		"IMAGEBED_BASE_URL": "https://img.casto.top",
+		"IMAGE_PUBLIC_BASE_URL": "https://img.casto.top/file",
 		"GITHUB_ADMIN_LOGIN": "SteveGuo1726",
 		"GITHUB_REPO": "SteveGuo1726/Firefly"
-	}
+	},
+	"kv_namespaces": [
+		{
+			"binding": "GALLERY_MANIFEST",
+			"id": "969680731253435f9699a5fb8f849785"
+		}
+	]
 }

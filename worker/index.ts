@@ -7,10 +7,17 @@ import type {
 	PublicGalleryAlbum,
 } from "../src/types/galleryAdmin";
 
+type GalleryManifestStore = {
+	get(key: string, type: "json"): Promise<unknown>;
+	put(key: string, value: string): Promise<void>;
+};
+
 type Env = {
 	ASSETS?: { fetch(request: Request): Promise<Response> };
+	GALLERY_MANIFEST?: GalleryManifestStore;
 	IMAGEBED_TOKEN?: string;
 	IMAGEBED_BASE_URL?: string;
+	IMAGE_PUBLIC_BASE_URL?: string;
 	GITHUB_ADMIN_LOGIN?: string;
 	GITHUB_REPO?: string;
 	ALLOWED_ORIGIN?: string;
@@ -28,6 +35,7 @@ type ImageBedList = {
 
 const IMAGE_EXTENSIONS = /\.(?:avif|bmp|gif|jpe?g|png|svg|webp)$/i;
 const MANIFEST_DIR = "photos/.firefly-gallery";
+const MANIFEST_KV_KEY = "gallery-manifest:v1";
 const MANIFEST_VERSION = 1;
 const MAX_FILE_BYTES = 30 * 1024 * 1024;
 const AUTH_CACHE_MS = 5 * 60 * 1000;
@@ -75,6 +83,15 @@ function imageBedBaseUrl(env: Env): string {
 	return (env.IMAGEBED_BASE_URL || "https://img.casto.top").replace(/\/+$/, "");
 }
 
+function imagePublicBaseUrl(env: Env): string {
+	return (env.IMAGE_PUBLIC_BASE_URL || imageBedBaseUrl(env) + "/file").replace(
+		/\/+$/,
+		"",
+	);
+}
+function publicImageUrl(env: Env, key: string): string {
+	return imagePublicBaseUrl(env) + "/" + encodeKey(key);
+}
 function encodeKey(key: string): string {
 	return key.split("/").map(encodeURIComponent).join("/");
 }
@@ -216,7 +233,7 @@ function toPhoto(env: Env, file: ImageBedFile): ManagedGalleryPhoto | null {
 	const metadata = file.metadata || {};
 	return {
 		key,
-		url: `${imageBedBaseUrl(env)}/file/${encodeKey(key)}`,
+		url: publicImageUrl(env, key),
 		name: key.split("/").pop() || key,
 		size: Number(metadata.FileSizeBytes || 0),
 		width: Number(metadata.Width || 0) || undefined,
@@ -294,16 +311,25 @@ function normalizeManifest(input: unknown): GalleryManifest {
 		};
 	});
 
-	return {
-		version: MANIFEST_VERSION,
-		updatedAt: new Date().toISOString(),
-		albums,
-	};
+	const rawUpdatedAt = normalizeString(source.updatedAt, 64);
+	const updatedAt = Number.isNaN(Date.parse(rawUpdatedAt))
+		? new Date().toISOString()
+		: new Date(rawUpdatedAt).toISOString();
+	return { version: MANIFEST_VERSION, updatedAt, albums };
 }
 
 async function loadManifest(env: Env, force = false): Promise<GalleryManifest> {
-	if (!force && manifestCache && manifestCache.expiresAt > Date.now()) {
+	if (!force && manifestCache && manifestCache.expiresAt > Date.now())
 		return manifestCache.manifest;
+	if (env.GALLERY_MANIFEST) {
+		try {
+			const stored = await env.GALLERY_MANIFEST.get(MANIFEST_KV_KEY, "json");
+			if (stored) {
+				const manifest = normalizeManifest(stored);
+				manifestCache = { expiresAt: Date.now() + GALLERY_CACHE_MS, manifest };
+				return manifest;
+			}
+		} catch {}
 	}
 	try {
 		const list = await listRemoteFiles(env, MANIFEST_DIR, false);
@@ -321,10 +347,12 @@ async function loadManifest(env: Env, force = false): Promise<GalleryManifest> {
 			if (!response.ok) continue;
 			try {
 				const manifest = normalizeManifest(await response.json());
-				manifestCache = {
-					expiresAt: Date.now() + GALLERY_CACHE_MS,
-					manifest,
-				};
+				if (env.GALLERY_MANIFEST)
+					await env.GALLERY_MANIFEST.put(
+						MANIFEST_KV_KEY,
+						JSON.stringify(manifest),
+					).catch(() => {});
+				manifestCache = { expiresAt: Date.now() + GALLERY_CACHE_MS, manifest };
 				return manifest;
 			} catch {
 				// Try an older manifest if the newest upload is incomplete.
@@ -345,7 +373,7 @@ function buildManifestAlbums(
 	return manifest.albums.map((album) => {
 		const photos = album.photoOrder.map((key) => ({
 			key,
-			url: `${imageBedBaseUrl(env)}/file/${encodeKey(key)}`,
+			url: publicImageUrl(env, key),
 			name: key.split("/").pop() || key,
 			size: 0,
 		}));
@@ -354,7 +382,7 @@ function buildManifestAlbums(
 			...album,
 			photos,
 			photoCount: photos.length,
-			coverUrl: cover ? `${imageBedBaseUrl(env)}/file/${encodeKey(cover)}` : "",
+			coverUrl: cover ? publicImageUrl(env, cover) : "",
 		};
 	});
 }
@@ -509,36 +537,46 @@ async function uploadRemoteFile(
 	);
 	return {
 		key,
-		url: `${imageBedBaseUrl(env)}/file/${encodeKey(key)}`,
+		url: publicImageUrl(env, key),
 		name: key.split("/").pop() || file.name,
 		size: file.size,
 	};
 }
 
+async function saveLegacyManifest(
+	env: Env,
+	manifest: GalleryManifest,
+): Promise<void> {
+	const existing = await listRemoteFiles(env, MANIFEST_DIR, false);
+	const previousKeys = (existing.files || [])
+		.map((file) => cleanPath(file.name))
+		.filter(
+			(key) => key.startsWith(MANIFEST_DIR + "/") && key.endsWith(".json"),
+		);
+	const file = new File(
+		[JSON.stringify(manifest)],
+		String(Date.now()) + ".json",
+		{ type: "application/json" },
+	);
+	await uploadRemoteFile(env, file, MANIFEST_DIR);
+	await Promise.allSettled(
+		previousKeys.map((key) => deleteRemoteKey(env, key)),
+	);
+}
 async function saveManifest(
 	env: Env,
 	input: unknown,
 ): Promise<GalleryManifest> {
 	const manifest = normalizeManifest(input);
-	const existing = await listRemoteFiles(env, MANIFEST_DIR, false);
-	const previousKeys = (existing.files || [])
-		.map((file) => cleanPath(file.name))
-		.filter(
-			(key) => key.startsWith(`${MANIFEST_DIR}/`) && key.endsWith(".json"),
+	manifest.updatedAt = new Date().toISOString();
+	if (env.GALLERY_MANIFEST) {
+		await env.GALLERY_MANIFEST.put(MANIFEST_KV_KEY, JSON.stringify(manifest));
+		await saveLegacyManifest(env, manifest).catch((error) =>
+			console.warn("Gallery legacy manifest backup failed", error),
 		);
-	const filename = `${Date.now()}.json`;
-	const file = new File([JSON.stringify(manifest)], filename, {
-		type: "application/json",
-	});
-	await uploadRemoteFile(env, file, MANIFEST_DIR);
-	await Promise.allSettled(
-		previousKeys.map((key) => deleteRemoteKey(env, key)),
-	);
+	} else await saveLegacyManifest(env, manifest);
 	galleryCache = null;
-	manifestCache = {
-		expiresAt: Date.now() + GALLERY_CACHE_MS,
-		manifest,
-	};
+	manifestCache = { expiresAt: Date.now() + GALLERY_CACHE_MS, manifest };
 	return manifest;
 }
 
@@ -548,20 +586,19 @@ async function handlePublicGallery(
 ): Promise<Response> {
 	try {
 		const url = new URL(request.url);
-		let manifest = await loadManifest(env);
-		if (
-			manifest.albums.some(
-				(album) => album.photoOrder.length === 0 && album.cover.length > 0,
-			)
-		) {
-			manifest = (await loadGalleryState(env)).manifest;
-		}
+		const manifest = await loadManifest(env);
 		const albumId = url.searchParams.get("album")?.trim();
 		const summary = url.searchParams.get("summary") === "true";
-		const publicAlbums = buildManifestAlbums(env, manifest);
-		const albums = albumId
-			? publicAlbums.filter((album) => album.id === albumId)
-			: publicAlbums;
+		const all = buildManifestAlbums(env, manifest);
+		const albums = albumId ? all.filter((album) => album.id === albumId) : all;
+		const etag = '"gallery-' + manifest.updatedAt + '"';
+		const headers = {
+			"Cache-Control":
+				"public, max-age=15, s-maxage=30, stale-while-revalidate=300",
+			ETag: etag,
+		};
+		if (request.headers.get("If-None-Match") === etag)
+			return new Response(null, { status: 304, headers });
 		return json(
 			{
 				albums: summary
@@ -569,11 +606,7 @@ async function handlePublicGallery(
 					: albums,
 				updatedAt: manifest.updatedAt,
 			},
-			{
-				headers: {
-					"Cache-Control": "public, max-age=10, must-revalidate",
-				},
-			},
+			{ headers },
 		);
 	} catch (error) {
 		return errorResponse(
