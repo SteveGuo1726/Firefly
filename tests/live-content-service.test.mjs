@@ -133,14 +133,11 @@ test("live content CRUD is public-safe and revision protected", async () => {
 	assert.equal(gone.status, 410);
 });
 
-test("public post index hides drafts and protected posts but keeps tombstones", async () => {
+test("public post index only exposes minimal markers for hidden static overlays", async () => {
 	const store = makeStore();
 	const handle = createService(store);
-	for (const [id, meta] of [
-		["public", { title: "Public", html: "<p>ok</p>" }],
-		["draft", { title: "Draft", html: "<p>draft</p>", draft: true }],
-		["protected", { title: "Protected", html: "<p>protected</p>", protected: true }],
-	]) {
+
+	async function create(id, meta) {
 		const response = await handle(request("/api/live-content/item", {
 			method: "PUT",
 			headers: adminHeaders(),
@@ -153,22 +150,92 @@ test("public post index hides drafts and protected posts but keeps tombstones", 
 			}),
 		}));
 		assert.equal(response.status, 200);
+		return response.json();
+	}
+	function markStatic(id) {
+		const key = `v3/pointers/posts/${id}.json`;
+		const pointer = store.data.get(key);
+		store.data.set(key, { ...pointer, baseGitSha: "git-sha", baseGitBranch: "ai/preview-test" });
 	}
 
-	const publicIndex = await handle(
-		request("/api/live-content/index?kind=post"),
-	);
-	const payload = await publicIndex.json();
-	assert.deepEqual(
-		payload.entries
-			.map((entry) => [entry.id, Boolean(entry.hidden)])
-			.sort(([a], [b]) => String(a).localeCompare(String(b))),
-		[
-			["draft", true],
-			["protected", true],
-			["public", false],
-		],
-	);
+	await create("public", { title: "Public", html: "<p>ok</p>" });
+	await create("new-draft", { title: "New secret draft", html: "<p>secret</p>", draft: true });
+
+	const draftBase = await create("static-draft", { title: "Visible first", html: "<p>old</p>" });
+	markStatic("static-draft");
+	assert.equal((await handle(request("/api/live-content/item", {
+		method: "PUT",
+		headers: adminHeaders(),
+		body: JSON.stringify({
+			kind: "post", id: "static-draft", path: "src/content/posts/static-draft.md",
+			source: "draft", meta: { title: "Secret draft", html: "<p>secret</p>", draft: true },
+			baseGitSha: "git-sha", baseGitBranch: "ai/preview-test", expectedRevision: draftBase.revision,
+		}),
+	}))).status, 200);
+
+	const protectedBase = await create("static-protected", { title: "Visible first", html: "<p>old</p>" });
+	markStatic("static-protected");
+	assert.equal((await handle(request("/api/live-content/item", {
+		method: "PUT",
+		headers: adminHeaders(),
+		body: JSON.stringify({
+			kind: "post", id: "static-protected", path: "src/content/posts/static-protected.md",
+			source: "protected", meta: { title: "Protected secret", html: "<p>secret</p>", protected: true },
+			baseGitSha: "git-sha", baseGitBranch: "ai/preview-test", expectedRevision: protectedBase.revision,
+		}),
+	}))).status, 200);
+
+	const response = await handle(request("/api/live-content/index?kind=post"));
+	const payload = await response.json();
+	const byId = new Map(payload.entries.map((entry) => [entry.id, entry]));
+	assert.equal(byId.has("new-draft"), false);
+	assert.equal(byId.get("public").meta.title, "Public");
+	assert.equal("path" in byId.get("public"), false);
+	assert.equal("baseGitSha" in byId.get("public"), false);
+	assert.equal(byId.get("static-draft").hidden, true);
+	assert.equal("meta" in byId.get("static-draft"), false);
+	assert.equal(byId.get("static-protected").hidden, true);
+	assert.equal("meta" in byId.get("static-protected"), false);
+});
+
+test("public tombstones only expose markers needed to remove static cards", async () => {
+	const store = makeStore();
+	const handle = createService(store);
+
+	async function saveAndDelete(id, staticGit) {
+		const save = await handle(request("/api/live-content/item", {
+			method: "PUT",
+			headers: adminHeaders(),
+			body: JSON.stringify({ kind: "post", id, path: `src/content/posts/${id}.md`, source: id, meta: { title: id, html: `<p>${id}</p>` } }),
+		}));
+		assert.equal(save.status, 200);
+		const saved = await save.json();
+		if (staticGit) {
+			const key = `v3/pointers/posts/${id}.json`;
+			const pointer = store.data.get(key);
+			store.data.set(key, { ...pointer, baseGitSha: "git-sha", baseGitBranch: "ai/preview-test" });
+		}
+		const remove = await handle(request(`/api/live-content/item?kind=post&id=${id}`, {
+			method: "DELETE",
+			headers: adminHeaders(),
+			body: JSON.stringify({
+				path: `src/content/posts/${id}.md`,
+				baseGitSha: staticGit ? "git-sha" : "",
+				baseGitBranch: staticGit ? "ai/preview-test" : "",
+				expectedRevision: saved.revision,
+			}),
+		}));
+		assert.equal(remove.status, 200);
+	}
+
+	await saveAndDelete("static-delete", true);
+	await saveAndDelete("live-delete", false);
+	const response = await handle(request("/api/live-content/index?kind=post"));
+	const payload = await response.json();
+	assert.deepEqual(payload.entries.map((entry) => entry.id), ["static-delete"]);
+	assert.equal(payload.entries[0].deleted, true);
+	assert.equal("meta" in payload.entries[0], false);
+	assert.equal("baseGitSha" in payload.entries[0], false);
 });
 
 test("dynamic metadata stays available to public overlay", async () => {

@@ -312,20 +312,26 @@ export function createLiveContentService({
 		if (hasAuthorization) {
 			const auth = await requireAdmin(request);
 			if (auth.error) return auth.error;
-		} else if (kind === "post") {
-			entries = entries.map((entry) => {
-				if (!entry.deleted && (entry.meta?.draft || entry.meta?.protected)) {
-					return {
-						schemaVersion: SCHEMA_VERSION,
-						kind,
-						id: entry.id,
-						revision: entry.revision,
-						deleted: false,
-						hidden: true,
-						updatedAt: entry.updatedAt,
-					};
+		} else {
+			entries = entries.flatMap((entry) => {
+				const overlaysStaticGit = Boolean(entry.baseGitSha);
+				if (entry.deleted) {
+					return overlaysStaticGit
+						? [{ id: entry.id, revision: entry.revision, deleted: true, updatedAt: entry.updatedAt }]
+						: [];
 				}
-				return entry;
+				if (kind === "post" && (entry.meta?.draft || entry.meta?.protected)) {
+					return overlaysStaticGit
+						? [{ id: entry.id, revision: entry.revision, deleted: false, hidden: true, updatedAt: entry.updatedAt }]
+						: [];
+				}
+				return [{
+					id: entry.id,
+					revision: entry.revision,
+					deleted: false,
+					updatedAt: entry.updatedAt,
+					meta: entry.meta,
+				}];
 			});
 		}
 		entries.sort((a, b) =>
