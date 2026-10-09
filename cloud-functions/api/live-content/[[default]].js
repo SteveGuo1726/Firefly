@@ -5,14 +5,13 @@ const STORE_NAME = "firefly-content-live";
 const SCHEMA_VERSION = 1;
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
 const AUTH_CACHE_MS = 5 * 60 * 1000;
+const ALLOWED_LOGIN = "SteveGuo1726";
+const REPOSITORY = "SteveGuo1726/Firefly";
 
 const store = getStore({ name: STORE_NAME, consistency: "strong" });
 const authCache = new Map();
 
-const ALLOWED_LOGIN = "SteveGuo1726";
-const REPOSITORY = "SteveGuo1726/Firefly";
-
-function json(data, status = 200, extraHeaders = {}) {
+function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: {
@@ -20,7 +19,6 @@ function json(data, status = 200, extraHeaders = {}) {
       "Cache-Control": "no-store",
       "X-Content-Type-Options": "nosniff",
       "Referrer-Policy": "same-origin",
-      ...extraHeaders,
     },
   });
 }
@@ -44,14 +42,10 @@ function normalizeId(kind, raw) {
   if (!value || value.length > 240 || value.includes("..") || value.includes("\\")) {
     return null;
   }
-  if (kind === "dynamic") {
-    return /^[A-Za-z0-9_-]+$/.test(value) ? value : null;
-  }
-  return value
-    .split("/")
-    .every((part) => /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(part))
-    ? value
-    : null;
+  if (kind === "dynamic") return /^[A-Za-z0-9_-]+$/.test(value) ? value : null;
+  return value.split("/").every((part) =>
+    /^[A-Za-z0-9][A-Za-z0-9._-]*$/.test(part),
+  ) ? value : null;
 }
 
 function itemKey(kind, id) {
@@ -76,12 +70,7 @@ async function readIndex(kind) {
   ) {
     return existing;
   }
-  return {
-    schemaVersion: SCHEMA_VERSION,
-    kind,
-    updatedAt: null,
-    entries: {},
-  };
+  return { schemaVersion: SCHEMA_VERSION, kind, updatedAt: null, entries: {} };
 }
 
 async function writeIndex(kind, index) {
@@ -103,8 +92,7 @@ async function requireAdmin(request) {
   if (!token) return { error: json({ error: "需要 GitHub 管理登录。" }, 401) };
 
   const hash = tokenHash(token);
-  const cached = authCache.get(hash);
-  if (cached && cached > Date.now()) return { token };
+  if ((authCache.get(hash) || 0) > Date.now()) return { token };
 
   const headers = {
     Accept: "application/vnd.github+json",
@@ -164,14 +152,13 @@ async function handleGetIndex(url) {
   const kind = normalizeKind(url.searchParams.get("kind"));
   if (!kind) return json({ error: "kind 必须是 post 或 dynamic。" }, 400);
   const index = await readIndex(kind);
-  const entries = Object.values(index.entries || {}).sort((a, b) =>
-    String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")),
-  );
   return json({
     schemaVersion: SCHEMA_VERSION,
     kind,
     updatedAt: index.updatedAt,
-    entries,
+    entries: Object.values(index.entries || {}).sort((a, b) =>
+      String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")),
+    ),
   });
 }
 
@@ -179,6 +166,10 @@ async function handleGetItem(url) {
   const kind = normalizeKind(url.searchParams.get("kind"));
   const id = kind ? normalizeId(kind, url.searchParams.get("id")) : null;
   if (!kind || !id) return json({ error: "kind 或 id 无效。" }, 400);
+
+  const index = await readIndex(kind);
+  const indexed = index.entries?.[id];
+  if (!indexed || indexed.deleted) return json({ error: "Not Found" }, 404);
 
   const item = await store.get(itemKey(kind, id), {
     type: "json",
@@ -206,7 +197,11 @@ async function handlePutItem(request) {
 
   const kind = normalizeKind(body.kind);
   const id = kind ? normalizeId(kind, body.id) : null;
-  if (!kind || !id) return json({ error: "kind 或 id 无效。" }, 400);
+  const previousId =
+    kind && body.previousId ? normalizeId(kind, body.previousId) : null;
+  if (!kind || !id || (body.previousId && !previousId)) {
+    return json({ error: "kind、id 或 previousId 无效。" }, 400);
+  }
 
   const source = String(body.source || "");
   if (!source.trim()) return json({ error: "source 不能为空。" }, 400);
@@ -246,9 +241,44 @@ async function handlePutItem(request) {
     deleted: false,
     updatedAt: now,
   };
-  await writeIndex(kind, index);
 
-  return json({ ok: true, kind, id, revision, updatedAt: now });
+  if (previousId && previousId !== id) {
+    const previousEntry = index.entries[previousId] || {};
+    const tombstone = {
+      schemaVersion: SCHEMA_VERSION,
+      kind,
+      id: previousId,
+      path: String(body.previousPath || previousEntry.path || "").slice(0, 500),
+      meta: previousEntry.meta || normalizeMeta(kind, {}),
+      baseGitSha: String(
+        body.previousBaseGitSha || previousEntry.baseGitSha || "",
+      ).slice(0, 80),
+      revision,
+      deleted: true,
+      updatedAt: now,
+      updatedBy: ALLOWED_LOGIN,
+    };
+    await store.setJSON(itemKey(kind, previousId), tombstone);
+    index.entries[previousId] = {
+      id: previousId,
+      path: tombstone.path,
+      meta: tombstone.meta,
+      baseGitSha: tombstone.baseGitSha,
+      revision,
+      deleted: true,
+      updatedAt: now,
+    };
+  }
+
+  await writeIndex(kind, index);
+  return json({
+    ok: true,
+    kind,
+    id,
+    previousId: previousId && previousId !== id ? previousId : null,
+    revision,
+    updatedAt: now,
+  });
 }
 
 async function handleDeleteItem(request, url) {
@@ -259,20 +289,30 @@ async function handleDeleteItem(request, url) {
   const id = kind ? normalizeId(kind, url.searchParams.get("id")) : null;
   if (!kind || !id) return json({ error: "kind 或 id 无效。" }, 400);
 
-  const now = new Date().toISOString();
-  const revision = randomUUID();
+  let fallback = {};
+  try {
+    const raw = await request.text();
+    if (raw) fallback = JSON.parse(raw);
+  } catch {}
+
+  const index = await readIndex(kind);
+  const indexed = index.entries?.[id] || {};
   const existing = await store.get(itemKey(kind, id), {
     type: "json",
     consistency: "strong",
   });
 
+  const now = new Date().toISOString();
+  const revision = randomUUID();
   const tombstone = {
     schemaVersion: SCHEMA_VERSION,
     kind,
     id,
-    path: existing?.path || "",
-    meta: existing?.meta || normalizeMeta(kind, {}),
-    baseGitSha: existing?.baseGitSha || "",
+    path: String(existing?.path || fallback.path || indexed.path || "").slice(0, 500),
+    meta: existing?.meta || normalizeMeta(kind, fallback.meta || indexed.meta || {}),
+    baseGitSha: String(
+      existing?.baseGitSha || fallback.baseGitSha || indexed.baseGitSha || "",
+    ).slice(0, 80),
     revision,
     deleted: true,
     updatedAt: now,
@@ -280,7 +320,6 @@ async function handleDeleteItem(request, url) {
   };
 
   await store.setJSON(itemKey(kind, id), tombstone);
-  const index = await readIndex(kind);
   index.entries[id] = {
     id,
     path: tombstone.path,
@@ -305,7 +344,6 @@ async function handleExport(request) {
     posts: [],
     dynamics: [],
   };
-
   for (const kind of ["post", "dynamic"]) {
     const index = await readIndex(kind);
     for (const entry of Object.values(index.entries || {})) {
@@ -313,10 +351,9 @@ async function handleExport(request) {
         type: "json",
         consistency: "strong",
       });
-      if (item) {
-        if (kind === "post") result.posts.push(item);
-        else result.dynamics.push(item);
-      }
+      if (!item) continue;
+      if (kind === "post") result.posts.push(item);
+      else result.dynamics.push(item);
     }
   }
   return json(result);
@@ -341,27 +378,16 @@ export default async function onRequest(context) {
         requestId: context.uuid || context.server?.requestId || null,
       });
     }
-    if (path === "/index" && request.method === "GET") {
-      return handleGetIndex(url);
-    }
-    if (path === "/item" && request.method === "GET") {
-      return handleGetItem(url);
-    }
-    if (path === "/item" && request.method === "PUT") {
-      return handlePutItem(request);
-    }
-    if (path === "/item" && request.method === "DELETE") {
-      return handleDeleteItem(request, url);
-    }
-    if (path === "/export" && request.method === "GET") {
-      return handleExport(request);
-    }
+    if (path === "/index" && request.method === "GET") return handleGetIndex(url);
+    if (path === "/item" && request.method === "GET") return handleGetItem(url);
+    if (path === "/item" && request.method === "PUT") return handlePutItem(request);
+    if (path === "/item" && request.method === "DELETE") return handleDeleteItem(request, url);
+    if (path === "/export" && request.method === "GET") return handleExport(request);
     return json({ error: "Not Found", path, method: request.method }, 404);
   } catch (error) {
     console.error("[Firefly live content]", error);
-    return json(
-      { error: error instanceof Error ? error.message : "Live content service failed." },
-      500,
-    );
+    return json({
+      error: error instanceof Error ? error.message : "Live content service failed.",
+    }, 500);
   }
 }

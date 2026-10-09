@@ -21,17 +21,13 @@ export type LiveContentDocument = LiveContentIndexEntry & {
 
 function endpoint(path: string, params?: Record<string, string>): string {
 	const url = new URL(`/api/live-content${path}`, window.location.origin);
-	for (const [key, value] of Object.entries(params || {})) {
-		url.searchParams.set(key, value);
-	}
+	for (const [key, value] of Object.entries(params || {})) url.searchParams.set(key, value);
 	return url.toString();
 }
 
 async function readJson(response: Response) {
 	const payload = await response.json().catch(() => ({}));
-	if (!response.ok) {
-		throw new Error(payload?.error || `实时内容服务请求失败：${response.status}`);
-	}
+	if (!response.ok) throw new Error(payload?.error || `实时内容服务请求失败：${response.status}`);
 	return payload;
 }
 
@@ -39,19 +35,14 @@ export async function fetchLiveContentIndex(kind: LiveContentKind): Promise<{
 	updatedAt: string | null;
 	entries: LiveContentIndexEntry[];
 }> {
-	const response = await fetch(endpoint("/index", { kind }), {
-		cache: "no-store",
-	});
-	return readJson(response);
+	return readJson(await fetch(endpoint("/index", { kind }), { cache: "no-store" }));
 }
 
 export async function fetchLiveContentItem(
 	kind: LiveContentKind,
 	id: string,
 ): Promise<LiveContentDocument | null> {
-	const response = await fetch(endpoint("/item", { kind, id }), {
-		cache: "no-store",
-	});
+	const response = await fetch(endpoint("/item", { kind, id }), { cache: "no-store" });
 	if (response.status === 404) return null;
 	return readJson(response);
 }
@@ -64,8 +55,11 @@ export async function saveLiveContentItem(options: {
 	source: string;
 	meta: Record<string, unknown>;
 	baseGitSha?: string;
+	previousId?: string;
+	previousPath?: string;
+	previousBaseGitSha?: string;
 }): Promise<{ revision: string; updatedAt: string }> {
-	const response = await fetch(endpoint("/item"), {
+	return readJson(await fetch(endpoint("/item"), {
 		method: "PUT",
 		headers: {
 			Authorization: `Bearer ${options.session.token}`,
@@ -78,32 +72,38 @@ export async function saveLiveContentItem(options: {
 			source: options.source,
 			meta: options.meta,
 			baseGitSha: options.baseGitSha || "",
+			previousId: options.previousId || "",
+			previousPath: options.previousPath || "",
+			previousBaseGitSha: options.previousBaseGitSha || "",
 		}),
-	});
-	return readJson(response);
+	}));
 }
 
 export async function deleteLiveContentItem(options: {
 	session: GitHubAdminSession;
 	kind: LiveContentKind;
 	id: string;
+	path?: string;
+	meta?: Record<string, unknown>;
+	baseGitSha?: string;
 }): Promise<{ revision: string; updatedAt: string }> {
-	const response = await fetch(
-		endpoint("/item", { kind: options.kind, id: options.id }),
-		{
-			method: "DELETE",
-			headers: { Authorization: `Bearer ${options.session.token}` },
+	return readJson(await fetch(endpoint("/item", { kind: options.kind, id: options.id }), {
+		method: "DELETE",
+		headers: {
+			Authorization: `Bearer ${options.session.token}`,
+			"Content-Type": "application/json",
 		},
-	);
-	return readJson(response);
+		body: JSON.stringify({
+			path: options.path || "",
+			meta: options.meta || {},
+			baseGitSha: options.baseGitSha || "",
+		}),
+	}));
 }
 
-export async function exportLiveContent(
-	session: GitHubAdminSession,
-): Promise<unknown> {
-	const response = await fetch(endpoint("/export"), {
+export async function exportLiveContent(session: GitHubAdminSession): Promise<unknown> {
+	return readJson(await fetch(endpoint("/export"), {
 		headers: { Authorization: `Bearer ${session.token}` },
 		cache: "no-store",
-	});
-	return readJson(response);
+	}));
 }

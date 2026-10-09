@@ -1,6 +1,5 @@
 ---
 import { Icon } from "astro-icon/components";
-import DynamicAdminManager from "@/components/pages/dynamic/DynamicAdminManager.svelte";
 import DynamicFeed from "@/components/pages/dynamic/DynamicFeed.svelte";
 import DynamicItemTemplate from "@/components/pages/dynamic/DynamicItemTemplate.astro";
 import { commentConfig, dynamicConfig, siteConfig } from "@/config";
@@ -69,11 +68,6 @@ const memos = dynamicConfig.memos;
 					</label>
 				</div>
 			</header>
-
-			<DynamicAdminManager
-				client:load
-				timezone={siteConfig.timezone || "UTC"}
-			/>
 
 			<DynamicFeed
 				client:load

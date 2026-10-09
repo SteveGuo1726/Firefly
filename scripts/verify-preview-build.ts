@@ -17,6 +17,7 @@ const required = [
   "booknav/index.html",
   "projects/index.html",
   "write/index.html",
+  "admin/index.html",
   "posts/firefly-config-manager/index.html",
   "pagefind/pagefind.js",
   "favicon/favicon-light-32.png",
@@ -151,6 +152,33 @@ const galleryWorkerSource = await readFile(
 ).catch(() => "");
 if (!galleryWorkerSource.includes("repo.permissions?.push === false")) {
   errors.push("gallery admin API does not verify repository write permission");
+}
+
+const dynamicPageSource = await readFile(
+  path.join(process.cwd(), "src/pages/dynamic/index.astro"),
+  "utf8",
+).catch(() => "");
+if (dynamicPageSource.includes("DynamicAdminManager")) {
+  errors.push("public dynamic page still mounts the legacy admin manager");
+}
+
+const writePageSource = await readFile(
+  path.join(process.cwd(), "src/pages/write.astro"),
+  "utf8",
+).catch(() => "");
+if (writePageSource.includes("WriteManager")) {
+  errors.push("legacy WriteManager is still mounted");
+}
+
+const liveContentFunctionSource = await readFile(
+  path.join(process.cwd(), "cloud-functions/api/live-content/[[default]].js"),
+  "utf8",
+).catch(() => "");
+if (
+  !liveContentFunctionSource.includes('getStore({ name: STORE_NAME, consistency: "strong" })') ||
+  !liveContentFunctionSource.includes("requireAdmin")
+) {
+  errors.push("EdgeOne live content service guard missing");
 }
 
 async function collectHtmlFiles(directory: string): Promise<string[]> {

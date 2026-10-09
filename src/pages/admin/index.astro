@@ -1,0 +1,13 @@
+---
+import Navbar from "@/components/layout/Navbar.astro";
+import AdminApp from "@/components/pages/admin/AdminApp.svelte";
+import Layout from "@/layouts/Layout.astro";
+import "@/styles/expressive-code.css";
+import "@/styles/markdown.css";
+---
+<Layout title="内容后台" description="Firefly 私有内容管理后台">
+	<meta slot="head" name="robots" content="noindex,nofollow,noarchive" />
+	<div id="top-row" class="z-50 pointer-events-none relative transition-all duration-700 mx-auto h-18 fixed top-0 left-0 right-0 z-80 w-full xl:w-[92vw] max-w-(--page-width) px-0 md:px-4"><div id="navbar-wrapper" class="pointer-events-auto transition-all"><Navbar /></div></div>
+	<main class="admin-page"><AdminApp client:only="svelte" /></main>
+</Layout>
+<style>.admin-page{position:relative;z-index:30;width:min(98vw,112rem);margin:5.6rem auto 2rem;padding:0 .5rem}</style>
