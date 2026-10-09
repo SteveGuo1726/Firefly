@@ -12,7 +12,7 @@
   },
   "headers": [
     {
-      "source": "/__live-post-shell/*",
+      "source": "/internal/live-post-shell/*",
       "headers": [
         {
           "key": "X-Robots-Tag",

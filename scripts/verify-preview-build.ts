@@ -18,7 +18,7 @@ const required = [
   "projects/index.html",
   "write/index.html",
   "admin/index.html",
-  "__live-post-shell/index.html",
+  "internal/live-post-shell/index.html",
   "posts/firefly-config-manager/index.html",
   "pagefind/pagefind.js",
   "favicon/favicon-light-32.png",

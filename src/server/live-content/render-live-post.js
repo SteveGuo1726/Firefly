@@ -50,7 +50,7 @@ export async function renderLivePostFallback(request, { loadItem, loadShell }) {
 		.replaceAll("__LIVE_POST_PUBLISHED__", published)
 		.replaceAll("__LIVE_POST_CATEGORY__", category)
 		.replaceAll("__LIVE_POST_TAGS__", tags)
-		.replaceAll("https://blog.casto.top/__live-post-shell/", requestUrl)
+		.replaceAll("https://blog.casto.top/internal/live-post-shell/", requestUrl)
 		.replace('<!--LIVE_POST_CONTENT-->', String(meta.html))
 		.replace(/<meta[^>]+data-live-shell-robots[^>]*>/, "");
 

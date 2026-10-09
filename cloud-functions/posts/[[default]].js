@@ -12,7 +12,7 @@ export default async function onRequest(context) {
 			});
 		},
 		loadShell() {
-			return fetch(new URL("/__live-post-shell/", context.request.url));
+			return fetch(new URL("/internal/live-post-shell/", context.request.url));
 		},
 	});
 }

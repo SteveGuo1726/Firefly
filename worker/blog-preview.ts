@@ -41,7 +41,7 @@ export default {
 					return value ? JSON.parse(value) : null;
 				},
 				loadShell() {
-					return env.ASSETS.fetch(new Request(new URL("/__live-post-shell/", request.url)));
+					return env.ASSETS.fetch(new Request(new URL("/internal/live-post-shell/", request.url)));
 				},
 			});
 		}
