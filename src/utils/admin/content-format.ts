@@ -197,7 +197,8 @@ export function buildPostDocument(fields: AdminPostFields, body: string, origina
 		...(fields.series.trim()?[`series: ${quote(fields.series.trim())}`]:[]),
 		...(fields.seriesOrder===null?[]:[`seriesOrder: ${fields.seriesOrder}`]),
 	];
-	return finish(lines,extras(doc.frontmatter,POST_KEYS),body);
+	const canonical = finish(lines,extras(doc.frontmatter,POST_KEYS),body);
+	return preserveDocument(original, fields, body, parsePostDocument, canonical);
 }
 
 export function parseDynamicDocument(source: string) {
@@ -220,6 +221,48 @@ export function buildDynamicDocument(fields: AdminDynamicFields, body: string, o
 		`pinned: ${fields.pinned}`,
 		...(fields.location.trim()?[`location: ${quote(fields.location.trim())}`]:[]),
 	],extras(doc.frontmatter,DYNAMIC_KEYS),body);
+	return preserveDocument(original, fields, body, parseDynamicDocument, canonical);
+}
+
+
+/**
+ * Preserve existing YAML verbatim for all form fields the editor did not change.
+ * This protects custom YAML, comments and block scalars from lossy serialization.
+ */
+function preserveDocument<T extends object>(
+ original: string, fields: T, body: string,
+ parse: (source: string) => { fields: T; body: string },
+ canonical: string,
+): string {
+ const match = /^---(\\r?\\n)([\\s\\S]*?)^---[ \\t]*(\\r?\\n|$)/m.exec(original);
+ if (!match || match.index !== 0) return canonical;
+ const prior = parse(original);
+ const next = fields as Record<string, unknown>;
+ const previous = prior.fields as Record<string, unknown>;
+ const changed = Object.keys(next).filter(key => JSON.stringify(next[key]) !== JSON.stringify(previous[key]));
+ if (changed.length === 0 && body === prior.body) return original;
+ const replacementMap = mapBlocks(splitDocument(canonical).frontmatter);
+ const oldBlocks = blocks(match[2].replace(/\\r\\n/g, "\\n").replace(/\\n$/, ""));
+ const seen = new Set<string>();
+ const result: string[] = [];
+ for (const block of oldBlocks) {
+  if (block.key && changed.includes(block.key)) {
+   if (seen.has(block.key)) continue;
+   seen.add(block.key);
+   const replacement = replacementMap.get(block.key);
+   if (replacement) result.push(replacement.lines.join("\\n"));
+  } else result.push(block.lines.join("\\n"));
+ }
+ for (const key of changed) {
+  if (seen.has(key)) continue;
+  const replacement = replacementMap.get(key);
+  if (replacement) result.push(replacement.lines.join("\\n"));
+ }
+ const eol = match[1];
+ const matter = result.join("\\n").replace(/\\n/g, eol);
+ const prefix = "---" + eol + matter + (matter.endsWith(eol) ? "" : eol) + "---" + match[3];
+ const suffix = body === prior.body ? original.slice(match[0].length) : eol + body;
+ return prefix + suffix;
 }
 
 export function excerptMarkdown(value: string, max=120): string {
