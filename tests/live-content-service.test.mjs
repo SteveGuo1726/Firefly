@@ -636,3 +636,52 @@ test("a failed pointer write releases the per-item mutation lock",async()=>{
  const item=await handle(request("/api/live-content/item?kind=post&id=recover",{headers:adminHeaders()}));
  assert.equal((await item.json()).source,"recovered");
 });
+
+
+test("new live article publishes, updates, hides, restores and deletes without a build",async()=>{
+ const store=makeStore(),handle=createService(store);
+ const id="no-build-article";
+ const put=async(title,expectedRevision="",draft=false)=>{
+  const response=await handle(request("/api/live-content/item",{
+   method:"PUT",headers:adminHeaders(),
+   body:JSON.stringify({kind:"post",id,path:"src/content/posts/"+id+".md",
+    source:"---\ntitle: "+title+"\n---\n"+title,
+    meta:{title,description:title+" description",searchText:title,
+     published:"2026-10-10",html:"<p>"+title+"</p>",draft},
+    expectedRevision}),
+  }));
+  return {status:response.status,payload:await response.json()};
+ };
+ const index=async()=> (await (await handle(request("/api/live-content/index?kind=post"))).json()).entries;
+ const shell=()=>renderLivePostFallback(
+  request("/posts/no-build-article/"),
+  {loadItem:async()=> {
+   const pointer=await store.getJSON("v3/pointers/posts/"+id+".json");
+   return pointer?.deleted?null:store.getJSON("v3/items/posts/"+id+"/"+pointer.revision+".json");
+  },loadShell:async()=>new Response(
+   "<html><title>__LIVE_POST_TITLE__</title><!--LIVE_POST_CONTENT--></html>",{status:200})},
+ );
+ const created=await put("Version one");
+ assert.equal(created.status,200);
+ assert.ok((await index()).some(x=>x.id===id));
+ assert.match(await (await shell()).text(),/Version one/);
+ const updated=await put("Version two",created.payload.revision);
+ assert.equal(updated.status,200);
+ assert.match(await (await shell()).text(),/Version two/);
+ const hidden=await put("Private",updated.payload.revision,true);
+ assert.equal(hidden.status,200);
+ assert.ok(!(await index()).some(x=>x.id===id));
+ assert.equal((await shell()).status,404);
+ const restored=await put("Restored",hidden.payload.revision);
+ assert.equal(restored.status,200);
+ assert.ok((await index()).some(x=>x.id===id));
+ assert.match(await (await shell()).text(),/Restored/);
+ const deletion=await handle(request("/api/live-content/item?kind=post&id="+id,{
+  method:"DELETE",headers:adminHeaders(),
+  body:JSON.stringify({path:"src/content/posts/"+id+".md",expectedRevision:restored.payload.revision}),
+ }));
+ assert.equal(deletion.status,200);
+ assert.ok(!(await index()).some(x=>x.id===id));
+ assert.equal((await shell()).status,404);
+ assert.equal((await handle(request("/api/live-content/item?kind=post&id="+id))).status,410);
+});
