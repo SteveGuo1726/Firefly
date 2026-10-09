@@ -81,3 +81,33 @@ test("live post search invalidates stale index on cross-tab mutation",async()=>{
  assert.match(search,/liveIndexCache\.clear\(\)/);
  assert.match(search,/Date\.now\(\) \+ 5_000/);
 });
+
+
+test("independent admin lazily loads editors only after verified login", async () => {
+ const app=await readFile("src/components/pages/admin/AdminApp.svelte","utf8");
+ assert.match(app,/if\s*\(!session\)/);
+ assert.match(app,/import\("\.\/AdminPostManager\.svelte"\)/);
+ assert.match(app,/import\("\.\/AdminDynamicManager\.svelte"\)/);
+ assert.match(app,/import\("\.\.\/gallery\/GalleryAdminManager\.svelte"\)/);
+ assert.doesNotMatch(app,/^import\s+Admin(?:Post|Dynamic)Manager\s+from/m);
+});
+test("switching admin sections preserves unsaved editor instances", async () => {
+ const app=await readFile("src/components/pages/admin/AdminApp.svelte","utf8");
+ assert.match(app,/hidden=\{section!=="posts"\}/);
+ assert.match(app,/hidden=\{section!=="dynamic"\}/);
+ assert.match(app,/hidden=\{section!=="gallery"\}/);
+ assert.match(app,/section==="gallery"/);
+});
+test("legacy gallery manager is only a migration redirect, not a public editor", async () => {
+ const legacy=await readFile("src/pages/gallery/manage.astro","utf8");
+ assert.match(legacy,/\/admin\/\?section=gallery/);
+ assert.doesNotMatch(legacy,/GalleryAdminManager|client:only/);
+ const login=await readFile("src/components/features/GitHubAdminLogin.svelte","utf8");
+ assert.match(login,/\/admin\/\?section=gallery/);
+});
+test("legacy persistent browser tokens cannot be silently restored",async()=>{
+ const session=await readFile("src/utils/admin/github-session.ts","utf8");
+ assert.match(session,/discardLegacyPersistentToken/);
+ assert.doesNotMatch(session,/sessionStorage\.setItem\(STORAGE_KEY,\s*legacy\)/);
+ assert.match(session,/localStorage\.removeItem\(LEGACY_STORAGE_KEY\)/);
+});
