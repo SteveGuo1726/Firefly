@@ -153,6 +153,31 @@ export function createLiveContentService({
 }) {
 	const authCache = new Map();
 	const repoWriterCache = new Map();
+	// Serialize overlapping writes within this service instance. This protects
+	// same-worker races; distributed workers still require storage-level CAS.
+	const mutationLocks = new Map();
+	async function withMutationLocks(keys, operation) {
+		const ordered = [...new Set(keys)].sort();
+		const releases = [];
+		try {
+			for (const key of ordered) {
+				const previous = mutationLocks.get(key) || Promise.resolve();
+				let release;
+				const pending = new Promise(resolve => { release = resolve; });
+				const current = previous.then(() => pending);
+				mutationLocks.set(key, current);
+				await previous;
+				releases.push({ key, current, release });
+			}
+			return await operation();
+		} finally {
+			for (const { key, current, release } of releases.reverse()) {
+				release();
+				if (mutationLocks.get(key) === current) mutationLocks.delete(key);
+			}
+		}
+	}
+
 
 	async function readPointer(kind, id) {
 		return store.getJSON(pointerKey(kind, id));
@@ -701,8 +726,20 @@ export function createLiveContentService({
 			}
 			if (path === "/index" && request.method === "GET") return await handleGetIndex(request, url);
 			if (path === "/item" && request.method === "GET") return await handleGetItem(request, url);
-			if (path === "/item" && request.method === "PUT") return await handlePutItem(request);
-			if (path === "/item" && request.method === "DELETE") return await handleDeleteItem(request, url);
+
+			if (path === "/item" && request.method === "PUT") {
+				const payload = await request.clone().json().catch(() => ({}));
+				const kind = normalizeKind(payload?.kind);
+				const id = kind ? normalizeId(kind, payload?.id) : null;
+				const previousId = kind ? normalizeId(kind, payload?.previousId) : null;
+				const keys = [id, previousId].filter(Boolean).map(value => kind + ":" + value);
+				return await withMutationLocks(keys.length ? keys : ["invalid-put"], () => handlePutItem(request));
+			}
+			if (path === "/item" && request.method === "DELETE") {
+				const kind = normalizeKind(url.searchParams.get("kind"));
+				const id = kind ? normalizeId(kind, url.searchParams.get("id")) : null;
+				return await withMutationLocks([id ? kind + ":" + id : "invalid-delete"], () => handleDeleteItem(request, url));
+			}
 			if (path === "/export" && request.method === "GET") return await handleExport(request);
 			if (path === "/archive-export" && request.method === "GET") {
 				return await handleArchiveExport(request);
