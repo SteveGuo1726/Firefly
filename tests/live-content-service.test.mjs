@@ -575,3 +575,35 @@ test("rename to an occupied v3 item refuses overwrite and preserves both pointer
   assert.equal(response.status,200);
  }
 });
+
+
+test("same-item simultaneous updates serialize and reject a stale revision",async()=>{
+ const store=makeStore(),handle=createService(store);
+ const req=(source,expectedRevision)=>request("/api/live-content/item",{
+  method:"PUT",headers:adminHeaders(),body:JSON.stringify({
+   kind:"post",id:"race",path:"src/content/posts/race.md",source,
+   meta:{title:source,html:"<p>"+source+"</p>"},
+   ...(expectedRevision?{expectedRevision}:{}),
+  }),
+ });
+ const created=await handle(req("original"));
+ assert.equal(created.status,200);
+ const revision=(await created.json()).revision;
+ const [a,b]=await Promise.all([handle(req("writer-a",revision)),handle(req("writer-b",revision))]);
+ assert.deepEqual([a.status,b.status].sort(),[200,409]);
+ const item=await handle(request("/api/live-content/item?kind=post&id=race",{headers:adminHeaders()}));
+ assert.equal(item.status,200);
+ assert.ok(["writer-a","writer-b"].includes((await item.json()).source));
+});
+
+test("same-item concurrent initial creates cannot silently overwrite",async()=>{
+ const store=makeStore(),handle=createService(store);
+ const save=(source)=>handle(request("/api/live-content/item",{
+  method:"PUT",headers:adminHeaders(),body:JSON.stringify({
+   kind:"post",id:"new-race",path:"src/content/posts/new-race.md",
+   source,meta:{title:source,html:"<p>test</p>"},
+  }),
+ }));
+ const result=await Promise.all([save("a"),save("b")]);
+ assert.deepEqual(result.map(r=>r.status).sort(),[200,409]);
+});
