@@ -15,6 +15,10 @@ let rows:Row[]=[];let query="";let loading=false;let opening=false;let saving=fa
 let currentId="";let currentPath="";let loadedPath="";let baseGitSha="";let liveRevision="";let originalSource="";
 let fields:AdminPostFields=emptyPostFields();let body="";let tagsText="";let previewHtml="";let message="";let error="";
 let previewTimer:ReturnType<typeof setTimeout>|null=null;
+let savedEditorSnapshot="";
+function editorSnapshot(){return JSON.stringify({currentPath,fields,body,tagsText});}
+function guardUnsaved(){return !savedEditorSnapshot || editorSnapshot()===savedEditorSnapshot || confirm("当前有未保存的编辑内容。继续将丢失这些修改，确定切换吗？");}
+
 
 function filtered(){const n=query.trim().toLowerCase();return !n?rows:rows.filter(r=>[r.title,r.description,r.category,r.tags.join(" "),r.path].join(" ").toLowerCase().includes(n));}
 function idFromPath(path:string){return path.replace(/^src\/content\/posts\//,"").replace(/\.(?:md|mdx)$/i,"");}
@@ -45,7 +49,7 @@ async function refresh(){
 	}catch(e){error=e instanceof Error?e.message:"文章列表读取失败。";}finally{loading=false;}
 }
 
-async function open(row:Row){
+async function open(row:Row){if(saving||deleting||opening||!guardUnsaved())return;
 	opening=true;error="";message="";
 	try{
 		let source="";let sha=row.baseGitSha;
@@ -53,11 +57,11 @@ async function open(row:Row){
 		if(!source){const git=await fetchGitContentSource(session,row.path);source=git.source;sha=git.sha;}
 		const parsed=parsePostDocument(source);
 		currentId=row.id;currentPath=row.path;loadedPath=row.path;baseGitSha=sha;originalSource=source;fields=parsed.fields;body=parsed.body;tagsText=fields.tags.join(", ");
-		await updatePreview();
+		savedEditorSnapshot=editorSnapshot();await updatePreview();
 	}catch(e){error=e instanceof Error?e.message:"读取文章失败。";}finally{opening=false;}
 }
 
-function createNew(){const stamp=new Date().toISOString().replace(/[-:]/g,"").slice(0,13).replace("T","-").toLowerCase();currentId="";currentPath=`src/content/posts/${stamp}.md`;loadedPath="";baseGitSha="";liveRevision="";originalSource="";fields=emptyPostFields();body="# 新文章\n\n";tagsText="";message="新文章尚未写入 Blob。";error="";void updatePreview();}
+function createNew(){if(saving||deleting||opening||!guardUnsaved())return;const stamp=new Date().toISOString().replace(/[-:]/g,"").slice(0,13).replace("T","-").toLowerCase();currentId="";currentPath=`src/content/posts/${stamp}.md`;loadedPath="";baseGitSha="";liveRevision="";originalSource="";fields=emptyPostFields();body="# 新文章\n\n";tagsText="";message="新文章尚未写入 Blob。";error="";savedEditorSnapshot=editorSnapshot();void updatePreview();}
 
 async function save(){
 	if(!fields.title.trim()){error="标题不能为空。";return;}
@@ -67,7 +71,7 @@ async function save(){
 	try{
 		const publicMeta=await liveMeta();
 		const result=await saveLiveContentItem({session,kind:"post",id:nextId,path,source,meta:publicMeta,baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision,previousId:currentId&&currentId!==nextId?currentId:undefined,previousPath:currentId&&currentId!==nextId?loadedPath:undefined,previousBaseGitSha:currentId&&currentId!==nextId?baseGitSha:undefined,previousBaseGitBranch:session.branch});
-		currentId=nextId;currentPath=path;loadedPath=path;liveRevision=result.revision;originalSource=source;message=`实时版本已保存：${result.revision.slice(0,8)}。未创建 Git commit。`;await refresh();
+		currentId=nextId;currentPath=path;loadedPath=path;liveRevision=result.revision;originalSource=source;savedEditorSnapshot=editorSnapshot();message=`实时版本已保存：${result.revision.slice(0,8)}。未创建 Git commit。`;await refresh();
 	}catch(e){error=e instanceof Error?e.message:"保存失败。";}finally{saving=false;}
 }
 
