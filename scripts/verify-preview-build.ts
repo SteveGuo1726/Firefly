@@ -234,6 +234,18 @@ if (
   errors.push("live content archive safety guard missing");
 }
 
+const runtimeVerifierSource = await readFile(
+  path.join(process.cwd(), "scripts/verify-runtime-bundles.ts"),
+  "utf8",
+).catch(() => "");
+if (
+  !runtimeVerifierSource.includes("cloud-functions/api/live-content/[[default]].js") ||
+  !runtimeVerifierSource.includes("cloud-functions/posts/[[default]].js") ||
+  !runtimeVerifierSource.includes("worker/blog-preview.ts")
+) {
+  errors.push("runtime bundle verifier is missing EdgeOne or Cloudflare entrypoints");
+}
+
 const liveContentFunctionSource = await readFile(
   path.join(process.cwd(), "cloud-functions/api/live-content/[[default]].js"),
   "utf8",

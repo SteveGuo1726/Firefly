@@ -26,7 +26,8 @@
 		"deploy:cf-preview": "pnpm verify:preview && wrangler deploy -c wrangler.preview.jsonc",
 		"test:live-content": "tsx --test tests/live-content-service.test.mjs tests/dynamic-live.test.ts tests/archive-live-content.test.mjs tests/live-post-search.test.ts",
 		"build:preview": "npx tsx scripts/generate-lqips.ts && astro build && npx tsx scripts/prune-pio-assets.ts && npx tsx scripts/subset-fonts.ts && npx tsx scripts/minify-inline-scripts.ts && npx tsx scripts/run-pagefind.ts && npx tsx scripts/verify-preview-build.ts",
-		"verify:preview": "pnpm test:live-content && pnpm astro check && pnpm build:preview"
+		"verify:preview": "pnpm test:live-content && pnpm verify:runtimes && pnpm astro check && pnpm build:preview",
+		"verify:runtimes": "tsx scripts/verify-runtime-bundles.ts"
 	},
 	"dependencies": {
 		"@astrojs/check": "^0.9.10",
