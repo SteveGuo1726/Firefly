@@ -14,6 +14,10 @@ const required = [
   "rss.xml",
 ];
 const errors: string[] = [];
+const inlineCss = await readFile(path.join(process.cwd(), "src/styles/markdown.css"), "utf8");
+if (!inlineCss.includes(":not(pre) > code")) errors.push("code block and inline code selectors overlap");
+if (/counter-reset:\s*line\b|span\.line\s*\{/.test(inlineCss)) errors.push("legacy synthetic line-number rules conflict with Expressive Code");
+
 for (const relative of required) {
   const file = path.join(root, relative);
   try {

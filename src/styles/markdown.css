@@ -55,7 +55,8 @@
     }
   }
 
-  code {
+  /* Inline-only styling; do not override Expressive Code block layout. */
+  :not(pre) > code {
     @apply bg-(--inline-code-bg) text-(--inline-code-color) px-1 py-0.5 rounded-md overflow-hidden;
 
     /* 行内代码走 fontConfig.codeFont（--font-code 由 FontSetup.astro 输出），带等宽保底 */
@@ -79,21 +80,7 @@
       content: none;
     }
 
-    counter-reset: line;
 
-    span.line {
-      &:before {
-        @apply text-white/25 mr-4 w-4 inline-block;
-        content: counter(line);
-        counter-increment: line;
-        direction: rtl;
-      }
-
-      &:last-child:empty,
-      &:last-child:has(> span:empty:only-child) {
-        display: none;
-      }
-    }
   }
 
   .expressive-code {
