@@ -607,3 +607,32 @@ test("same-item concurrent initial creates cannot silently overwrite",async()=>{
  const result=await Promise.all([save("a"),save("b")]);
  assert.deepEqual(result.map(r=>r.status).sort(),[200,409]);
 });
+
+
+test("a failed pointer write releases the per-item mutation lock",async()=>{
+ const store=makeStore(), original=store.setJSON;
+ let failOnce=true;
+ store.setJSON=async(key,value)=>{
+  if(failOnce && key==="v3/pointers/posts/recover.json"){
+   failOnce=false;
+   throw new Error("simulated pointer outage");
+  }
+  return original(key,value);
+ };
+ const handle=createService(store);
+ const save=(source)=>handle(request("/api/live-content/item",{
+  method:"PUT",headers:adminHeaders(),body:JSON.stringify({
+   kind:"post",id:"recover",path:"src/content/posts/recover.md",
+   source,meta:{title:source,html:"<p>ok</p>"},
+  }),
+ }));
+ const first=await save("first");
+ assert.equal(first.status,500);
+ const second=await Promise.race([
+  save("recovered"),
+  new Promise((_,reject)=>setTimeout(()=>reject(new Error("mutation lock deadlocked")),2000)),
+ ]);
+ assert.equal(second.status,200);
+ const item=await handle(request("/api/live-content/item?kind=post&id=recover",{headers:adminHeaders()}));
+ assert.equal((await item.json()).source,"recovered");
+});
