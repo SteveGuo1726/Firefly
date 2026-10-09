@@ -41,3 +41,13 @@ test("public dynamic feed refreshes live overlays when returning to the tab",asy
  assert.match(source,/refreshIfStale/);
  assert.match(source,/if \(!background \|\| entries\.length === 0\) failed = true/);
 });
+
+test("successful content writes notify open public tabs without rebuilds",async()=>{
+ const client=await readFile("src/utils/admin/live-content-client.ts","utf8");
+ const feed=await readFile("src/components/pages/dynamic/DynamicFeed.svelte","utf8");
+ assert.match(client,/firefly:live-content-updated/);
+ assert.equal((client.match(/announceLiveMutation\(options.kind\)/g)||[]).length,2);
+ assert.match(feed,/addEventListener\("storage", onContentChanged\)/);
+ assert.match(feed,/removeEventListener\("storage", onContentChanged\)/);
+ assert.match(feed,/JSON.parse\(event.newValue\)\?\.kind === "dynamic"/);
+});
