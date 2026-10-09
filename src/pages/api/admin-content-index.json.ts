@@ -11,9 +11,13 @@ export const GET: APIRoute = async () => {
 	]);
 
 	const postItems=posts.map((post)=>{
-		const relative=post.id;
+		const filePath = post.filePath?.replace(/\\/g, "/") || "";
+		const marker = "src/content/posts/";
+		const relative = filePath.includes(marker)
+			? filePath.slice(filePath.indexOf(marker) + marker.length)
+			: `${post.id}.md`;
 		return {
-			id:relative.replace(/\.(?:md|mdx)$/i,""),
+			id:post.id.replace(/\.(?:md|mdx)$/i,""),
 			path:`src/content/posts/${relative}`,
 			title:post.data.title,
 			description:post.data.description,
@@ -27,14 +31,21 @@ export const GET: APIRoute = async () => {
 		};
 	}).sort((a,b)=>Date.parse(b.published)-Date.parse(a.published));
 
-	const dynamics=sortDynamics(dynamicEntries).map((entry)=>({
-		id:entry.id.replace(/\.md$/i,""),
-		path:`src/content/dynamic/${entry.id}`,
+	const dynamics=sortDynamics(dynamicEntries).map((entry)=>{
+		const filePath = entry.filePath?.replace(/\\/g, "/") || "";
+		const marker = "src/content/dynamic/";
+		const relative = filePath.includes(marker)
+			? filePath.slice(filePath.indexOf(marker) + marker.length)
+			: `${entry.id.replace(/\.md$/i, "")}.md`;
+		return {
+			id:entry.id.replace(/\.md$/i,""),
+			path:`src/content/dynamic/${relative}`,
 		published:entry.data.published.toISOString(),
 		pinned:entry.data.pinned,
 		location:entry.data.location,
 		excerpt:dynamicPlainText(entry).slice(0,160),
-	}));
+		};
+	});
 
 	return new Response(JSON.stringify({
 		generatedAt:new Date().toISOString(),
