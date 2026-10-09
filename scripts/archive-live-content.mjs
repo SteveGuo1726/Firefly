@@ -78,6 +78,12 @@ export async function createArchivePlan(payload, { rootDir = process.cwd(), stat
 			String(previous.revision || "") === revision &&
 			Boolean(previous.deleted) === Boolean(item.deleted)
 		) {
+			const onDisk = await readMaybe(absolute);
+			const actualSha = onDisk ? gitBlobSha(onDisk) : "";
+			const expectedSha = previous.deleted ? "" : String(previous.blobSha || "");
+			if (actualSha !== expectedSha) {
+				conflicts.push(`${item.kind}:${item.id}: previously archived Git content changed or disappeared (${relative})`);
+			}
 			continue;
 		}
 		stateChanged = true;
