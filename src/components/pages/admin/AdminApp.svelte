@@ -36,7 +36,8 @@ function choose(next:Section){
 function syncSession(){session=getGitHubAdminSession();void ensureSectionLoaded();}
 async function ensureSectionLoaded(){
  const generation=++loadGeneration;
- if(!session){sectionLoading=false;return;}
+ if(!session){sectionLoading=false;sectionError="";return;}
+ sectionError="";
  if((section==="posts"&&PostComponent)||(section==="dynamic"&&DynamicComponent)||(section==="gallery"&&GalleryComponent)){sectionLoading=false;return;}
  sectionLoading=true;sectionError="";
  try{
