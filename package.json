@@ -28,7 +28,8 @@
 		"build:preview": "npx tsx scripts/generate-lqips.ts && astro build && npx tsx scripts/prune-pio-assets.ts && npx tsx scripts/subset-fonts.ts && npx tsx scripts/minify-inline-scripts.ts && npx tsx scripts/run-pagefind.ts && npx tsx scripts/verify-preview-build.ts",
 		"verify:preview": "pnpm test:live-content && pnpm verify:runtimes && pnpm astro check && pnpm build:preview",
 		"verify:runtimes": "tsx scripts/verify-runtime-bundles.ts",
-		"probe:edgeone-blob": "tsx scripts/probe-edgeone-blob.ts"
+		"probe:edgeone-blob": "tsx scripts/probe-edgeone-blob.ts",
+		"audit:endpoints": "node scripts/audit-public-endpoints.mjs"
 	},
 	"dependencies": {
 		"@astrojs/check": "^0.9.10",
