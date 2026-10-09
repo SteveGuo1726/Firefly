@@ -1,0 +1,40 @@
+name: EdgeOne Blob isolated probe
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: edgeone-blob-probe
+  cancel-in-progress: false
+
+jobs:
+  blob-probe:
+    if: github.ref == 'refs/heads/ai/preview-test'
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    env:
+      EDGEONE_PROJECT_ID: ${{ secrets.EDGEONE_PROJECT_ID }}
+      EDGEONE_API_TOKEN: ${{ secrets.EDGEONE_API_TOKEN }}
+      EDGEONE_PROBE_STORE: firefly-live-poc
+    steps:
+      - name: Verify required secrets exist
+        shell: bash
+        run: |
+          test -n "$EDGEONE_PROJECT_ID" || { echo "Missing EDGEONE_PROJECT_ID"; exit 1; }
+          test -n "$EDGEONE_API_TOKEN" || { echo "Missing EDGEONE_API_TOKEN"; exit 1; }
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11.22.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Isolated CRUD smoke test (automatic cleanup)
+        run: pnpm probe:edgeone-blob
