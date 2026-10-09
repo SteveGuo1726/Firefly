@@ -106,6 +106,10 @@ export function mergeLiveSearchEntries(
 	return [...merged.values()];
 }
 
+export function invalidateLivePostSearchIndex(indexUrl?: string): void {
+ if (indexUrl) liveIndexCache.delete(indexUrl);
+ else liveIndexCache.clear();
+}
 export async function getLivePostSearchIndex(
 	indexUrl = "/api/live-content/index?kind=post",
 ): Promise<LivePostSearchEntry[]> {
