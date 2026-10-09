@@ -36,13 +36,13 @@ function normalize(source: string): string {
 function splitDocument(source: string) {
 	const value = normalize(source);
 	if (!value.startsWith("---\n")) return { frontmatter: "", body: value };
-	const closing = /^---[ \\t]*(?:\\n|$)/gm;
+	const closing = /^---[ \t]*(?:\n|$)/gm;
 	closing.lastIndex = 4;
 	const match = closing.exec(value);
 	if (!match) return { frontmatter: "", body: value };
 	return {
 		frontmatter: value.slice(4, match.index),
-		body: value.slice(match.index + match[0].length).replace(/^\\n/, ""),
+		body: value.slice(match.index + match[0].length).replace(/^\n/, ""),
 	};
 }
 
@@ -74,7 +74,7 @@ function unquote(value: string): string {
 		try { return JSON.parse(v); } catch {}
 	}
 	if (v.startsWith("'") && v.endsWith("'")) return v.slice(1, -1).replace(/''/g, "'");
-	return v.replace(/\\s+#.*$/, "");
+	return v.replace(/\s+#.*$/, "");
 }
 
 function scalar(block?: Block): string {
