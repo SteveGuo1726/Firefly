@@ -78,7 +78,7 @@ async function save(){
 async function remove(){
 	if(!currentId||!confirm(`确定将 ${currentPath} 从实时内容中删除？Git 归档前不会删除仓库文件。`))return;
 	deleting=true;error="";message="";
-	try{await deleteLiveContentItem({session,kind:"post",id:currentId,path:loadedPath||currentPath,meta:baseMeta(),baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision});currentId="";currentPath="";loadedPath="";originalSource="";await refresh();message="已写入实时删除标记；Git 仓库尚未改动。";}
+	try{await deleteLiveContentItem({session,kind:"post",id:currentId,path:loadedPath||currentPath,meta:baseMeta(),baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision});currentId="";currentPath="";loadedPath="";originalSource="";liveRevision="";baseGitSha="";fields=emptyPostFields();body="";tagsText="";previewHtml="";savedEditorSnapshot=editorSnapshot();await refresh();message="已写入实时删除标记；Git 仓库尚未改动。";}
 	catch(e){error=e instanceof Error?e.message:"删除失败。";}finally{deleting=false;}
 }
 
