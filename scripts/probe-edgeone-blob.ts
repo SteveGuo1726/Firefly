@@ -126,5 +126,12 @@ try {
   try {await store.delete(key); if(await store.get(key,{type:"json",consistency:"strong"})!==null) throw new Error("Deletion verification failed.");}
   catch(e){cleanupError=e;console.error("EDGEONE_PROBE_CLEANUP_FAILED",key,e);}
  }
+ if(!cleanupError){
+  try{
+   const remaining=await store.list({prefix,consistency:"strong"});
+   if(remaining.blobs?.length)throw new Error(`Probe left ${remaining.blobs.length} Blob object(s) behind`);
+   console.log("EDGEONE_PROBE_CLEANUP_PASS",JSON.stringify({name,removed:clean.size}));
+  }catch(e){cleanupError=e;}
+ }
  if(cleanupError) throw cleanupError;
 }
