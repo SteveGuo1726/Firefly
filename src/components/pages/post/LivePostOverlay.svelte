@@ -1,7 +1,5 @@
 <script lang="ts">
 import { onMount } from "svelte";
-import { fetchLiveContentItem } from "@/utils/admin/live-content-client";
-
 export let postId: string;
 export let siteTitle: string;
 

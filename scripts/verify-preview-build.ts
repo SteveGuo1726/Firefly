@@ -167,7 +167,7 @@ const writePageSource = await readFile(
   path.join(process.cwd(), "src/pages/write.astro"),
   "utf8",
 ).catch(() => "");
-if (writePageSource.includes("WriteManager")) {
+if (/import\s+WriteManager\b|<WriteManager\b/.test(writePageSource)) {
   errors.push("legacy WriteManager is still mounted");
 }
 
@@ -206,9 +206,15 @@ const liveContentFunctionSource = await readFile(
   path.join(process.cwd(), "cloud-functions/api/live-content/[[default]].js"),
   "utf8",
 ).catch(() => "");
+const liveContentServiceSource = await readFile(
+  path.join(process.cwd(), "src/server/live-content/service.js"),
+  "utf8",
+).catch(() => "");
 if (
-  !liveContentFunctionSource.includes('getStore({ name: STORE_NAME, consistency: "strong" })') ||
-  !liveContentFunctionSource.includes("requireAdmin")
+  !liveContentFunctionSource.includes('@edgeone/pages-blob') ||
+  !liveContentFunctionSource.includes('createLiveContentService') ||
+  !liveContentServiceSource.includes("requireAdmin") ||
+  !liveContentServiceSource.includes("sameOriginAllowed")
 ) {
   errors.push("EdgeOne live content service guard missing");
 }
