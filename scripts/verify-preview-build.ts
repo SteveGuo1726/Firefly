@@ -151,7 +151,7 @@ const galleryWorkerSource = await readFile(
   path.join(process.cwd(), "worker/index.ts"),
   "utf8",
 ).catch(() => "");
-if (!galleryWorkerSource.includes("repo.permissions?.push === false")) {
+if (!galleryWorkerSource.includes("repo.permissions?.push !== true")) {
   errors.push("gallery admin API does not verify repository write permission");
 }
 
