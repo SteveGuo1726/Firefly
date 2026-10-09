@@ -13,7 +13,7 @@ test("GC requires archival receipts, protects current pointers and newest", () =
  const active = new Set([revisions[4].key]);
  const selected = planLiveRevisionGc({revisions,activePointers:active,archivedRevisionKeys:archived,now,minAgeDays:30,keepLatest:2});
  assert.deepEqual(selected,[revisions[2].key,revisions[3].key].sort());
- assert.deepEqual(planLiveRevisionGc({revisions,activePointers:active,archivedRevisionKeys:new Set(),now,keepLatest:2}),[]);
+ assert.deepEqual(planLiveRevisionGc({revisions,activePointers:active,activePointers:active,archivedRevisionKeys:new Set(),now,keepLatest:2}),[]);
 });
 
 test("GC ignores recent, future, nonrevision keys", () => {
@@ -23,6 +23,7 @@ test("GC ignores recent, future, nonrevision keys", () => {
   {key:"v3/items/dynamics/demo/00000000-0000-4000-8000-000000000002.json",createdAt:"2027-10-01T00:00:00Z"},
   {key:"v3/pointers/dynamics/demo.json",createdAt:"2025-01-01T00:00:00Z"}
  ];
- assert.deepEqual(planLiveRevisionGc({revisions,archivedRevisionKeys:new Set(revisions.map(x=>x.key)),now,keepLatest:1}),[]);
- assert.throws(()=>planLiveRevisionGc({revisions,archivedRevisionKeys:new Set(),keepLatest:0}),RangeError);
+ assert.deepEqual(planLiveRevisionGc({revisions,activePointers:new Set(),archivedRevisionKeys:new Set(revisions.map(x=>x.key)),now,keepLatest:1}),[]);
+ assert.throws(()=>planLiveRevisionGc({revisions,activePointers:new Set(),archivedRevisionKeys:new Set(),keepLatest:0}),RangeError);
+ assert.throws(()=>planLiveRevisionGc({revisions,archivedRevisionKeys:new Set()}),TypeError);
 });
