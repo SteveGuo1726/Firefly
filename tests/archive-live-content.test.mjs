@@ -61,3 +61,36 @@ test("new live content cannot overwrite an unrelated Git file", async () => {
 	await assert.rejects(createArchivePlan(data,{rootDir:root}),/refusing to overwrite Git content changed outside live archive/);
 	assert.equal(await readFile(file,"utf8"),"manual");
 });
+
+
+test("replaying an identical archive snapshot is a true no-op", async () => {
+	const root = await workspace();
+	const file = path.join(root, "src/content/posts/idempotent.md");
+	await writeFile(file, "base", "utf8");
+	const data = snapshot([{
+		kind: "post",
+		id: "idempotent",
+		path: "src/content/posts/idempotent.md",
+		revision: "same-revision",
+		baseGitSha: gitBlobSha("base"),
+		source: "live once",
+		deleted: false,
+	}]);
+
+	const firstPlan = await createArchivePlan(data, { rootDir: root });
+	const firstResult = await applyArchivePlan(firstPlan, { rootDir: root });
+	assert.equal(firstResult.written, 1);
+	assert.equal(firstResult.stateUpdated, true);
+
+	const stateFile = path.join(root, ".firefly/live-content-archive-state.json");
+	const beforeState = await readFile(stateFile, "utf8");
+	const beforeContent = await readFile(file, "utf8");
+
+	const secondPlan = await createArchivePlan(data, { rootDir: root });
+	assert.equal(secondPlan.stateChanged, false);
+	assert.deepEqual(secondPlan.operations, []);
+	const secondResult = await applyArchivePlan(secondPlan, { rootDir: root });
+	assert.deepEqual(secondResult, { written: 0, deleted: 0, stateUpdated: false });
+	assert.equal(await readFile(stateFile, "utf8"), beforeState);
+	assert.equal(await readFile(file, "utf8"), beforeContent);
+});

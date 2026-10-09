@@ -59,7 +59,8 @@ export async function createArchivePlan(payload, { rootDir = process.cwd(), stat
 	const seenPaths = new Set();
 	const conflicts = [];
 	const operations = [];
-	const nextState = { schemaVersion: 1, archivedAt: new Date().toISOString(), entries: { ...(state.entries || {}) } };
+	const nextState = { schemaVersion: 1, archivedAt: state.archivedAt || null, entries: { ...(state.entries || {}) } };
+	let stateChanged = false;
 
 	for (const item of items) {
 		const { relative, absolute } = safeArchivePath(item, rootDir);
@@ -70,6 +71,16 @@ export async function createArchivePlan(payload, { rootDir = process.cwd(), stat
 		seenPaths.add(relative);
 		const key = entryKey(item);
 		const previous = state.entries?.[key];
+		const revision = String(item.revision || "");
+		if (
+			previous &&
+			previous.path === relative &&
+			String(previous.revision || "") === revision &&
+			Boolean(previous.deleted) === Boolean(item.deleted)
+		) {
+			continue;
+		}
+		stateChanged = true;
 		const current = await readMaybe(absolute);
 		const currentSha = current ? gitBlobSha(current) : "";
 		const baseGitSha = String(item.baseGitSha || "").trim();
@@ -81,7 +92,7 @@ export async function createArchivePlan(payload, { rootDir = process.cwd(), stat
 		if (item.deleted) {
 			if (current && !allowed.has(currentSha)) conflicts.push(`${item.kind}:${item.id}: refusing to delete Git content changed outside live archive (${relative})`);
 			else if (current) operations.push({ type: "delete", relative, absolute });
-			nextState.entries[key] = { kind:item.kind, id:item.id, path:relative, revision:String(item.revision || ""), blobSha:"", deleted:true };
+			nextState.entries[key] = { kind:item.kind, id:item.id, path:relative, revision, blobSha:"", deleted:true };
 			continue;
 		}
 
@@ -109,11 +120,12 @@ export async function createArchivePlan(payload, { rootDir = process.cwd(), stat
 			else if (baseGitSha && !renameTarget && !previous?.deleted) conflicts.push(`${item.kind}:${item.id}: Git baseline file is missing (${relative})`);
 			else operations.push({ type:"write", relative, absolute, source });
 		}
-		nextState.entries[key] = { kind:item.kind, id:item.id, path:relative, revision:String(item.revision || ""), blobSha:sourceSha, deleted:false };
+		nextState.entries[key] = { kind:item.kind, id:item.id, path:relative, revision, blobSha:sourceSha, deleted:false };
 	}
 
 	if (conflicts.length) throw new Error(["Archive conflicts detected; no files were changed:", ...conflicts].join("\n"));
-	return { operations, nextState, exportedAt: payload.exportedAt || null };
+	if (stateChanged) nextState.archivedAt = new Date().toISOString();
+	return { operations, nextState, stateChanged, exportedAt: payload.exportedAt || null };
 }
 
 export async function applyArchivePlan(plan, { rootDir = process.cwd() } = {}) {
@@ -127,10 +139,12 @@ export async function applyArchivePlan(plan, { rootDir = process.cwd() } = {}) {
 		await rm(op.absolute, { force: true });
 		deleted += 1;
 	}
-	const stateFile = path.resolve(rootDir, ARCHIVE_STATE_PATH);
-	await mkdir(path.dirname(stateFile), { recursive: true });
-	await writeFile(stateFile, `${JSON.stringify(plan.nextState, null, 2)}\n`, "utf8");
-	return { written, deleted };
+	if (plan.stateChanged) {
+		const stateFile = path.resolve(rootDir, ARCHIVE_STATE_PATH);
+		await mkdir(path.dirname(stateFile), { recursive: true });
+		await writeFile(stateFile, `${JSON.stringify(plan.nextState, null, 2)}\n`, "utf8");
+	}
+	return { written, deleted, stateUpdated: Boolean(plan.stateChanged) };
 }
 
 export async function runArchive({
@@ -149,7 +163,7 @@ export async function runArchive({
 	if (!response.ok) throw new Error(payload?.error || `Archive export failed: HTTP ${response.status}`);
 	const plan = await createArchivePlan(payload, { rootDir });
 	const result = await applyArchivePlan(plan, { rootDir });
-	console.log(`Live content archive applied: written=${result.written}, deleted=${result.deleted}, exportedAt=${plan.exportedAt || "unknown"}`);
+	console.log(`Live content archive applied: written=${result.written}, deleted=${result.deleted}, stateUpdated=${result.stateUpdated}, exportedAt=${plan.exportedAt || "unknown"}`);
 	return result;
 }
 
