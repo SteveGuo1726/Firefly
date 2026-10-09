@@ -84,7 +84,6 @@ export { sidebarLayoutConfig } from "./sidebarConfig"; // 侧边栏布局配置
 export { siteConfig } from "./siteConfig"; // 站点基础配置
 export { sponsorConfig } from "./sponsorConfig"; // 打赏配置
 
-export { footerConfig } from "./footerConfig";
 
 export { githubAdminConfig } from "./githubAdminConfig";
 
