@@ -79,13 +79,19 @@ function applyStaticOverlay(entries: LivePost[]) {
 }
 
 onMount(() => {
-	const load = async () => {
+ let loading = false;
+ let lastCheckedAt = 0;
+ let disposed = false;
+ const load = async () => {
+  if (loading || disposed) return;
+  loading = true;
 		try {
 			const response = await fetch("/api/live-content/index?kind=post", {
 				cache: "no-store",
 			});
 			if (!response.ok) return;
 			const payload = await response.json();
+   if (disposed) return;
 			const entries: LivePost[] = Array.isArray(payload?.entries)
 				? payload.entries
 				: [];
@@ -110,11 +116,34 @@ onMount(() => {
 
 			await tick();
 			window.dispatchEvent(new CustomEvent("livePostsUpdated"));
-		} catch (error) {
-			console.warn("Live post discovery unavailable", error);
-		}
-	};
-	void load();
+  } catch (error) {
+   console.warn("Live post discovery unavailable", error);
+  } finally {
+   lastCheckedAt = Date.now();
+   loading = false;
+  }
+ };
+ const refreshIfStale = () => {
+  if (document.visibilityState === "visible" && Date.now() - lastCheckedAt > 3000) void load();
+ };
+ const onStorage = (event: StorageEvent) => {
+  if (event.key !== "firefly:live-content-updated" || !event.newValue) return;
+  try {
+   if (JSON.parse(event.newValue)?.kind === "post") void load();
+  } catch { /* Ignore malformed notifications */ }
+ };
+ window.addEventListener("storage", onStorage);
+ window.addEventListener("focus", refreshIfStale);
+ window.addEventListener("pageshow", refreshIfStale);
+ document.addEventListener("visibilitychange", refreshIfStale);
+ void load();
+ return () => {
+  disposed = true;
+  window.removeEventListener("storage", onStorage);
+  window.removeEventListener("focus", refreshIfStale);
+  window.removeEventListener("pageshow", refreshIfStale);
+  document.removeEventListener("visibilitychange", refreshIfStale);
+ };
 });
 </script>
 
