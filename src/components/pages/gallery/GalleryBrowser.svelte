@@ -85,7 +85,7 @@ onMount(async () => {
 			<a class="album-card" href={albumHref(album.id)} data-tags={(album.tags || []).join(",")}>
 				<div class="cover">
 					{#if album.coverUrl}
-						<img src={album.coverUrl} alt={album.name} loading="lazy" decoding="async" />
+						<img src={album.coverUrl} alt={album.name} loading="lazy" decoding="async" fetchpriority="low" sizes="(max-width: 560px) 95vw, (max-width: 900px) 48vw, 32vw" />
 					{:else}
 						<div class="cover-empty" aria-hidden="true">▧</div>
 					{/if}
