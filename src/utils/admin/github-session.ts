@@ -129,7 +129,7 @@ export async function loginWithGitHubToken(
 			repository.message || `仓库验证失败：${repositoryResponse.status}`,
 		);
 	}
-	if (repository.permissions?.push === false) {
+	if (repository.permissions?.push !== true) {
 		throw new Error("当前 Token 没有仓库写入权限。");
 	}
 
