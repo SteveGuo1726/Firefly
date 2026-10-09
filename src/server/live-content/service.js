@@ -313,9 +313,20 @@ export function createLiveContentService({
 			const auth = await requireAdmin(request);
 			if (auth.error) return auth.error;
 		} else if (kind === "post") {
-			entries = entries.filter(
-				(entry) => entry.deleted || (!entry.meta?.draft && !entry.meta?.protected),
-			);
+			entries = entries.map((entry) => {
+				if (!entry.deleted && (entry.meta?.draft || entry.meta?.protected)) {
+					return {
+						schemaVersion: SCHEMA_VERSION,
+						kind,
+						id: entry.id,
+						revision: entry.revision,
+						deleted: false,
+						hidden: true,
+						updatedAt: entry.updatedAt,
+					};
+				}
+				return entry;
+			});
 		}
 		entries.sort((a, b) =>
 			String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")),

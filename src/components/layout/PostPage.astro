@@ -2,6 +2,7 @@
 import type { CollectionEntry } from "astro:content";
 import { getPostUrlBySlug } from "@utils/url-utils";
 import PostCard from "@/components/layout/PostCard.astro";
+import LivePostDiscover from "@/components/pages/post/LivePostDiscover.svelte";
 import { siteConfig } from "@/config";
 
 const { page } = Astro.props;
@@ -38,6 +39,11 @@ const coverPositionClass =
   data-column-width={columnWidth}
   style={`--post-card-min-width: ${columnWidth}px;`}
 >
+  <LivePostDiscover
+    client:load
+    staticIds={page.data.map((entry: PostEntry) => entry.id)}
+    enabled={page.currentPage === 1}
+  />
   {
     page.data.map((entry: PostEntry, index: number) => (
       <PostCard
@@ -289,6 +295,13 @@ const coverPositionClass =
     });
 
     // 监听布局变化事件
+    window.addEventListener("livePostsUpdated", function () {
+      setTimeout(() => {
+        initLayout();
+        applyMasonryLayout();
+      }, 0);
+    });
+
     window.addEventListener("layoutChange", function (event) {
       // @ts-ignore
       const newLayout = event.detail.layout;

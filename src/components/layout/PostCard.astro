@@ -111,6 +111,7 @@ const minutes = remarkPluginFrontmatter.minutes;
     className,
   ]}
   style={style}
+  data-post-id={entry.id}
 >
   <!-- pinned icon -->
   <div
@@ -131,7 +132,7 @@ const minutes = remarkPluginFrontmatter.minutes;
         before:w-1 before:h-5 before:rounded-md before:bg-(--primary)
         before:absolute before:top-[35px] before:left-[18px] before:hidden md:before:block"
     >
-      {title}
+      <span data-post-card-title>{title}</span>
 
       {
         password && (
@@ -169,6 +170,7 @@ const minutes = remarkPluginFrontmatter.minutes;
         { "description-clamped": shouldClampDescription },
       ]}
       title={descriptionText}
+      data-post-card-description
     >
       {descriptionText}
     </div>

@@ -159,7 +159,14 @@ test("public post index hides drafts and protected posts but keeps tombstones", 
 		request("/api/live-content/index?kind=post"),
 	);
 	const payload = await publicIndex.json();
-	assert.deepEqual(payload.entries.map((entry) => entry.id), ["public"]);
+	assert.deepEqual(
+		payload.entries.map((entry) => [entry.id, Boolean(entry.hidden)]),
+		[
+			["draft", true],
+			["protected", true],
+			["public", false],
+		],
+	);
 });
 
 test("dynamic metadata stays available to public overlay", async () => {
