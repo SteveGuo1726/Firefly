@@ -155,6 +155,26 @@ if (!galleryWorkerSource.includes("repo.permissions?.push !== true")) {
   errors.push("gallery admin API does not verify repository write permission");
 }
 
+const adminShellSource = await readFile(
+  path.join(process.cwd(), "src/components/pages/admin/AdminApp.svelte"),
+  "utf8",
+).catch(() => "");
+const galleryManageSource = await readFile(
+  path.join(process.cwd(), "src/pages/gallery/manage.astro"),
+  "utf8",
+).catch(() => "");
+if (
+  !adminShellSource.includes('import("./AdminPostManager.svelte")') ||
+  !adminShellSource.includes('import("./AdminDynamicManager.svelte")') ||
+  !adminShellSource.includes('import("../gallery/GalleryAdminManager.svelte")') ||
+  galleryManageSource.includes("GalleryAdminManager")
+) {
+  errors.push("private admin modules must be lazy and legacy gallery manager redirected");
+}
+if (navbarSource.includes("GitHubAdminLogin")) {
+  errors.push("public navbar must not bundle administrator login");
+}
+
 const dynamicPageSource = await readFile(
   path.join(process.cwd(), "src/pages/dynamic/index.astro"),
   "utf8",
