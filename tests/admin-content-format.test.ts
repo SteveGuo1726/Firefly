@@ -22,3 +22,17 @@ test("dynamic editor leaves untouched extra fields intact", () => {
  assert.match(changed, /pinned: true/);
  assert.match(changed, /custom: \|\n  special: yes/);
 });
+
+test("frontmatter delimiter must occupy its own line", () => {
+ const source = '---\ntitle: "Hello"\ndescription: "contains --- inside text"\n---\n\nBefore --- inline text\n';
+ const parsed = parsePostDocument(source);
+ assert.equal(parsed.fields.title, "Hello");
+ assert.equal(buildPostDocument(parsed.fields, parsed.body, source), source);
+});
+test("changing only body preserves YAML and comments exactly", () => {
+ const source = '---\ntitle: "A"\ncustom: >-\n  first\n  second\n# extra comment\n---\n\nOld body\n';
+ const {fields} = parsePostDocument(source);
+ const edited = buildPostDocument(fields,"New body",source);
+ assert.match(edited,/custom: >-\n  first\n  second\n# extra comment/);
+ assert.match(edited,/New body$/);
+});
