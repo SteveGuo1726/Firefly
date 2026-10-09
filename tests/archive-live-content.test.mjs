@@ -94,3 +94,31 @@ test("replaying an identical archive snapshot is a true no-op", async () => {
 	assert.equal(await readFile(stateFile, "utf8"), beforeState);
 	assert.equal(await readFile(file, "utf8"), beforeContent);
 });
+
+
+test("identical archive revision refuses outside edits and missing files",async()=>{
+ const root=await workspace(),file=path.join(root,"src/content/posts/guard.md");
+ await writeFile(file,"original");
+ const data=snapshot([{kind:"post",id:"guard",path:"src/content/posts/guard.md",revision:"r1",
+  baseGitSha:gitBlobSha("original"),source:"archived",deleted:false}]);
+ await applyArchivePlan(await createArchivePlan(data,{rootDir:root}),{rootDir:root});
+ await writeFile(file,"someone edited this");
+ await assert.rejects(createArchivePlan(data,{rootDir:root}),/previously archived Git content changed/);
+ assert.equal(await readFile(file,"utf8"),"someone edited this");
+ await import("node:fs/promises").then(({rm})=>rm(file));
+ await assert.rejects(createArchivePlan(data,{rootDir:root}),/previously archived Git content changed/);
+});
+
+test("replaying tombstone must not ignore recreated files",async()=>{
+ const root=await workspace(),file=path.join(root,"src/content/posts/gone.md");
+ await writeFile(file,"original");
+ const baseGitSha=gitBlobSha("original");
+ const live=snapshot([{kind:"post",id:"gone",path:"src/content/posts/gone.md",
+  revision:"r1",baseGitSha,source:"live",deleted:false}]);
+ await applyArchivePlan(await createArchivePlan(live,{rootDir:root}),{rootDir:root});
+ const deleted=snapshot([{...live.posts[0],revision:"r2",deleted:true,source:undefined}]);
+ await applyArchivePlan(await createArchivePlan(deleted,{rootDir:root}),{rootDir:root});
+ await writeFile(file,"recreated independently");
+ await assert.rejects(createArchivePlan(deleted,{rootDir:root}),/previously archived Git content changed/);
+ assert.equal(await readFile(file,"utf8"),"recreated independently");
+});
