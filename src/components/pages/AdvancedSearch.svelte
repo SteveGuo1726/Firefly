@@ -4,6 +4,7 @@ import { i18n } from "@i18n/translation";
 import { onMount } from "svelte";
 import Icon from "@/components/common/Icon.svelte";
 import type { SearchResult } from "@/global";
+import { mergeLiveSearchResults } from "@/utils/live-post-search";
 import { url as formatUrl } from "@/utils/url-utils";
 
 // --- Props ---
@@ -15,6 +16,7 @@ let keyword = "";
 let results: SearchResult[] = [];
 let isSearching = false;
 let initialized = false;
+let searchRequestId = 0;
 
 // 在客户端获取 URL 参数
 const getInitialKeyword = (): string => {
@@ -42,37 +44,46 @@ const fakeResult: SearchResult[] = [
 // --- Core Search Logic ---
 const search = async () => {
 	if (!initialized || !keyword.trim()) {
+		searchRequestId += 1;
 		results = [];
+		isSearching = false;
 		return;
 	}
+	const requestId = ++searchRequestId;
+	const currentKeyword = keyword;
 	isSearching = true;
 
 	try {
+		let nextResults: SearchResult[] = [];
 		if (import.meta.env.PROD && window.pagefind) {
-			const response = await window.pagefind.search(keyword);
+			const response = await window.pagefind.search(currentKeyword);
 			const rawResults = await Promise.all(
 				response.results.map((item) => item.data()),
 			);
-			results = rawResults;
+			nextResults = await mergeLiveSearchResults(rawResults, currentKeyword);
+		} else if (import.meta.env.PROD) {
+			nextResults = await mergeLiveSearchResults([], currentKeyword);
 		} else if (import.meta.env.DEV) {
-			// 开发模式下的模拟结果
-			results = fakeResult.filter(
+			nextResults = fakeResult.filter(
 				(item) =>
-					item.excerpt.toLowerCase().includes(keyword.toLowerCase()) ||
-					item.meta.title.toLowerCase().includes(keyword.toLowerCase()),
+					item.excerpt.toLowerCase().includes(currentKeyword.toLowerCase()) ||
+					item.meta.title.toLowerCase().includes(currentKeyword.toLowerCase()),
 			);
 		}
+		if (requestId === searchRequestId) results = nextResults;
 	} catch (error) {
+		if (requestId !== searchRequestId) return;
 		console.error("Search error:", error);
 		results = [];
 	} finally {
-		isSearching = false;
+		if (requestId === searchRequestId) isSearching = false;
 	}
 };
 
 // --- Initialization onMount ---
 onMount(() => {
 	const initialize = async () => {
+		if (initialized) return;
 		initialized = true;
 
 		// 从 URL 获取初始关键词
@@ -99,8 +110,18 @@ onMount(() => {
 			document.addEventListener("pagefindready", initialize, {
 				once: true,
 			});
+			document.addEventListener("pagefindloaderror", initialize, {
+				once: true,
+			});
 		}
 	}
+
+	return () => {
+		document.removeEventListener("pagefindready", initialize);
+		document.removeEventListener("pagefindloaderror", initialize);
+		clearTimeout(debounceTimer);
+		searchRequestId += 1;
+	};
 });
 
 let debounceTimer: NodeJS.Timeout;

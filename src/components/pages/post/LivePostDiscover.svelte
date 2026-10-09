@@ -17,7 +17,7 @@ type LivePost = {
 };
 
 export let staticIds: string[] = [];
-export let enabled = true;
+export let discoverLiveOnly = true;
 
 let liveOnly: LivePost[] = [];
 
@@ -51,6 +51,10 @@ function applyStaticOverlay(entries: LivePost[]) {
 
 		const title = card.querySelector<HTMLElement>("[data-post-card-title]");
 		const description = card.querySelector<HTMLElement>("[data-post-card-description]");
+		if (card.matches(".archive-post")) {
+			card.dataset.tags = JSON.stringify(entry.meta?.tags || []);
+			card.dataset.category = String(entry.meta?.category || "");
+		}
 		if (title && entry.meta?.title) title.textContent = entry.meta.title;
 		if (description && entry.meta?.description !== undefined) {
 			description.textContent = entry.meta.description;
@@ -60,7 +64,6 @@ function applyStaticOverlay(entries: LivePost[]) {
 }
 
 onMount(() => {
-	if (!enabled) return;
 	const load = async () => {
 		try {
 			const response = await fetch("/api/live-content/index?kind=post", {
@@ -74,7 +77,7 @@ onMount(() => {
 			applyStaticOverlay(entries);
 
 			const staticSet = new Set(staticIds);
-			liveOnly = entries
+			liveOnly = discoverLiveOnly ? entries
 				.filter(
 					(entry) =>
 						!entry.deleted &&
@@ -86,7 +89,8 @@ onMount(() => {
 					if (a.meta?.pinned && !b.meta?.pinned) return -1;
 					if (!a.meta?.pinned && b.meta?.pinned) return 1;
 					return publishedTime(b) - publishedTime(a);
-				});
+				})
+				: [];
 
 			await tick();
 			window.dispatchEvent(new CustomEvent("livePostsUpdated"));

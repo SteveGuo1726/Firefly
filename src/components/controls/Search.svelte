@@ -6,6 +6,7 @@ import { onMount } from "svelte";
 import Icon from "@/components/common/Icon.svelte";
 import type { SearchResult } from "@/global";
 import { FLOATING_PANEL_CLOSE_EVENT } from "@/utils/floating-panel-utils";
+import { mergeLiveSearchResults } from "@/utils/live-post-search";
 import { url as formatUrl, getSearchUrl } from "@/utils/url-utils";
 
 // --- State ---
@@ -16,92 +17,6 @@ let isSearching = false;
 let initialized = false;
 let debounceTimer: NodeJS.Timeout;
 let searchRequestId = 0;
-
-type LivePostSearchEntry = {
-	id: string;
-	deleted?: boolean;
-	hidden?: boolean;
-	meta?: {
-		title?: string;
-		description?: string;
-		category?: string;
-		tags?: string[];
-	};
-};
-
-let liveIndexCache: { expiresAt: number; entries: LivePostSearchEntry[] } | null = null;
-let liveIndexPromise: Promise<LivePostSearchEntry[]> | null = null;
-
-const escapeHtml = (value: string): string =>
-	value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;")
-		.replaceAll('"', "&quot;").replaceAll("'", "&#39;");
-
-const escapeRegExp = (value: string): string =>
-	value.replace(/[.*+?^${}()|[\]\\]/g, "\\let searchRequestId = 0;");
-
-const highlight = (value: string, keyword: string): string => {
-	const needle = keyword.trim();
-	if (!needle) return escapeHtml(value);
-	const regex = new RegExp(`(${escapeRegExp(needle)})`, "ig");
-	return value.split(regex).map((part, index) =>
-		index % 2 === 1 ? `<mark>${escapeHtml(part)}</mark>` : escapeHtml(part),
-	).join("");
-};
-
-const livePostUrl = (id: string): string =>
-	formatUrl(`/posts/${id.split("/").map(encodeURIComponent).join("/")}/`);
-
-const getLivePostIndex = async (): Promise<LivePostSearchEntry[]> => {
-	if (liveIndexCache && liveIndexCache.expiresAt > Date.now()) return liveIndexCache.entries;
-	if (liveIndexPromise) return liveIndexPromise;
-	liveIndexPromise = fetch(formatUrl("/api/live-content/index?kind=post"), { cache: "no-store" })
-		.then(async (response) => {
-			if (!response.ok) return [];
-			const payload = await response.json();
-			const entries = Array.isArray(payload?.entries) ? payload.entries : [];
-			liveIndexCache = { expiresAt: Date.now() + 30_000, entries };
-			return entries;
-		})
-		.catch((error) => {
-			console.warn("Live post search overlay unavailable", error);
-			return [];
-		})
-		.finally(() => { liveIndexPromise = null; });
-	return liveIndexPromise;
-};
-
-const mergeLiveSearchResults = async (
-	pagefindResults: SearchResult[],
-	keyword: string,
-): Promise<SearchResult[]> => {
-	const liveEntries = await getLivePostIndex();
-	if (liveEntries.length === 0) return pagefindResults;
-
-	const hiddenUrls = new Set(
-		liveEntries.filter((entry) => entry.deleted || entry.hidden).map((entry) => livePostUrl(entry.id)),
-	);
-	const merged = new Map(
-		pagefindResults.filter((entry) => !hiddenUrls.has(entry.url)).map((entry) => [entry.url, entry]),
-	);
-	const needle = keyword.trim().toLocaleLowerCase();
-
-	for (const entry of liveEntries) {
-		if (entry.deleted || entry.hidden || !entry.meta?.title) continue;
-		const title = String(entry.meta.title);
-		const description = String(entry.meta.description || "");
-		const category = String(entry.meta.category || "");
-		const tags = Array.isArray(entry.meta.tags) ? entry.meta.tags.map(String) : [];
-		const haystack = [title, description, category, tags.join(" ")].join(" ").toLocaleLowerCase();
-		if (!haystack.includes(needle)) continue;
-		const itemUrl = livePostUrl(entry.id);
-		merged.set(itemUrl, {
-			url: itemUrl,
-			meta: { title: highlight(title, keyword) },
-			excerpt: highlight(description, keyword),
-		});
-	}
-	return [...merged.values()];
-};
 
 // --- Mocks for Dev Mode ---
 const fakeResult: SearchResult[] = [

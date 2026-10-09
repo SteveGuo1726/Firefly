@@ -190,6 +190,7 @@ test("public post index only exposes minimal markers for hidden static overlays"
 	const byId = new Map(payload.entries.map((entry) => [entry.id, entry]));
 	assert.equal(byId.has("new-draft"), false);
 	assert.equal(byId.get("public").meta.title, "Public");
+	assert.equal("html" in byId.get("public").meta, false);
 	assert.equal("path" in byId.get("public"), false);
 	assert.equal("baseGitSha" in byId.get("public"), false);
 	assert.equal(byId.get("static-draft").hidden, true);

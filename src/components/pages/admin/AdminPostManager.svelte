@@ -2,7 +2,7 @@
 import { onMount } from "svelte";
 import { siteConfig } from "@/config/siteConfig";
 import type { GitHubAdminSession } from "@/utils/admin/github-session";
-import { buildPostDocument, emptyPostFields, parsePostDocument, type AdminPostFields } from "@/utils/admin/content-format";
+import { buildPostDocument, emptyPostFields, excerptMarkdown, parsePostDocument, type AdminPostFields } from "@/utils/admin/content-format";
 import { fetchGitContentSource } from "@/utils/admin/github-content-reader";
 import { deleteLiveContentItem, fetchLiveContentIndex, fetchLiveContentItem, saveLiveContentItem } from "@/utils/admin/live-content-client";
 import { renderFireflyPreview } from "@/utils/write/preview";
@@ -23,7 +23,7 @@ function baseMeta(){return{title:fields.title.trim(),description:fields.descript
 function needsStaticSecurityRebuild(){return Boolean(baseGitSha&&(fields.draft||fields.password.trim()));}
 async function liveMeta(){
 	const html=await renderFireflyPreview({source:body,calloutTheme:siteConfig.post.rehypeCallouts.theme,isMdx:currentPath.endsWith(".mdx")});
-	return{...baseMeta(),html};
+	return{...baseMeta(),html,searchText:excerptMarkdown(body,4000)};
 }
 
 async function refresh(){

@@ -120,6 +120,7 @@ function normalizeMeta(kind, raw) {
 			image: String(meta.image || "").slice(0, 2000),
 			protected: Boolean(meta.protected),
 			comment: meta.comment !== false,
+			searchText: String(meta.searchText || "").slice(0, 4000),
 			html: String(meta.html || "").slice(0, 1024 * 1024),
 		};
 	}
@@ -170,11 +171,18 @@ export function createLiveContentService({
 		);
 	}
 
+	function pointerMeta(kind, meta) {
+		if (kind !== "post" || !meta || typeof meta !== "object") return meta;
+		const { html: _html, ...lightweight } = meta;
+		return lightweight;
+	}
+
 	async function writePointer(kind, pointer) {
 		await store.setJSON(pointerKey(kind, pointer.id), {
 			schemaVersion: SCHEMA_VERSION,
 			kind,
 			...pointer,
+			...(pointer.meta ? { meta: pointerMeta(kind, pointer.meta) } : {}),
 		});
 	}
 
@@ -330,7 +338,7 @@ export function createLiveContentService({
 					revision: entry.revision,
 					deleted: false,
 					updatedAt: entry.updatedAt,
-					meta: entry.meta,
+					meta: pointerMeta(kind, entry.meta),
 				}];
 			});
 		}

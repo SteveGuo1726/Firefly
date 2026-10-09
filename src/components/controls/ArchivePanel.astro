@@ -60,7 +60,7 @@ const foldOnFilter = collapseAllButFirst;
   <LivePostDiscover
     client:load
     staticIds={posts.map((post) => post.id)}
-    enabled={true}
+    discoverLiveOnly={true}
   />
 
   {/* 筛选头部：默认隐藏，客户端在有筛选时填充并显示 */}
@@ -194,7 +194,23 @@ const foldOnFilter = collapseAllButFirst;
         this.updateBannerTitle(tags, categories, !!uncategorized);
       }
 
+      this._refreshForLivePosts = () => {
+        const liveParams = new URLSearchParams(window.location.search);
+        const liveTags = liveParams.has("tag") ? liveParams.getAll("tag") : [];
+        const liveCategories = liveParams.has("category") ? liveParams.getAll("category") : [];
+        const liveUncategorized = !!liveParams.get("uncategorized");
+        if (liveTags.length > 0 || liveCategories.length > 0 || liveUncategorized) {
+          this.applyFilter(liveTags, liveCategories, liveUncategorized);
+        }
+      };
+      window.addEventListener("livePostsUpdated", this._refreshForLivePosts);
       this.bindYearToggles();
+    }
+
+    disconnectedCallback() {
+      if (this._refreshForLivePosts) {
+        window.removeEventListener("livePostsUpdated", this._refreshForLivePosts);
+      }
     }
 
     // 按筛选条件隐藏不匹配的文章行，重算每年计数，隐藏空年份，重新折叠

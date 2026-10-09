@@ -44,7 +44,7 @@ const coverPositionClass =
   <LivePostDiscover
     client:load
     staticIds={allStaticPostIds}
-    enabled={page.currentPage === 1}
+    discoverLiveOnly={page.currentPage === 1}
   />
   {
     page.data.map((entry: PostEntry, index: number) => (
