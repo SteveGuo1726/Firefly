@@ -7,6 +7,7 @@ const origin = (import.meta.env.PUBLIC_GALLERY_API_ORIGIN?.trim() || DEFAULT_ORI
 export async function fetchPublicGallery(
  albumId = "",
  summary = false,
+ timeoutMs = 7000,
 ): Promise<{ albums: PublicGalleryAlbum[] }> {
  const endpoint = new URL("/api/gallery/public", origin);
  if (albumId) endpoint.searchParams.set("album", albumId);
@@ -15,7 +16,7 @@ export async function fetchPublicGallery(
  // waiting indefinitely when the gallery API route is slow or unreachable.
  const response = await fetch(endpoint, {
   cache:"no-store",
-  signal:AbortSignal.timeout(12000),
+  signal:AbortSignal.timeout(timeoutMs),
  });
  if (!response.ok) throw new Error(`相册读取失败：${response.status}`);
  const payload = await response.json() as {albums?:PublicGalleryAlbum[]};
