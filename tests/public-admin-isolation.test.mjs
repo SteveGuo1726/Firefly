@@ -25,7 +25,7 @@ test("administrator login remains reachable only from admin app",async()=>{
 
 test("public gallery uses bounded remote reads and prioritized images",async()=>{
  const client=await readFile("src/utils/gallery-public-client.ts","utf8");
- assert.match(client,/AbortSignal\.timeout\(12000\)/);
+ assert.match(client,/AbortSignal\.timeout\(timeoutMs\)/);
  const album=await readFile("src/components/pages/gallery/GalleryAlbumRuntime.svelte","utf8");
  assert.match(album,/fetchpriority="high"/);
  assert.match(album,/fetchpriority="low"/);
