@@ -24,6 +24,15 @@ const liveIndexCache = new Map<
 >();
 const liveIndexPromises = new Map<string, Promise<LivePostSearchEntry[]>>();
 
+// A mutation in another tab invalidates stale Pagefind/live index merges.
+if (typeof window !== "undefined") {
+ window.addEventListener("storage", (event: StorageEvent) => {
+  if (event.key !== "firefly:live-content-updated" || !event.newValue) return;
+  try {
+   if (JSON.parse(event.newValue)?.kind === "post") liveIndexCache.clear();
+  } catch { /* Ignore malformed notifications */ }
+ });
+}
 export const escapeSearchHtml = (value: string): string =>
 	value
 		.replaceAll("&", "&amp;")
@@ -124,7 +133,7 @@ export async function getLivePostSearchIndex(
 			const payload = await response.json();
 			const entries = Array.isArray(payload?.entries) ? payload.entries : [];
 			liveIndexCache.set(indexUrl, {
-				expiresAt: Date.now() + 30_000,
+				expiresAt: Date.now() + 5_000,
 				entries,
 			});
 			return entries;
