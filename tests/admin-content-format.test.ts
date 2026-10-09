@@ -5,6 +5,8 @@ import { parsePostDocument, buildPostDocument, parseDynamicDocument, buildDynami
 test("post editor preserves custom YAML, comments, block scalars and exact body on no-op", () => {
  const source = '---\ntitle: "Old" # editor should not erase unrelated data\ndescription: |\n  line 1\n  line 2\ncustom:\n  nested: [1, 2]\n# personal metadata\ntags:\n  - first\n---\n\nOriginal text  \n\n';
  const {fields, body} = parsePostDocument(source);
+ assert.equal(fields.title, "Old");
+ assert.equal(fields.description, "line 1\\nline 2");
  assert.equal(buildPostDocument(fields, body, source), source);
  fields.title = "New";
  const changed = buildPostDocument(fields, body, source);
