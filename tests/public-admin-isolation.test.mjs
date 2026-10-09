@@ -1,0 +1,24 @@
+import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
+import test from "node:test";
+
+test("public navbar does not hydrate GitHub administrator login", async()=>{
+ const source=await readFile("src/components/layout/Navbar.astro","utf8");
+ assert.doesNotMatch(source,/GitHubAdminLogin|github-session/);
+});
+test("public gallery components never bundle management auth modules",async()=>{
+ for(const path of [
+  "src/components/pages/gallery/GalleryAlbumRuntime.svelte",
+  "src/components/pages/gallery/GalleryBrowser.svelte",
+ ]){
+  const source=await readFile(path,"utf8");
+  assert.match(source,/gallery-public-client/);
+  assert.doesNotMatch(source,/utils\/admin\/imagebed-client|github-session|loginWithGitHubToken/);
+ }
+ const publicClient=await readFile("src/utils/gallery-public-client.ts","utf8");
+ assert.doesNotMatch(publicClient,/github-session|utils\/admin|Bearer|sessionStorage/);
+});
+test("administrator login remains reachable only from admin app",async()=>{
+ const source=await readFile("src/components/pages/admin/AdminApp.svelte","utf8");
+ assert.match(source,/GitHubAdminLogin/);
+});
