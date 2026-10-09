@@ -18,8 +18,8 @@ const {
 	initialAlbums = [],
 	columnWidth = 240,
 }: Props = $props();
-let album = $state<PublicGalleryAlbum | null>(null);
-let loading = $state(true);
+let album = $state<PublicGalleryAlbum | null>(initialAlbum);
+let loading = $state(!initialAlbum);
 let errorMessage = $state("");
 let galleryRoot: HTMLDivElement;
 let lightboxPromise: Promise<typeof import("@fancyapps/ui").Fancybox> | null =
@@ -74,6 +74,10 @@ async function loadAlbum(): Promise<void> {
 		initialAlbum?.id === id
 			? initialAlbum
 			: initialAlbums.find((candidate) => candidate.id === id) || null;
+	if (fallbackAlbum) {
+		album = fallbackAlbum;
+		loading = false;
+	}
 	errorMessage = "";
 	try {
 		let payload: { albums: PublicGalleryAlbum[] };
@@ -83,8 +87,9 @@ async function loadAlbum(): Promise<void> {
 			await new Promise((resolve) => window.setTimeout(resolve, 600));
 			payload = await fetchPublicGallery(id);
 		}
-		album = payload.albums[0] || null;
-		if (!album) errorMessage = "相册不存在或尚未发布。";
+		const refreshedAlbum = payload.albums[0] || null;
+		if (refreshedAlbum) album = refreshedAlbum;
+		else if (!album) errorMessage = "相册不存在或尚未发布。";
 	} catch (error) {
 		album = fallbackAlbum;
 		if (!album)

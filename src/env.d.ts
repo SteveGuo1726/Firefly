@@ -8,6 +8,9 @@ declare global {
 		readonly PUBLIC_DISPLAY_SETTINGS?: string;
 		// 在线 GitHub 管理/写作页目标分支；正式环境缺省为 master，预览环境应显式覆盖。
 		readonly PUBLIC_GITHUB_ADMIN_BRANCH?: string;
+		readonly PUBLIC_GALLERY_API_ORIGIN?: string;
+		readonly PUBLIC_GALLERY_ADMIN_API_ORIGIN?: string;
+		readonly PUBLIC_GALLERY_IMAGE_BASE_URL?: string;
 	}
 
 	interface ITOCManager {

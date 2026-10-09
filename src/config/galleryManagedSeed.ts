@@ -4,19 +4,26 @@ import type {
 	PublicGalleryAlbum,
 } from "@/types/galleryAdmin";
 
-function imageBedUrl(key: string): string {
-	return `https://img.casto.top/file/${key
-		.split("/")
-		.map(encodeURIComponent)
-		.join("/")}`;
+const DEFAULT_GALLERY_IMAGE_BASE_URL = "https://img.casto.top/file";
+
+function imageBedUrl(
+	key: string,
+	baseUrl = DEFAULT_GALLERY_IMAGE_BASE_URL,
+): string {
+	return (
+		baseUrl.replace(/\/+$/, "") +
+		"/" +
+		key.split("/").map(encodeURIComponent).join("/")
+	);
 }
 
 export function createManagedPublicAlbum(
 	album: ManagedGalleryAlbum,
+	imageBaseUrl: string = DEFAULT_GALLERY_IMAGE_BASE_URL,
 ): PublicGalleryAlbum {
 	const photos = album.photoOrder.map((key) => ({
 		key,
-		url: imageBedUrl(key),
+		url: imageBedUrl(key, imageBaseUrl),
 		name: key.split("/").pop() || key,
 		size: 0,
 	}));
@@ -24,7 +31,7 @@ export function createManagedPublicAlbum(
 		...album,
 		photos,
 		photoCount: photos.length,
-		coverUrl: album.cover ? imageBedUrl(album.cover) : photos[0]?.url || "",
+		coverUrl: album.cover ? imageBedUrl(album.cover, imageBaseUrl) : photos[0]?.url || "",
 	};
 }
 

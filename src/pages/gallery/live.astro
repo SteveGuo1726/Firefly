@@ -11,7 +11,9 @@ if (!siteConfig.pages.gallery) {
 	return Astro.redirect("/404/");
 }
 
-const initialAlbums = galleryManagedSeed.albums.map(createManagedPublicAlbum);
+const initialAlbums = galleryManagedSeed.albums.map((album) =>
+	createManagedPublicAlbum(album, import.meta.env.PUBLIC_GALLERY_IMAGE_BASE_URL),
+);
 ---
 
 <MainGridLayout title="相册" description="">

@@ -11,12 +11,7 @@ interface Props {
 }
 
 const { initialAlbums, staticAlbumIds, managedAlbumIds }: Props = $props();
-let albums = $state<PublicGalleryAlbum[]>(
-	initialAlbums.filter(
-		(album) =>
-			staticAlbumIds.includes(album.id) && !managedAlbumIds.includes(album.id),
-	),
-);
+let albums = $state<PublicGalleryAlbum[]>(initialAlbums);
 let loading = $state(true);
 let query = $state("");
 let selectedTag = $state("all");
@@ -112,7 +107,7 @@ onMount(async () => {
 				</div>
 			</a>
 		{/each}
-		{#if loading}
+		{#if loading && filteredAlbums.length === 0}
 			{#each Array(Math.max(1, managedAlbumIds.length)) as _}
 				<div class="album-skeleton" aria-hidden="true">
 					<div class="skeleton-line skeleton-title"></div>
