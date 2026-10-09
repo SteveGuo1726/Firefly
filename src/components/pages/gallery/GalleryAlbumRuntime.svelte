@@ -84,10 +84,10 @@ async function loadAlbum(): Promise<void> {
 	try {
 		let payload: { albums: PublicGalleryAlbum[] };
 		try {
-			payload = await fetchPublicGallery(id);
+			payload = await fetchPublicGallery(id, false, 7000);
 		} catch {
 			await new Promise((resolve) => window.setTimeout(resolve, 600));
-			payload = await fetchPublicGallery(id);
+			payload = await fetchPublicGallery(id, false, 3500);
 		}
 		const refreshedAlbum = payload.albums[0] || null;
 		if (refreshedAlbum) album = refreshedAlbum;
