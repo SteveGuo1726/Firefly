@@ -216,7 +216,7 @@ export function parseDynamicDocument(source: string) {
 
 export function buildDynamicDocument(fields: AdminDynamicFields, body: string, original = ""): string {
 	const doc=splitDocument(original);
-	return finish([
+	const canonical = finish([
 		`published: ${fields.published.trim()}`,
 		`pinned: ${fields.pinned}`,
 		...(fields.location.trim()?[`location: ${quote(fields.location.trim())}`]:[]),
@@ -234,34 +234,34 @@ function preserveDocument<T extends object>(
  parse: (source: string) => { fields: T; body: string },
  canonical: string,
 ): string {
- const match = /^---(\\r?\\n)([\\s\\S]*?)^---[ \\t]*(\\r?\\n|$)/m.exec(original);
+ const match = /^---(\r?\n)([\s\S]*?)^---[ \t]*(\r?\n|$)/m.exec(original);
  if (!match || match.index !== 0) return canonical;
- const prior = parse(original);
- const next = fields as Record<string, unknown>;
- const previous = prior.fields as Record<string, unknown>;
- const changed = Object.keys(next).filter(key => JSON.stringify(next[key]) !== JSON.stringify(previous[key]));
- if (changed.length === 0 && body === prior.body) return original;
- const replacementMap = mapBlocks(splitDocument(canonical).frontmatter);
- const oldBlocks = blocks(match[2].replace(/\\r\\n/g, "\\n").replace(/\\n$/, ""));
- const seen = new Set<string>();
- const result: string[] = [];
- for (const block of oldBlocks) {
-  if (block.key && changed.includes(block.key)) {
-   if (seen.has(block.key)) continue;
-   seen.add(block.key);
-   const replacement = replacementMap.get(block.key);
-   if (replacement) result.push(replacement.lines.join("\\n"));
-  } else result.push(block.lines.join("\\n"));
+ const previous = parse(original);
+ const nextFields = fields as Record<string, unknown>;
+ const prevFields = previous.fields as Record<string, unknown>;
+ const changed = Object.keys(nextFields).filter(k => JSON.stringify(nextFields[k]) !== JSON.stringify(prevFields[k]));
+ if (!changed.length && body === previous.body) return original;
+ const substitutions = mapBlocks(splitDocument(canonical).frontmatter);
+ const existing = blocks(match[2].replace(/\r\n/g, "\n").replace(/\n$/, ""));
+ const written = new Set<string>();
+ const output: string[] = [];
+ for (const item of existing) {
+  if (item.key && changed.includes(item.key)) {
+   if (written.has(item.key)) continue;
+   written.add(item.key);
+   const replacement = substitutions.get(item.key);
+   if (replacement) output.push(replacement.lines.join("\n"));
+  } else output.push(item.lines.join("\n"));
  }
  for (const key of changed) {
-  if (seen.has(key)) continue;
-  const replacement = replacementMap.get(key);
-  if (replacement) result.push(replacement.lines.join("\\n"));
+  if (written.has(key)) continue;
+  const replacement = substitutions.get(key);
+  if (replacement) output.push(replacement.lines.join("\n"));
  }
  const eol = match[1];
- const matter = result.join("\\n").replace(/\\n/g, eol);
+ const matter = output.join("\n").replace(/\n/g, eol);
  const prefix = "---" + eol + matter + (matter.endsWith(eol) ? "" : eol) + "---" + match[3];
- const suffix = body === prior.body ? original.slice(match[0].length) : eol + body;
+ const suffix = body === previous.body ? original.slice(match[0].length) : eol + body;
  return prefix + suffix;
 }
 
