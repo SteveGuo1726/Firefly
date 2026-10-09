@@ -100,10 +100,6 @@ let iconifyLoaderPromise: Promise<void> | null = null;
 let expressiveCodeRendererPromise: Promise<ExpressiveCodeRenderer> | null =
 	null;
 
-function loadEsm<T = unknown>(url: string): Promise<T> {
-	return import(/* @vite-ignore */ url) as Promise<T>;
-}
-
 function evaluateMdxExpression(expression: string): string {
 	try {
 		const result = Function(`"use strict"; return (${expression});`)();
@@ -509,22 +505,20 @@ async function loadPreviewDeps(): Promise<PreviewDeps> {
 				rehypeCalloutsModule,
 				visitModule,
 			] = await Promise.all([
-				loadEsm<Record<string, unknown>>("https://esm.sh/unified@11"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/remark-gfm@4"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/remark-parse@11"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/remark-directive@3"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/remark-math@6"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/remark-sectionize@2"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/remark-rehype@11"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/rehype-raw@7"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/rehype-stringify@10"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/rehype-katex@7"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/rehype-slug@6"),
-				loadEsm<Record<string, unknown>>(
-					"https://esm.sh/rehype-autolink-headings@7",
-				),
-				loadEsm<Record<string, unknown>>("https://esm.sh/rehype-callouts@2"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/unist-util-visit@5"),
+				import("unified"),
+				import("remark-gfm"),
+				import("remark-parse"),
+				import("remark-directive"),
+				import("remark-math"),
+				import("remark-sectionize"),
+				import("remark-rehype"),
+				import("rehype-raw"),
+				import("rehype-stringify"),
+				import("rehype-katex"),
+				import("rehype-slug"),
+				import("rehype-autolink-headings"),
+				import("rehype-callouts"),
+				import("unist-util-visit"),
 			]);
 
 			return {
@@ -552,9 +546,9 @@ async function loadPreviewDeps(): Promise<PreviewDeps> {
 
 async function loadMermaidModule(): Promise<MermaidModule> {
 	if (!mermaidModulePromise) {
-		mermaidModulePromise = loadEsm<Record<string, unknown>>(
-			"https://esm.sh/mermaid@11?bundle",
-		).then((module) => (module.default ?? module) as MermaidModule);
+		mermaidModulePromise = import("mermaid").then(
+			(module) => (module.default ?? module) as unknown as MermaidModule,
+		);
 	}
 
 	return mermaidModulePromise;
@@ -566,19 +560,9 @@ async function ensureIconifyLoaded(container: HTMLElement): Promise<void> {
 	}
 
 	if (!iconifyLoaderPromise) {
-		iconifyLoaderPromise = new Promise<void>((resolve, reject) => {
-			if (window.customElements?.get("iconify-icon")) {
-				resolve();
-				return;
-			}
-
-			const script = document.createElement("script");
-			script.src =
-				"https://code.iconify.design/iconify-icon/2.2.0/iconify-icon.min.js";
-			script.async = true;
-			script.onload = () => resolve();
-			script.onerror = () => reject(new Error("Failed to load Iconify"));
-			document.head.appendChild(script);
+		iconifyLoaderPromise = import("iconify-icon").then(async () => {
+			if (window.customElements?.get("iconify-icon")) return;
+			await window.customElements?.whenDefined("iconify-icon");
 		});
 	}
 
