@@ -40,8 +40,6 @@ export type SiteConfig = {
 
 	themeColor: {
 		hue: number;
-		/** Legacy preference retained for personal theme settings. */
-		fixed?: boolean;
 		defaultMode?: LIGHT_DARK_MODE; // 默认模式：浅色、深色或跟随系统
 	};
 
@@ -96,8 +94,6 @@ export type SiteConfig = {
 		vndb: boolean;
 		mal: boolean; // MyAnimeList 页面开关
 		gallery: boolean; // 相册页面开关
-		/** Original Casto anime page. */
-		anime?: boolean;
 		bilibili: boolean; // 哔哩哔哩追番页面开关
 		dynamic: boolean; // 动态页面开关
 		projects: boolean; // 项目展示页开关
@@ -117,9 +113,7 @@ export type SiteConfig = {
 
 	// 文章列表布局配置
 	postListLayout: {
-		defaultMode: "list" | "grid";
-		/** Legacy post-list layout toggle. */
-		allowSwitch?: boolean; // 默认布局模式：list=列表模式，grid=网格模式
+		defaultMode: "list" | "grid"; // 默认布局模式：list=列表模式，grid=网格模式
 		mobileDefaultMode?: "list" | "grid"; // 移动端默认布局模式（视口宽度<780px时使用），不设置则跟随 defaultMode
 		// 列表模式下封面图的位置："right"=右侧（默认），"left"=左侧。网格模式封面固定在顶部，不受此项影响
 		coverPosition?: "left" | "right";
@@ -168,8 +162,6 @@ export type SiteConfig = {
 		outdatedThreshold?: number;
 		// 是否显示文章页的分享按钮
 		share: boolean;
-		/** Previous poster feature flag. */
-		sharePoster?: boolean;
 		// 是否显示上一篇/下一篇文章导航
 		postNavigation: boolean;
 		// 是否显示相关文章推荐
@@ -224,12 +216,6 @@ export type SiteConfig = {
 	// Bilibili 配置
 	bilibili?: {
 		uid?: string; // Bilibili 用户 UID
-	};
-
-	/** Original Bilibili/TMDB anime integration. */
-	anime?: {
-		bilibili?: { uid?: string };
-		tmdb?: { apiKey?: string; listId?: string };
 	};
 
 	// 分页配置

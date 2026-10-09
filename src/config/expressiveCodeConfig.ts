@@ -29,4 +29,5 @@ export const expressiveCodeConfig: ExpressiveCodeConfig = {
 		// 是否启用语言徽章插件
 		enable: false,
 	},
+	pluginLanguageLogo: { enable: false, color: "mono", excludedLangs: [] },
 };

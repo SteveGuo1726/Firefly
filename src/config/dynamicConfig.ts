@@ -8,8 +8,11 @@ export const dynamicConfig: DynamicConfig = {
 	description: "",
 
 	// 是否为每条动态启用评论，需要先在 commentConfig.ts 启用评论系统
+	profileUrl: "/about/",
 	showComment: true,
 
 	// 每页显示的动态数量
 	itemsPerPage: 20,
+	apiUrl: "/api/dynamic.json",
+	memos: { enable: false, apiUrl: "", parent: "" },
 };
