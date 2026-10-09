@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
+import { lstat, mkdir, readFile, rm, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { pathToFileURL } from "node:url";
 
@@ -29,6 +29,21 @@ export function safeArchivePath(item, rootDir = process.cwd()) {
 	const absolute = path.resolve(rootDir, value);
 	if (!absolute.startsWith(rootAbsolute + path.sep)) throw new Error(`Archive path escapes content root: ${value}`);
 	return { relative: value, absolute };
+}
+
+async function assertNoSymlinkPath(rootDir, relative) {
+	const parts = relative.split("/");
+	let absolute = path.resolve(rootDir);
+	for (const part of parts) {
+		absolute = path.join(absolute, part);
+		try {
+			const stat = await lstat(absolute);
+			if (stat.isSymbolicLink()) throw new Error(`Unsafe archive symlink: ${relative}`);
+		} catch (error) {
+			if (error?.code === "ENOENT") break;
+			throw error;
+		}
+	}
 }
 
 async function readMaybe(file) {
@@ -64,6 +79,7 @@ export async function createArchivePlan(payload, { rootDir = process.cwd(), stat
 
 	for (const item of items) {
 		const { relative, absolute } = safeArchivePath(item, rootDir);
+		await assertNoSymlinkPath(rootDir, relative);
 		if (seenPaths.has(relative)) {
 			conflicts.push(`${item.kind}:${item.id}: duplicate archive path ${relative}`);
 			continue;
@@ -137,11 +153,13 @@ export async function createArchivePlan(payload, { rootDir = process.cwd(), stat
 export async function applyArchivePlan(plan, { rootDir = process.cwd() } = {}) {
 	let written = 0, deleted = 0;
 	for (const op of plan.operations.filter((item) => item.type === "write")) {
+		await assertNoSymlinkPath(rootDir, op.relative);
 		await mkdir(path.dirname(op.absolute), { recursive: true });
 		await writeFile(op.absolute, op.source);
 		written += 1;
 	}
 	for (const op of plan.operations.filter((item) => item.type === "delete")) {
+		await assertNoSymlinkPath(rootDir, op.relative);
 		await rm(op.absolute, { force: true });
 		deleted += 1;
 	}
