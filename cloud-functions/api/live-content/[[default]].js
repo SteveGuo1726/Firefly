@@ -14,6 +14,13 @@ const handle = createLiveContentService({
 		setJSON(key, value) {
 			return blob.setJSON(key, value);
 		},
+		async listKeys(prefix) {
+			const { blobs } = await blob.list({ prefix, consistency: "strong" });
+			return blobs.map((item) => item.key);
+		},
+		deleteKey(key) {
+			return blob.delete(key);
+		},
 	},
 	region(context) {
 		return context.server?.region || null;

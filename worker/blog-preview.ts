@@ -20,6 +20,19 @@ function getService(env) {
 				setJSON(key, value) {
 					return env.LIVE_CONTENT_PREVIEW.put(key, JSON.stringify(value));
 				},
+				async listKeys(prefix) {
+					const keys = [];
+					let cursor;
+					do {
+						const page = await env.LIVE_CONTENT_PREVIEW.list({ prefix, cursor });
+						keys.push(...page.keys.map((entry) => entry.name));
+						cursor = page.list_complete ? undefined : page.cursor;
+					} while (cursor);
+					return keys;
+				},
+				deleteKey(key) {
+					return env.LIVE_CONTENT_PREVIEW.delete(key);
+				},
 			},
 			region() {
 				return "cloudflare-preview";

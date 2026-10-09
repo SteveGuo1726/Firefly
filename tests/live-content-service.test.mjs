@@ -17,6 +17,12 @@ function makeStore() {
 		async setJSON(key, value) {
 			data.set(key, clone(value));
 		},
+		async listKeys(prefix) {
+			return [...data.keys()].filter((key) => key.startsWith(prefix)).sort();
+		},
+		async deleteKey(key) {
+			data.delete(key);
+		},
 	};
 }
 
@@ -270,7 +276,7 @@ test("live post fallback respects comment switch", async () => {
 });
 
 
-test("revision pointer keeps old content visible when index commit fails", async () => {
+test("revision pointer keeps old content visible when pointer commit fails", async () => {
 	const store = makeStore();
 	const handle = createService(store);
 
@@ -290,8 +296,8 @@ test("revision pointer keeps old content visible when index commit fails", async
 
 	const originalSetJSON = store.setJSON;
 	store.setJSON = async (key, value) => {
-		if (key === "v2/index/posts.json") {
-			throw new Error("simulated index failure");
+		if (key === "v3/pointers/posts/atomic.json") {
+			throw new Error("simulated pointer failure");
 		}
 		return originalSetJSON(key, value);
 	};
@@ -353,4 +359,49 @@ test("archive export includes source and requires an authorized repository write
 	const payload = await response.json();
 	assert.equal(payload.posts.length, 1);
 	assert.equal(payload.posts[0].source, "---\ntitle: Archive Me\n---\nbody");
+});
+
+
+test("different items can save concurrently without losing each other's pointers", async () => {
+	const store = makeStore();
+	const originalSetJSON = store.setJSON;
+	store.setJSON = async (key, value) => {
+		if (key.includes("/pointers/")) {
+			await new Promise((resolve) => setTimeout(resolve, key.includes("alpha") ? 20 : 5));
+		}
+		return originalSetJSON(key, value);
+	};
+	const handle = createService(store);
+
+	const [alpha, beta] = await Promise.all([
+		handle(request("/api/live-content/item", {
+			method: "PUT",
+			headers: adminHeaders(),
+			body: JSON.stringify({
+				kind: "post",
+				id: "alpha",
+				path: "src/content/posts/alpha.md",
+				source: "alpha",
+				meta: { title: "Alpha", html: "<p>alpha</p>" },
+			}),
+		})),
+		handle(request("/api/live-content/item", {
+			method: "PUT",
+			headers: adminHeaders(),
+			body: JSON.stringify({
+				kind: "post",
+				id: "beta",
+				path: "src/content/posts/beta.md",
+				source: "beta",
+				meta: { title: "Beta", html: "<p>beta</p>" },
+			}),
+		})),
+	]);
+	assert.equal(alpha.status, 200);
+	assert.equal(beta.status, 200);
+
+	const indexResponse = await handle(request("/api/live-content/index?kind=post"));
+	assert.equal(indexResponse.status, 200);
+	const payload = await indexResponse.json();
+	assert.deepEqual(payload.entries.map((entry) => entry.id).sort(), ["alpha", "beta"]);
 });

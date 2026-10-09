@@ -229,7 +229,8 @@ if (
   !liveContentFunctionSource.includes('@edgeone/pages-blob') ||
   !liveContentFunctionSource.includes('createLiveContentService') ||
   !liveContentServiceSource.includes("requireAdmin") ||
-  !liveContentServiceSource.includes("sameOriginAllowed")
+  !liveContentServiceSource.includes("sameOriginAllowed") ||
+  !liveContentServiceSource.includes("v3/pointers/")
 ) {
   errors.push("EdgeOne live content service guard missing");
 }

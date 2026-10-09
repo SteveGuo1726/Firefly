@@ -1,4 +1,4 @@
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
 const AUTH_CACHE_MS = 5 * 60 * 1000;
 const ALLOWED_LOGIN = "SteveGuo1726";
@@ -70,20 +70,27 @@ function encodePath(path) {
 	return path.split("/").map(encodeURIComponent).join("/");
 }
 
-function itemKey(kind, id, revision) {
-	return `v2/items/${kind === "post" ? "posts" : "dynamics"}/${id}/${revision}.json`;
+function kindBucket(kind) {
+	return kind === "post" ? "posts" : "dynamics";
 }
 
-function indexKey(kind) {
-	return `v2/index/${kind === "post" ? "posts" : "dynamics"}.json`;
+function itemKey(kind, id, revision) {
+	return `v3/items/${kindBucket(kind)}/${id}/${revision}.json`;
+}
+
+function pointerPrefix(kind) {
+	return `v3/pointers/${kindBucket(kind)}/`;
+}
+
+function pointerKey(kind, id) {
+	return `${pointerPrefix(kind)}${id}.json`;
 }
 
 export async function loadLiveContentItem(store, kind, id) {
-	const index = await store.getJSON(indexKey(kind));
-	const entry = index?.entries?.[id];
-	if (!entry || entry.deleted || !entry.revision) return null;
-	const item = await store.getJSON(itemKey(kind, id, entry.revision));
-	if (!item || item.deleted || item.revision !== entry.revision) return null;
+	const pointer = await store.getJSON(pointerKey(kind, id));
+	if (!pointer || pointer.deleted || !pointer.revision) return null;
+	const item = await store.getJSON(itemKey(kind, id, pointer.revision));
+	if (!item || item.deleted || item.revision !== pointer.revision) return null;
 	return item;
 }
 
@@ -146,25 +153,29 @@ export function createLiveContentService({
 	const authCache = new Map();
 	const repoWriterCache = new Map();
 
-	async function readIndex(kind) {
-		const existing = await store.getJSON(indexKey(kind));
-		if (
-			existing &&
-			existing.schemaVersion === SCHEMA_VERSION &&
-			existing.kind === kind &&
-			existing.entries &&
-			typeof existing.entries === "object"
-		) {
-			return existing;
-		}
-		return { schemaVersion: SCHEMA_VERSION, kind, updatedAt: null, entries: {} };
+	async function readPointer(kind, id) {
+		return store.getJSON(pointerKey(kind, id));
 	}
 
-	async function writeIndex(kind, index) {
-		index.schemaVersion = SCHEMA_VERSION;
-		index.kind = kind;
-		index.updatedAt = new Date().toISOString();
-		await store.setJSON(indexKey(kind), index);
+	async function readPointers(kind) {
+		const keys = await store.listKeys(pointerPrefix(kind));
+		const pointers = await Promise.all(keys.map((key) => store.getJSON(key)));
+		return pointers.filter(
+			(pointer) =>
+				pointer &&
+				pointer.schemaVersion === SCHEMA_VERSION &&
+				pointer.kind === kind &&
+				pointer.id &&
+				pointer.revision,
+		);
+	}
+
+	async function writePointer(kind, pointer) {
+		await store.setJSON(pointerKey(kind, pointer.id), {
+			schemaVersion: SCHEMA_VERSION,
+			kind,
+			...pointer,
+		});
 	}
 
 	async function requireAdmin(request) {
@@ -296,8 +307,7 @@ export function createLiveContentService({
 	async function handleGetIndex(request, url) {
 		const kind = normalizeKind(url.searchParams.get("kind"));
 		if (!kind) return json({ error: "kind 必须是 post 或 dynamic。" }, 400);
-		const index = await readIndex(kind);
-		let entries = Object.values(index.entries || {});
+		let entries = await readPointers(kind);
 		const hasAuthorization = (request.headers.get("Authorization") || "").startsWith("Bearer ");
 		if (hasAuthorization) {
 			const auth = await requireAdmin(request);
@@ -307,13 +317,14 @@ export function createLiveContentService({
 				(entry) => entry.deleted || (!entry.meta?.draft && !entry.meta?.protected),
 			);
 		}
+		entries.sort((a, b) =>
+			String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")),
+		);
 		return json({
 			schemaVersion: SCHEMA_VERSION,
 			kind,
-			updatedAt: index.updatedAt,
-			entries: entries.sort((a, b) =>
-				String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")),
-			),
+			updatedAt: entries[0]?.updatedAt || null,
+			entries,
 		});
 	}
 
@@ -322,12 +333,10 @@ export function createLiveContentService({
 		const id = kind ? normalizeId(kind, url.searchParams.get("id")) : null;
 		if (!kind || !id) return json({ error: "kind 或 id 无效。" }, 400);
 
-		const index = await readIndex(kind);
-		const indexed = index.entries?.[id];
+		const indexed = await readPointer(kind, id);
 		if (indexed?.deleted) return json({ error: "Gone", deleted: true }, 410);
-		if (!indexed) return json({ error: "Not Found" }, 404);
+		if (!indexed?.revision) return json({ error: "Not Found" }, 404);
 
-		if (!indexed.revision) return json({ error: "Not Found" }, 404);
 		const item = await store.getJSON(itemKey(kind, id, indexed.revision));
 		if (!item || item.deleted || item.revision !== indexed.revision) {
 			return json({ error: "Live revision unavailable" }, 503);
@@ -400,10 +409,11 @@ export function createLiveContentService({
 			return json({ error: "kind、id、path、branch 或 previousId 无效。" }, 400);
 		}
 
-		const index = await readIndex(kind);
-		const targetEntry = index.entries?.[id];
+		const targetEntry = await readPointer(kind, id);
 		const previousEntry =
-			previousId && previousId !== id ? index.entries?.[previousId] : targetEntry;
+			previousId && previousId !== id
+				? await readPointer(kind, previousId)
+				: targetEntry;
 		const expectedRevision = String(body.expectedRevision || "");
 
 		if (previousId && previousId !== id) {
@@ -463,7 +473,7 @@ export function createLiveContentService({
 		};
 
 		await store.setJSON(itemKey(kind, id, revision), document);
-		index.entries[id] = {
+		await writePointer(kind, {
 			id,
 			path: document.path,
 			meta: document.meta,
@@ -472,28 +482,26 @@ export function createLiveContentService({
 			revision,
 			deleted: false,
 			updatedAt: now,
-		};
+		});
 
 		if (previousId && previousId !== id) {
-			const previousEntry = index.entries[previousId] || {};
-			index.entries[previousId] = {
+			const old = previousEntry || {};
+			await writePointer(kind, {
 				id: previousId,
-				path: previousPath || previousEntry.path || "",
-				meta: previousEntry.meta || normalizeMeta(kind, {}),
+				path: previousPath || old.path || "",
+				meta: old.meta || normalizeMeta(kind, {}),
 				baseGitSha: String(
-					body.previousBaseGitSha || previousEntry.baseGitSha || "",
+					body.previousBaseGitSha || old.baseGitSha || "",
 				).slice(0, 80),
 				baseGitBranch:
 					normalizeBranch(body.previousBaseGitBranch) ||
-					previousEntry.baseGitBranch ||
+					old.baseGitBranch ||
 					baseGitBranch || "",
 				revision,
 				deleted: true,
 				updatedAt: now,
-			};
+			});
 		}
-
-		await writeIndex(kind, index);
 		return json({
 			ok: true,
 			kind,
@@ -518,8 +526,7 @@ export function createLiveContentService({
 			if (raw) fallback = JSON.parse(raw);
 		} catch {}
 
-		const index = await readIndex(kind);
-		const indexed = index.entries?.[id] || {};
+		const indexed = (await readPointer(kind, id)) || {};
 		const existing =
 			indexed.revision && !indexed.deleted
 				? await store.getJSON(itemKey(kind, id, indexed.revision))
@@ -583,7 +590,7 @@ export function createLiveContentService({
 			updatedBy: ALLOWED_LOGIN,
 		};
 
-		index.entries[id] = {
+		await writePointer(kind, {
 			id,
 			path: tombstone.path,
 			meta: tombstone.meta,
@@ -592,8 +599,7 @@ export function createLiveContentService({
 			revision,
 			deleted: true,
 			updatedAt: now,
-		};
-		await writeIndex(kind, index);
+		});
 		return json({ ok: true, kind, id, revision, deleted: true, updatedAt: now });
 	}
 
@@ -605,8 +611,8 @@ export function createLiveContentService({
 			dynamics: [],
 		};
 		for (const kind of ["post", "dynamic"]) {
-			const index = await readIndex(kind);
-			for (const entry of Object.values(index.entries || {})) {
+			const pointers = await readPointers(kind);
+			for (const entry of pointers) {
 				const item = entry.deleted
 					? {
 						schemaVersion: SCHEMA_VERSION,

@@ -20,7 +20,7 @@ const payload = await response.json().catch(() => ({}));
 if (!response.ok) {
 	throw new Error(payload?.error || `Archive export failed: HTTP ${response.status}`);
 }
-if (payload?.schemaVersion !== 2) {
+if (payload?.schemaVersion !== 3) {
 	throw new Error(`Unsupported live content schema: ${payload?.schemaVersion}`);
 }
 
