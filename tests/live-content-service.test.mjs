@@ -238,7 +238,7 @@ test("public draft overlay signals static pages to hide", async () => {
 
 
 test("live post fallback respects comment switch", async () => {
-	const shell = '<html><body><!--LIVE_POST_CONTENT--><!--LIVE_POST_COMMENTS_START--><div id="post-comments">__LIVE_POST_COMMENT_PATH__</div><!--LIVE_POST_COMMENTS_END--></body></html>';
+	const shell = '<html><body><!--LIVE_POST_CONTENT--><div data-live-post-comments-boundary="start"></div><div id="post-comments">__LIVE_POST_COMMENT_PATH__</div><div data-live-post-comments-boundary="end"></div></body></html>';
 	const hidden = await renderLivePostFallback(
 		request("/posts/no-comments/"),
 		{
@@ -266,7 +266,7 @@ test("live post fallback respects comment switch", async () => {
 	const html = await visible.text();
 	assert.match(html, /post-comments/);
 	assert.match(html, /\/posts\/with-comments/);
-	assert.doesNotMatch(html, /LIVE_POST_COMMENTS_/);
+	assert.doesNotMatch(html, /data-live-post-comments-boundary/);
 });
 
 

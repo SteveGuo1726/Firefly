@@ -56,15 +56,17 @@ export async function renderLivePostFallback(request, { loadItem, loadShell }) {
 		.replace('<!--LIVE_POST_CONTENT-->', String(meta.html))
 		.replace(/<meta[^>]+data-live-shell-robots[^>]*>/, "");
 
+	const commentBlock =
+		/<div[^>]*data-live-post-comments-boundary=["']start["'][^>]*><\/div>[\s\S]*?<div[^>]*data-live-post-comments-boundary=["']end["'][^>]*><\/div>/;
+	const startBoundary =
+		/<div[^>]*data-live-post-comments-boundary=["']start["'][^>]*><\/div>/;
+	const endBoundary =
+		/<div[^>]*data-live-post-comments-boundary=["']end["'][^>]*><\/div>/;
+
 	if (meta.comment === false) {
-		html = html.replace(
-			/<!--LIVE_POST_COMMENTS_START-->[\s\S]*?<!--LIVE_POST_COMMENTS_END-->/,
-			"",
-		);
+		html = html.replace(commentBlock, "");
 	} else {
-		html = html
-			.replace("<!--LIVE_POST_COMMENTS_START-->", "")
-			.replace("<!--LIVE_POST_COMMENTS_END-->", "");
+		html = html.replace(startBoundary, "").replace(endBoundary, "");
 	}
 
 	return new Response(html, {

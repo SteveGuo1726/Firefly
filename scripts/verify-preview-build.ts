@@ -190,6 +190,21 @@ if (!livePostFunctionSource.includes("renderLivePostFallback")) {
   errors.push("EdgeOne missing-post live fallback is missing");
 }
 
+const livePostShellSource = await readFile(
+  path.join(process.cwd(), "src/pages/internal/live-post-shell.astro"),
+  "utf8",
+).catch(() => "");
+const livePostRendererSource = await readFile(
+  path.join(process.cwd(), "src/server/live-content/render-live-post.js"),
+  "utf8",
+).catch(() => "");
+if (
+  !livePostShellSource.includes('data-live-post-comments-boundary="start"') ||
+  !livePostRendererSource.includes("data-live-post-comments-boundary")
+) {
+  errors.push("live post comment boundary guard missing");
+}
+
 const cloudflarePreviewConfig = await readFile(
   path.join(process.cwd(), "wrangler.preview.jsonc"),
   "utf8",

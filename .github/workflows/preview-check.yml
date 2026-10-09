@@ -38,7 +38,7 @@ jobs:
       - name: Astro check
         run: pnpm astro check
 
-      - name: Full build guard
+      - name: Fast preview build guard
         env:
           PUBLIC_GITHUB_ADMIN_BRANCH: ai/preview-test
-        run: pnpm build
+        run: pnpm build:preview
