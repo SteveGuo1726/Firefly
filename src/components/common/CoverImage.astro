@@ -1,5 +1,7 @@
 ---
 import ImageWrapper from "@/components/common/ImageWrapper.astro";
+import fallbackCover from "@/assets/images/cover.avif";
+import { getImage } from "astro:assets";
 import { coverImageConfig } from "@/config";
 import type { ImageFormat, ResponsiveImageLayout } from "@/types/config";
 import {
@@ -53,6 +55,7 @@ const isLocal = !(
 const isPublic = src.startsWith("/");
 
 // 图片样式
+const fallbackOptimized = await getImage({ src: fallbackCover, width: 828, format: "webp" });
 const imageClass =
 	"w-full h-full object-cover opacity-0 transition-opacity duration-500 ease-out";
 const imageStyle = `object-position: ${position};`;
@@ -86,6 +89,7 @@ const remoteReferrerPolicy =
 	class:list={[className, "cover-image-container overflow-hidden relative"]}
 	data-loading={showLoading ? "true" : "false"}
 	data-api-urls={apiUrls.length > 0 ? JSON.stringify(apiUrls) : undefined}
+	data-local-fallback={apiUrls.length > 0 ? fallbackOptimized.src : undefined}
 	data-natural-height={naturalHeight ? "true" : undefined}
 >
 	<!-- LQIP 渐变占位 -->
@@ -223,6 +227,8 @@ const remoteReferrerPolicy =
 			// 解析API URL列表，用于按顺序重试
 			let apiUrls: string[] = [];
 			let currentApiIndex = 1; // 0号已由服务端设为img.src
+			let fallbackTried = false;
+			const fallbackSrc = container.getAttribute("data-local-fallback");
 			const apiUrlsAttr = container.getAttribute('data-api-urls');
 			if (apiUrlsAttr) {
 				try { apiUrls = JSON.parse(apiUrlsAttr); } catch (_e) { /* ignore */ }
@@ -250,6 +256,13 @@ const remoteReferrerPolicy =
 					img.addEventListener('error', onError, { once: true });
 					img.src = apiUrls[currentApiIndex];
 					currentApiIndex++;
+				} else if (!fallbackTried && fallbackSrc && apiUrls.length > 0) {
+					// All user-selected random image APIs failed: use the existing local cover.
+					// Do not replace an explicitly configured personal remote cover URL.
+					fallbackTried = true;
+					img.addEventListener("load", hideLoading, { once: true });
+					img.addEventListener("error", showError, { once: true });
+					img.src = fallbackSrc;
 				} else {
 					showError();
 				}
