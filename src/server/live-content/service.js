@@ -223,7 +223,7 @@ export function createLiveContentService({
 			{ headers },
 		);
 		const repository = await repoResponse.json().catch(() => ({}));
-		if (!repoResponse.ok || repository?.permissions?.push === false) {
+		if (!repoResponse.ok || repository?.permissions?.push !== true) {
 			return { error: json({ error: "当前 GitHub Token 没有仓库写权限。" }, 403) };
 		}
 

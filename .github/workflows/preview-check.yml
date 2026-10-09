@@ -1,9 +1,7 @@
 name: Preview Branch Check
 
 on:
-  push:
-    branches:
-      - ai/preview-test
+  workflow_dispatch:
 
 concurrency:
   group: preview-check-${{ github.ref }}

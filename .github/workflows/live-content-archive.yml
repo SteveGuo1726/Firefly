@@ -14,7 +14,7 @@ permissions:
 
 jobs:
   archive:
-    if: ${{ vars.FIREFLY_ARCHIVE_BRANCH != '' && vars.FIREFLY_LIVE_CONTENT_EXPORT_URL != '' }}
+    if: ${{ vars.FIREFLY_ARCHIVE_BRANCH != '' && vars.FIREFLY_LIVE_CONTENT_EXPORT_URL != '' && (vars.FIREFLY_ARCHIVE_BRANCH != 'master' || vars.FIREFLY_ARCHIVE_ALLOW_MASTER == 'true') }}
     runs-on: ubuntu-latest
     env:
       TARGET_BRANCH: ${{ vars.FIREFLY_ARCHIVE_BRANCH }}
