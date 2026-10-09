@@ -32,7 +32,7 @@ async function liveMeta(){
 }
 
 async function refresh(){
-	loading=true;error="";
+	liveIndexHealthy=false;loading=true;error="";
 	try{
 		const baseResponse=await fetch("/api/admin-content-index.json",{cache:"no-store"});
 		if(!baseResponse.ok)throw new Error("读取构建期内容索引失败。");
