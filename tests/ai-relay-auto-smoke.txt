@@ -1,2 +1,0 @@
-Firefly Vercel-to-GitHub Actions relay smoke test.
-This file is deliberately outside the public website.
