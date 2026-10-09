@@ -164,4 +164,4 @@ jobs:
           git push origin HEAD:refs/heads/ai/preview-test
           echo "### Patch committed to ai/preview-test" >> "$GITHUB_STEP_SUMMARY"
           echo "Commit: $(git rev-parse HEAD)" >> "$GITHUB_STEP_SUMMARY"
-          echo 'Netlify should receive the GitHub push; check its deploy status separately.' >> "$GITHUB_STEP_SUMMARY"
+          echo 'Cloudflare Workers Builds should receive the GitHub push; check its deploy status separately.' >> "$GITHUB_STEP_SUMMARY"
