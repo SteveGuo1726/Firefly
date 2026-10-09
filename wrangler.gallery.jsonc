@@ -3,7 +3,9 @@
 	"name": "firefly-gallery-api",
 	"main": "./worker/index.ts",
 	"compatibility_date": "2026-07-21",
-	"compatibility_flags": ["nodejs_compat"],
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
 	"routes": [
 		{
 			"pattern": "gallery-api.casto.top",
@@ -22,5 +24,25 @@
 			"binding": "GALLERY_MANIFEST",
 			"id": "969680731253435f9699a5fb8f849785"
 		}
-	]
+	],
+	"env": {
+		"preview": {
+			"name": "firefly-gallery-api-preview",
+			"workers_dev": true,
+			"routes": [],
+			"vars": {
+				"ALLOWED_ORIGIN": "https://firefly-blog-preview.guojunyang666666.workers.dev",
+				"IMAGEBED_BASE_URL": "https://img.casto.top",
+				"IMAGE_PUBLIC_BASE_URL": "https://img.casto.top/file",
+				"GITHUB_ADMIN_LOGIN": "SteveGuo1726",
+				"GITHUB_REPO": "SteveGuo1726/Firefly"
+			},
+			"kv_namespaces": [
+				{
+					"binding": "GALLERY_MANIFEST",
+					"id": "a4b2ad42cf7c4b18a41fda8661902fb7"
+				}
+			]
+		}
+	}
 }
