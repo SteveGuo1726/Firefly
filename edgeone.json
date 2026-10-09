@@ -1,0 +1,13 @@
+{
+  "cloudFunctions": {
+    "mainlandRegions": [
+      "ap-shanghai"
+    ],
+    "overseasRegions": [
+      "ap-tokyo"
+    ],
+    "nodejs": {
+      "maxDuration": 30
+    }
+  }
+}
