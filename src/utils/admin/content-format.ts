@@ -81,7 +81,17 @@ function scalar(block?: Block): string {
 	if (!block?.key) return "";
 	const first = block.lines[0];
 	const inline = first.slice(first.indexOf(":") + 1).trim();
-	if (inline) return unquote(inline);
+	if (/^[|>][+-]?(?:\s+#.*)?$/.test(inline)) {
+		const content = block.lines.slice(1);
+		const nonempty = content.filter(line => line.trim());
+		const indent = nonempty.length ? Math.min(...nonempty.map(line => line.match(/^ */)?.[0].length ?? 0)) : 0;
+		const lines = content.map(line => line.slice(Math.min(indent, line.length)));
+		return inline.startsWith("|") ? lines.join("\n").replace(/\n$/, "") : lines.join(" ").trim();
+	}
+	if (inline) {
+		const commentFree = inline.replace(/^("(?:\\.|[^"\\])*"|'(?:''|[^'])*')\s+#.*$/, "$1");
+		return unquote(commentFree);
+	}
 	return block.lines.slice(1).map((line) => line.trim()).filter(Boolean).map(unquote).join("\n");
 }
 
