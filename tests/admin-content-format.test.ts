@@ -48,3 +48,25 @@ test("CRLF frontmatter retains original line endings when editing title", () => 
  assert.match(changed,/title: "After"\r\nextra:\r\n  nested: true\r\n/);
  assert.ok(changed.endsWith("\r\n\r\nHello\r\n"));
 });
+
+test("frontmatter parser ignores indented and inline separators", () => {
+ const original = '---\ntitle: "Keep"\ndescription: "valid"\ncustom: |\n  ---\n  content\n---\n\nbody\n';
+ const {fields,body} = parsePostDocument(original);
+ assert.equal(fields.title,"Keep");
+ assert.equal(fields.description,"valid");
+ assert.equal(buildPostDocument(fields,body,original),original);
+ fields.title="Changed";
+ const result=buildPostDocument(fields,body,original);
+ assert.match(result,/custom: \|\n  ---\n  content/);
+});
+test("comments on known scalar fields do not get included in values", () => {
+ const original="---\ntitle: 'It''s mine' # title comment\ndraft: true # draft comment\n---\n\nText";
+ const {fields,body}=parsePostDocument(original);
+ assert.equal(fields.title,"It's mine");
+ assert.equal(fields.draft,true);
+ assert.equal(buildPostDocument(fields,body,original),original);
+ fields.draft=false;
+ const updated=buildPostDocument(fields,body,original);
+ assert.match(updated,/title: 'It''s mine' # title comment/);
+ assert.match(updated,/draft: false/);
+});
