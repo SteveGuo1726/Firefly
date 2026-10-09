@@ -73,6 +73,9 @@ test("live content CRUD is public-safe and revision protected", async () => {
 	const publicItem = await publicItemResponse.json();
 	assert.equal(publicItem.meta.title, "Hello");
 	assert.equal("source" in publicItem, false);
+	assert.equal("path" in publicItem, false);
+	assert.equal("baseGitSha" in publicItem, false);
+	assert.equal("updatedBy" in publicItem, false);
 
 	const staleResponse = await handle(request("/api/live-content/item", {
 		method: "PUT",
@@ -352,6 +355,57 @@ test("live post fallback respects comment switch", async () => {
 	assert.doesNotMatch(html, /data-live-post-comments-boundary/);
 });
 
+
+test("rename rolls back the new pointer when the old tombstone write fails", async () => {
+	const store = makeStore();
+	const handle = createService(store);
+
+	const createResponse = await handle(request("/api/live-content/item", {
+		method: "PUT",
+		headers: adminHeaders(),
+		body: JSON.stringify({
+			kind: "post",
+			id: "before",
+			path: "src/content/posts/before.md",
+			source: "before source",
+			meta: { title: "Before", html: "<p>before</p>" },
+		}),
+	}));
+	assert.equal(createResponse.status, 200);
+	const created = await createResponse.json();
+
+	const originalSetJSON = store.setJSON;
+	store.setJSON = async (key, value) => {
+		if (key === "v3/pointers/posts/before.json" && value?.deleted) {
+			throw new Error("simulated old pointer failure");
+		}
+		return originalSetJSON(key, value);
+	};
+
+	const renameResponse = await handle(request("/api/live-content/item", {
+		method: "PUT",
+		headers: adminHeaders(),
+		body: JSON.stringify({
+			kind: "post",
+			id: "after",
+			path: "src/content/posts/after.md",
+			source: "after source",
+			meta: { title: "After", html: "<p>after</p>" },
+			expectedRevision: created.revision,
+			previousId: "before",
+			previousPath: "src/content/posts/before.md",
+		}),
+	}));
+	assert.equal(renameResponse.status, 500);
+
+	store.setJSON = originalSetJSON;
+	const oldVisible = await handle(request("/api/live-content/item?kind=post&id=before"));
+	assert.equal(oldVisible.status, 200);
+	assert.equal((await oldVisible.json()).meta.title, "Before");
+
+	const newVisible = await handle(request("/api/live-content/item?kind=post&id=after"));
+	assert.equal(newVisible.status, 404);
+});
 
 test("revision pointer keeps old content visible when pointer commit fails", async () => {
 	const store = makeStore();

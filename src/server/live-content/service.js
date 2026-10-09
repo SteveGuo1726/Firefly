@@ -385,13 +385,10 @@ export function createLiveContentService({
 			schemaVersion: item.schemaVersion,
 			kind: item.kind,
 			id: item.id,
-			path: item.path,
 			meta: item.meta,
-			baseGitSha: item.baseGitSha,
 			revision: item.revision,
 			deleted: item.deleted,
 			updatedAt: item.updatedAt,
-			updatedBy: item.updatedBy,
 		});
 	}
 
@@ -511,21 +508,34 @@ export function createLiveContentService({
 
 		if (previousId && previousId !== id) {
 			const old = previousEntry || {};
-			await writePointer(kind, {
-				id: previousId,
-				path: previousPath || old.path || "",
-				meta: old.meta || normalizeMeta(kind, {}),
-				baseGitSha: String(
-					body.previousBaseGitSha || old.baseGitSha || "",
-				).slice(0, 80),
-				baseGitBranch:
-					normalizeBranch(body.previousBaseGitBranch) ||
-					old.baseGitBranch ||
-					baseGitBranch || "",
-				revision,
-				deleted: true,
-				updatedAt: now,
-			});
+			try {
+				await writePointer(kind, {
+					id: previousId,
+					path: previousPath || old.path || "",
+					meta: old.meta || normalizeMeta(kind, {}),
+					baseGitSha: String(
+						body.previousBaseGitSha || old.baseGitSha || "",
+					).slice(0, 80),
+					baseGitBranch:
+						normalizeBranch(body.previousBaseGitBranch) ||
+						old.baseGitBranch ||
+						baseGitBranch || "",
+					revision,
+					deleted: true,
+					updatedAt: now,
+				});
+			} catch (error) {
+				try {
+					if (targetEntry) {
+						await store.setJSON(pointerKey(kind, id), targetEntry);
+					} else {
+						await store.deleteKey(pointerKey(kind, id));
+					}
+				} catch (rollbackError) {
+					console.error("[Firefly live content] rename rollback failed", rollbackError);
+				}
+				throw error;
+			}
 		}
 		return json({
 			ok: true,
