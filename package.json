@@ -24,7 +24,7 @@
 		"github-cards": "npx tsx scripts/generate-github-card-data.ts",
 		"friend-circle": "npx tsx scripts/generate-friend-circle-data.ts",
 		"deploy:cf-preview": "pnpm build:preview && wrangler deploy -c wrangler.preview.jsonc",
-		"test:live-content": "node --test tests/live-content-service.test.mjs",
+		"test:live-content": "tsx --test tests/live-content-service.test.mjs tests/dynamic-live.test.ts",
 		"build:preview": "npx tsx scripts/generate-lqips.ts && astro build && npx tsx scripts/prune-pio-assets.ts && npx tsx scripts/subset-fonts.ts && npx tsx scripts/minify-inline-scripts.ts && npx tsx scripts/run-pagefind.ts && npx tsx scripts/verify-preview-build.ts"
 	},
 	"dependencies": {

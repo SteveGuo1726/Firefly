@@ -144,6 +144,7 @@ export function createLiveContentService({
 	authorize,
 }) {
 	const authCache = new Map();
+	const repoWriterCache = new Map();
 
 	async function readIndex(kind) {
 		const existing = await store.getJSON(indexKey(kind));
@@ -216,6 +217,47 @@ export function createLiveContentService({
 		}
 
 		authCache.set(hash, Date.now() + AUTH_CACHE_MS);
+		return { token };
+	}
+
+	async function requireRepoWriter(request) {
+		const authorization = request.headers.get("Authorization") || "";
+		const token = authorization.startsWith("Bearer ")
+			? authorization.slice(7).trim()
+			: "";
+		if (!token) return { error: json({ error: "需要仓库写入凭证。" }, 401) };
+
+		const hash = await digestToken("repo-writer:" + token);
+		if ((repoWriterCache.get(hash) || 0) > Date.now()) return { token };
+
+		if (typeof authorize === "function") {
+			const result = await authorize({ request, token, scope: "repo-writer" });
+			if (!result?.ok) {
+				return {
+					error: json(
+						{ error: result?.error || "仓库写入身份验证失败。" },
+						result?.status || 403,
+					),
+				};
+			}
+			repoWriterCache.set(hash, Date.now() + AUTH_CACHE_MS);
+			return { token };
+		}
+
+		const response = await fetch(`https://api.github.com/repos/${REPOSITORY}`, {
+			headers: {
+				Accept: "application/vnd.github+json",
+				Authorization: `Bearer ${token}`,
+				"User-Agent": "Firefly-Live-Content-Archive",
+				"X-GitHub-Api-Version": "2022-11-28",
+			},
+		});
+		const repository = await response.json().catch(() => ({}));
+		if (!response.ok || repository?.permissions?.push !== true) {
+			return { error: json({ error: "当前凭证没有仓库写权限。" }, 403) };
+		}
+
+		repoWriterCache.set(hash, Date.now() + AUTH_CACHE_MS);
 		return { token };
 	}
 
@@ -555,9 +597,7 @@ export function createLiveContentService({
 		return json({ ok: true, kind, id, revision, deleted: true, updatedAt: now });
 	}
 
-	async function handleExport(request) {
-		const auth = await requireAdmin(request);
-		if (auth.error) return auth.error;
+	async function buildExportResult() {
 		const result = {
 			schemaVersion: SCHEMA_VERSION,
 			exportedAt: new Date().toISOString(),
@@ -587,7 +627,19 @@ export function createLiveContentService({
 				else result.dynamics.push(item);
 			}
 		}
-		return json(result);
+		return result;
+	}
+
+	async function handleExport(request) {
+		const auth = await requireAdmin(request);
+		if (auth.error) return auth.error;
+		return json(await buildExportResult());
+	}
+
+	async function handleArchiveExport(request) {
+		const auth = await requireRepoWriter(request);
+		if (auth.error) return auth.error;
+		return json(await buildExportResult());
 	}
 
 	return async function handleLiveContent(request, context = {}) {
@@ -611,6 +663,9 @@ export function createLiveContentService({
 			if (path === "/item" && request.method === "PUT") return await handlePutItem(request);
 			if (path === "/item" && request.method === "DELETE") return await handleDeleteItem(request, url);
 			if (path === "/export" && request.method === "GET") return await handleExport(request);
+			if (path === "/archive-export" && request.method === "GET") {
+				return await handleArchiveExport(request);
+			}
 			return json({ error: "Not Found", path, method: request.method }, 404);
 		} catch (error) {
 			console.error("[Firefly live content]", error);

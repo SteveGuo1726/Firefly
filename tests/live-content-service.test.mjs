@@ -321,3 +321,36 @@ test("revision pointer keeps old content visible when index commit fails", async
 	assert.equal(payload.source, "v1 source");
 	assert.equal(payload.revision, first.revision);
 });
+
+
+test("archive export includes source and requires an authorized repository writer", async () => {
+	const store = makeStore();
+	const handle = createService(store);
+	const save = await handle(request("/api/live-content/item", {
+		method: "PUT",
+		headers: adminHeaders(),
+		body: JSON.stringify({
+			kind: "post",
+			id: "archive-me",
+			path: "src/content/posts/archive-me.md",
+			source: "---\ntitle: Archive Me\n---\nbody",
+			meta: { title: "Archive Me", html: "<p>body</p>" },
+		}),
+	}));
+	assert.equal(save.status, 200);
+
+	const unauthorized = await handle(
+		request("/api/live-content/archive-export"),
+	);
+	assert.equal(unauthorized.status, 401);
+
+	const response = await handle(
+		request("/api/live-content/archive-export", {
+			headers: { Authorization: "Bearer test-token" },
+		}),
+	);
+	assert.equal(response.status, 200);
+	const payload = await response.json();
+	assert.equal(payload.posts.length, 1);
+	assert.equal(payload.posts[0].source, "---\ntitle: Archive Me\n---\nbody");
+});
