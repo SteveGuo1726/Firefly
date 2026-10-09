@@ -38,7 +38,14 @@ function applyStaticOverlay(entries: LivePost[]) {
 		if (!card) continue;
 
 		if (entry.deleted || entry.hidden) {
+			const yearBlock = card.closest<HTMLElement>(".archive-year-block");
 			card.remove();
+			if (yearBlock) {
+				const remaining = yearBlock.querySelectorAll(".archive-post").length;
+				const count = yearBlock.querySelector<HTMLElement>(".archive-year-count");
+				if (count) count.textContent = String(remaining);
+				if (remaining === 0) yearBlock.hidden = true;
+			}
 			continue;
 		}
 
