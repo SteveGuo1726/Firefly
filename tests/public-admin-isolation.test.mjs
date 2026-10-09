@@ -111,3 +111,13 @@ test("legacy persistent browser tokens cannot be silently restored",async()=>{
  assert.doesNotMatch(session,/sessionStorage\.setItem\(STORAGE_KEY,\s*legacy\)/);
  assert.match(session,/localStorage\.removeItem\(LEGACY_STORAGE_KEY\)/);
 });
+
+
+test("all transitional GitHub administrator entry points fail closed on unknown write permission", async()=>{
+ const gallery=await readFile("worker/index.ts","utf8");
+ const login=await readFile("src/utils/admin/github-session.ts","utf8");
+ const service=await readFile("src/server/live-content/service.js","utf8");
+ assert.match(gallery,/repo\.permissions\?\.push !== true/);
+ assert.match(login,/repository\.permissions\?\.push !== true/);
+ assert.match(service,/repository\?\.permissions\?\.push !== true/);
+});
