@@ -62,3 +62,22 @@ test("article overlay refreshes live content after returning and admin cross-tab
  assert.match(overlay,/removeEventListener\("storage", onStorage\)/);
  assert.match(overlay,/if \(busy \|\| disposed\) return/);
 });
+
+
+test("public post discovery refreshes and restores temporarily hidden static entries",async()=>{
+ const discover=await readFile("src/components/pages/post/LivePostDiscover.svelte","utf8");
+ assert.match(discover,/card\.hidden = hidden/);
+ assert.doesNotMatch(discover,/card\.remove\(\)/);
+ assert.match(discover,/addEventListener\("storage", onStorage\)/);
+ assert.match(discover,/removeEventListener\("storage", onStorage\)/);
+ assert.match(discover,/visibilitychange/);
+ assert.match(discover,/pageshow/);
+ assert.match(discover,/livePostsUpdated/);
+});
+test("live post search invalidates stale index on cross-tab mutation",async()=>{
+ const search=await readFile("src/utils/live-post-search.ts","utf8");
+ assert.match(search,/invalidateLivePostSearchIndex/);
+ assert.match(search,/firefly:live-content-updated/);
+ assert.match(search,/liveIndexCache\.clear\(\)/);
+ assert.match(search,/Date\.now\(\) \+ 5_000/);
+});
