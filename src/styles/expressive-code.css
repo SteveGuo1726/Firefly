@@ -303,3 +303,23 @@ body.wallpaper-transparent .expressive-code .ec-collapse__gradient {
     transform: none;
   }
 }
+
+
+/* Prevent article prose wrapping rules from distorting mobile code blocks. */
+.custom-md .expressive-code {
+  min-width: 0;
+  max-width: 100%;
+}
+.custom-md .expressive-code .frame pre {
+  overflow-x: auto;
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: pre;
+  -webkit-overflow-scrolling: touch;
+}
+.custom-md .expressive-code .frame pre code,
+.custom-md .expressive-code .frame pre .ec-line {
+  overflow-wrap: normal;
+  word-break: normal;
+  white-space: pre;
+}

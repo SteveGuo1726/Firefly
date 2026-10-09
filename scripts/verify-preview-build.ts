@@ -34,6 +34,12 @@ if (!home.includes("--font-code:")) {
 if (!home.includes("id=\"navbar\"")) {
   errors.push("home page is missing its navbar");
 }
+const codeGuide = await readFile(path.join(process.cwd(), "src/content/posts/firefly-config-manager.md"), "utf8").catch(() => "");
+const codeFence = new RegExp("^" + String.fromCharCode(96).repeat(3) + "text[ \\t]*\\n([\\s\\S]*?)^" + String.fromCharCode(96).repeat(3) + "[ \\t]*$", "gm");
+const guideExamples = [...codeGuide.matchAll(codeFence)];
+if (guideExamples.length !== 3 || guideExamples.some(x => x[1].startsWith("\n") || x[1].endsWith("\n\n"))) errors.push("metadata guide contains empty code-block lines");
+const codeStyle = await readFile(path.join(process.cwd(), "src/styles/expressive-code.css"), "utf8").catch(() => "");
+if (!codeStyle.includes(".custom-md .expressive-code .frame pre") || !codeStyle.includes("white-space: pre;")) errors.push("mobile code block style guard missing");
 if (errors.length) {
   for (const error of errors) console.error("FIREFLY_BUILD_CHECK_FAIL", error);
   process.exitCode = 1;

@@ -529,12 +529,4 @@ export const zh_TW: Translation = {
 	[Key.exitImmersiveReading]: "退出沉浸閱讀",
 	[Key.tocExpand]: "展開目錄",
 	[Key.tocCollapse]: "摺疊目錄",
-	[Key.anime]: "追番",
-	[Key.animeSubtitle]: "我的追番列表，數據來自 Bilibili 和 TMDB",
-	[Key.animeSource]: "數據來源",
-	[Key.animeNotConfigured]: "未配置追番資料來源",
-	[Key.animeNotConfiguredDesc]: "請在 src/config/siteConfig.ts 中配置 Bilibili UID 或 TMDB API Key",
-	[Key.animeTmdbAvg]: "TMDB 均分",
-	[Key.animeDualSynced]: "雙源已同步",
-	[Key.animeViewTmdb]: "查看 TMDB 詳情",
 };

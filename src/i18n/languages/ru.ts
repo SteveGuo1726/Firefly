@@ -541,12 +541,4 @@ export const ru: Translation = {
 	[Key.exitImmersiveReading]: "Выйти из режима чтения",
 	[Key.tocExpand]: "Развернуть оглавление",
 	[Key.tocCollapse]: "Свернуть оглавление",
-	[Key.anime]: "Аниме",
-	[Key.animeSubtitle]: "Мой список отслеживания аниме, данные из Bilibili и TMDB",
-	[Key.animeSource]: "Источник",
-	[Key.animeNotConfigured]: "Источник данных не настроен",
-	[Key.animeNotConfiguredDesc]: "Настройте Bilibili UID или TMDB API Key в src/config/siteConfig.ts",
-	[Key.animeTmdbAvg]: "TMDB ср.",
-	[Key.animeDualSynced]: "Два источника",
-	[Key.animeViewTmdb]: "Подробнее на TMDB",
 };
