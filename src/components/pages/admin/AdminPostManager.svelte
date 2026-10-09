@@ -16,6 +16,7 @@ let currentId="";let currentPath="";let loadedPath="";let baseGitSha="";let live
 let fields:AdminPostFields=emptyPostFields();let body="";let tagsText="";let previewHtml="";let message="";let error="";
 let previewTimer:ReturnType<typeof setTimeout>|null=null;
 let savedEditorSnapshot="";
+let liveIndexHealthy=false;
 function editorSnapshot(){return JSON.stringify({currentPath,fields,body,tagsText});}
 function guardUnsaved(){return !savedEditorSnapshot || editorSnapshot()===savedEditorSnapshot || confirm("当前有未保存的编辑内容。继续将丢失这些修改，确定切换吗？");}
 
@@ -45,8 +46,8 @@ async function refresh(){
 				map.set(e.id,{id:e.id,path:e.path||old?.path||`src/content/posts/${e.id}.md`,title:String(m.title??old?.title??e.id),description:String(m.description??old?.description??""),published:String(m.published??old?.published??""),updated:String(m.updated??old?.updated??""),category:String(m.category??old?.category??""),tags:Array.isArray(m.tags)?m.tags.map(String):(old?.tags||[]),draft:Boolean(m.draft??old?.draft??false),pinned:Boolean(m.pinned??old?.pinned??false),image:String(m.image??old?.image??""),live:true,baseGitSha:e.baseGitSha||"",revision:e.revision||""});
 			}
 		}catch(e){throw new Error("实时内容索引读取失败：已停止刷新，避免将过期 Git 列表误认为实时数据。", {cause:e});}
-		rows=[...map.values()].sort((a,b)=>Date.parse(b.published||"0")-Date.parse(a.published||"0"));
-	}catch(e){error=e instanceof Error?e.message:"文章列表读取失败。";}finally{loading=false;}
+		liveIndexHealthy=true;rows=[...map.values()].sort((a,b)=>Date.parse(b.published||"0")-Date.parse(a.published||"0"));
+	}catch(e){liveIndexHealthy=false;error=e instanceof Error?e.message:"文章列表读取失败。";}finally{loading=false;}
 }
 
 async function open(row:Row){if(saving||deleting||opening||!guardUnsaved())return;
@@ -63,7 +64,7 @@ async function open(row:Row){if(saving||deleting||opening||!guardUnsaved())retur
 
 function createNew(){if(saving||deleting||opening||!guardUnsaved())return;const stamp=new Date().toISOString().replace(/[-:]/g,"").slice(0,13).replace("T","-").toLowerCase();currentId="";currentPath=`src/content/posts/${stamp}.md`;loadedPath="";baseGitSha="";liveRevision="";originalSource="";fields=emptyPostFields();body="# 新文章\n\n";tagsText="";message="新文章尚未写入 Blob。";error="";savedEditorSnapshot=editorSnapshot();void updatePreview();}
 
-async function save(){
+async function save(){if(!liveIndexHealthy){error="实时内容索引尚未成功同步，请刷新列表后重试保存。";return;}
 	if(!fields.title.trim()){error="标题不能为空。";return;}
 	let path:string;try{path=normalizePath(currentPath);}catch(e){error=e instanceof Error?e.message:"路径无效。";return;}
 	fields={...fields,tags:baseMeta().tags};
@@ -75,7 +76,7 @@ async function save(){
 	}catch(e){error=e instanceof Error?e.message:"保存失败。";}finally{saving=false;}
 }
 
-async function remove(){
+async function remove(){if(!liveIndexHealthy){error="实时内容索引尚未成功同步，请刷新列表后重试删除。";return;}
 	if(!currentId||!confirm(`确定将 ${currentPath} 从实时内容中删除？Git 归档前不会删除仓库文件。`))return;
 	deleting=true;error="";message="";
 	try{await deleteLiveContentItem({session,kind:"post",id:currentId,path:loadedPath||currentPath,meta:baseMeta(),baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision});currentId="";currentPath="";loadedPath="";originalSource="";liveRevision="";baseGitSha="";fields=emptyPostFields();body="";tagsText="";previewHtml="";savedEditorSnapshot=editorSnapshot();await refresh();message="已写入实时删除标记；Git 仓库尚未改动。";}
