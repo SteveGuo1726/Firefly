@@ -1,5 +1,7 @@
 <script lang="ts">
 import type { FancyboxOptions } from "@fancyapps/ui";
+import "@fancyapps/ui/dist/fancybox/fancybox.css";
+import "@/styles/fancybox-custom.css";
 import { onMount } from "svelte";
 import type { PublicGalleryAlbum } from "@/types/galleryAdmin";
 import { fetchPublicGallery } from "@/utils/admin/imagebed-client";
