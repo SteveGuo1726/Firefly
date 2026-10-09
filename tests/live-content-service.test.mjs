@@ -160,7 +160,9 @@ test("public post index hides drafts and protected posts but keeps tombstones", 
 	);
 	const payload = await publicIndex.json();
 	assert.deepEqual(
-		payload.entries.map((entry) => [entry.id, Boolean(entry.hidden)]),
+		payload.entries
+			.map((entry) => [entry.id, Boolean(entry.hidden)])
+			.sort(([a], [b]) => String(a).localeCompare(String(b))),
 		[
 			["draft", true],
 			["protected", true],
