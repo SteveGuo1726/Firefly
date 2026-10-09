@@ -4,7 +4,7 @@ import { i18n } from "@i18n/translation";
 import { onMount } from "svelte";
 import Icon from "@/components/common/Icon.svelte";
 import type { SearchResult } from "@/global";
-import { mergeLiveSearchResults } from "@/utils/live-post-search";
+import { livePostPath, mergeLiveSearchResults } from "@/utils/live-post-search";
 import { url as formatUrl } from "@/utils/url-utils";
 
 // --- Props ---
@@ -17,6 +17,11 @@ let results: SearchResult[] = [];
 let isSearching = false;
 let initialized = false;
 let searchRequestId = 0;
+
+const liveSearchOptions = {
+	indexUrl: formatUrl("/api/live-content/index?kind=post"),
+	postUrl: (id: string) => formatUrl(livePostPath(id)),
+};
 
 // 在客户端获取 URL 参数
 const getInitialKeyword = (): string => {
@@ -60,9 +65,9 @@ const search = async () => {
 			const rawResults = await Promise.all(
 				response.results.map((item) => item.data()),
 			);
-			nextResults = await mergeLiveSearchResults(rawResults, currentKeyword);
+			nextResults = await mergeLiveSearchResults(rawResults, currentKeyword, liveSearchOptions);
 		} else if (import.meta.env.PROD) {
-			nextResults = await mergeLiveSearchResults([], currentKeyword);
+			nextResults = await mergeLiveSearchResults([], currentKeyword, liveSearchOptions);
 		} else if (import.meta.env.DEV) {
 			nextResults = fakeResult.filter(
 				(item) =>

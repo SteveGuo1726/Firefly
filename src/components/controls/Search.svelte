@@ -6,7 +6,7 @@ import { onMount } from "svelte";
 import Icon from "@/components/common/Icon.svelte";
 import type { SearchResult } from "@/global";
 import { FLOATING_PANEL_CLOSE_EVENT } from "@/utils/floating-panel-utils";
-import { mergeLiveSearchResults } from "@/utils/live-post-search";
+import { livePostPath, mergeLiveSearchResults } from "@/utils/live-post-search";
 import { url as formatUrl, getSearchUrl } from "@/utils/url-utils";
 
 // --- State ---
@@ -17,6 +17,11 @@ let isSearching = false;
 let initialized = false;
 let debounceTimer: NodeJS.Timeout;
 let searchRequestId = 0;
+
+const liveSearchOptions = {
+	indexUrl: formatUrl("/api/live-content/index?kind=post"),
+	postUrl: (id: string) => formatUrl(livePostPath(id)),
+};
 
 // --- Mocks for Dev Mode ---
 const fakeResult: SearchResult[] = [
@@ -119,7 +124,7 @@ const search = async (keyword: string, isDesktop: boolean): Promise<void> => {
 				searchResults = fakeResult;
 			}
 
-			searchResults = await mergeLiveSearchResults(searchResults, keyword);
+			searchResults = await mergeLiveSearchResults(searchResults, keyword, liveSearchOptions);
 			if (requestId !== searchRequestId) return;
 
 			result = searchResults;

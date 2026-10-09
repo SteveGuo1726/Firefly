@@ -3,7 +3,7 @@ import test from "node:test";
 import {
 	escapeSearchRegExp,
 	highlightSearchText,
-	livePostUrl,
+	livePostPath,
 	mergeLiveSearchEntries,
 } from "../src/utils/live-post-search";
 
@@ -15,7 +15,7 @@ test("search highlighting safely handles regexp metacharacters and HTML", () => 
 });
 
 test("live search state supersedes stale Pagefind state", () => {
-	const oldUrl = livePostUrl("hello");
+	const oldUrl = livePostPath("hello");
 	const pagefind = [{
 		url: oldUrl,
 		meta: { title: "Old title" },
@@ -38,8 +38,8 @@ test("live search state supersedes stale Pagefind state", () => {
 });
 
 test("live-only posts are searchable while hidden and deleted posts remove stale results", () => {
-	const hiddenUrl = livePostUrl("hidden");
-	const deletedUrl = livePostUrl("deleted");
+	const hiddenUrl = livePostPath("hidden");
+	const deletedUrl = livePostPath("deleted");
 	const results = mergeLiveSearchEntries(
 		[
 			{ url: hiddenUrl, meta: { title: "Hidden old" }, excerpt: "secret" },
@@ -53,5 +53,5 @@ test("live-only posts are searchable while hidden and deleted posts remove stale
 		"edgeone",
 	);
 	assert.equal(results.length, 1);
-	assert.equal(results[0].url, livePostUrl("new-live"));
+	assert.equal(results[0].url, livePostPath("new-live"));
 });

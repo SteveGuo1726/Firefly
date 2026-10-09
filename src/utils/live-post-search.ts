@@ -1,5 +1,4 @@
 import type { SearchResult } from "../global";
-import { url as formatUrl } from "./url-utils";
 
 export type LivePostSearchEntry = {
 	id: string;
@@ -14,8 +13,16 @@ export type LivePostSearchEntry = {
 	};
 };
 
-let liveIndexCache: { expiresAt: number; entries: LivePostSearchEntry[] } | null = null;
-let liveIndexPromise: Promise<LivePostSearchEntry[]> | null = null;
+export type LivePostSearchOptions = {
+	indexUrl?: string;
+	postUrl?: (id: string) => string;
+};
+
+const liveIndexCache = new Map<
+	string,
+	{ expiresAt: number; entries: LivePostSearchEntry[] }
+>();
+const liveIndexPromises = new Map<string, Promise<LivePostSearchEntry[]>>();
 
 export const escapeSearchHtml = (value: string): string =>
 	value
@@ -42,10 +49,8 @@ export function highlightSearchText(value: string, keyword: string): string {
 		.join("");
 }
 
-export function livePostUrl(id: string): string {
-	return formatUrl(
-		"/posts/" + id.split("/").map(encodeURIComponent).join("/") + "/",
-	);
+export function livePostPath(id: string): string {
+	return "/posts/" + id.split("/").map(encodeURIComponent).join("/") + "/";
 }
 
 function liveExcerpt(entry: LivePostSearchEntry, keyword: string): string {
@@ -53,7 +58,6 @@ function liveExcerpt(entry: LivePostSearchEntry, keyword: string): string {
 	const searchText = String(entry.meta?.searchText || "");
 	const needle = keyword.trim().toLocaleLowerCase();
 	if (!needle) return highlightSearchText(description, keyword);
-
 	if (description.toLocaleLowerCase().includes(needle)) {
 		return highlightSearchText(description, keyword);
 	}
@@ -61,24 +65,25 @@ function liveExcerpt(entry: LivePostSearchEntry, keyword: string): string {
 	if (index < 0) return highlightSearchText(description, keyword);
 	const start = Math.max(0, index - 70);
 	const end = Math.min(searchText.length, index + needle.length + 110);
-	const prefix = start > 0 ? "…" : "";
-	const suffix = end < searchText.length ? "…" : "";
-	return prefix + highlightSearchText(searchText.slice(start, end), keyword) + suffix;
+	return (
+		(start > 0 ? "…" : "") +
+		highlightSearchText(searchText.slice(start, end), keyword) +
+		(end < searchText.length ? "…" : "")
+	);
 }
 
 export function mergeLiveSearchEntries(
 	pagefindResults: SearchResult[],
 	liveEntries: LivePostSearchEntry[],
 	keyword: string,
+	postUrl: (id: string) => string = livePostPath,
 ): SearchResult[] {
 	const merged = new Map(pagefindResults.map((entry) => [entry.url, entry]));
 	const needle = keyword.trim().toLocaleLowerCase();
 
 	for (const entry of liveEntries) {
 		if (!entry?.id) continue;
-		const itemUrl = livePostUrl(entry.id);
-
-		// Live state always supersedes stale Pagefind state for the same URL.
+		const itemUrl = postUrl(entry.id);
 		merged.delete(itemUrl);
 		if (entry.deleted || entry.hidden || !entry.meta?.title) continue;
 
@@ -98,24 +103,26 @@ export function mergeLiveSearchEntries(
 			excerpt: liveExcerpt(entry, keyword),
 		});
 	}
-
 	return [...merged.values()];
 }
 
-export async function getLivePostSearchIndex(): Promise<LivePostSearchEntry[]> {
-	if (liveIndexCache && liveIndexCache.expiresAt > Date.now()) {
-		return liveIndexCache.entries;
-	}
-	if (liveIndexPromise) return liveIndexPromise;
+export async function getLivePostSearchIndex(
+	indexUrl = "/api/live-content/index?kind=post",
+): Promise<LivePostSearchEntry[]> {
+	const cached = liveIndexCache.get(indexUrl);
+	if (cached && cached.expiresAt > Date.now()) return cached.entries;
+	const pending = liveIndexPromises.get(indexUrl);
+	if (pending) return pending;
 
-	liveIndexPromise = fetch(formatUrl("/api/live-content/index?kind=post"), {
-		cache: "no-store",
-	})
+	const promise = fetch(indexUrl, { cache: "no-store" })
 		.then(async (response) => {
 			if (!response.ok) return [];
 			const payload = await response.json();
 			const entries = Array.isArray(payload?.entries) ? payload.entries : [];
-			liveIndexCache = { expiresAt: Date.now() + 30_000, entries };
+			liveIndexCache.set(indexUrl, {
+				expiresAt: Date.now() + 30_000,
+				entries,
+			});
 			return entries;
 		})
 		.catch((error) => {
@@ -123,19 +130,21 @@ export async function getLivePostSearchIndex(): Promise<LivePostSearchEntry[]> {
 			return [];
 		})
 		.finally(() => {
-			liveIndexPromise = null;
+			liveIndexPromises.delete(indexUrl);
 		});
-
-	return liveIndexPromise;
+	liveIndexPromises.set(indexUrl, promise);
+	return promise;
 }
 
 export async function mergeLiveSearchResults(
 	pagefindResults: SearchResult[],
 	keyword: string,
+	options: LivePostSearchOptions = {},
 ): Promise<SearchResult[]> {
 	return mergeLiveSearchEntries(
 		pagefindResults,
-		await getLivePostSearchIndex(),
+		await getLivePostSearchIndex(options.indexUrl),
 		keyword,
+		options.postUrl,
 	);
 }
