@@ -32,3 +32,12 @@ test("public gallery uses bounded remote reads and prioritized images",async()=>
  const browser=await readFile("src/components/pages/gallery/GalleryBrowser.svelte","utf8");
  assert.match(browser,/fetchpriority="low"/);
 });
+
+test("public dynamic feed refreshes live overlays when returning to the tab",async()=>{
+ const source=await readFile("src/components/pages/dynamic/DynamicFeed.svelte","utf8");
+ assert.match(source,/cache: "no-store"/);
+ assert.match(source,/visibilitychange/);
+ assert.match(source,/pageshow/);
+ assert.match(source,/refreshIfStale/);
+ assert.match(source,/if \(!background \|\| entries\.length === 0\) failed = true/);
+});
