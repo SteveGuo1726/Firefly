@@ -44,7 +44,7 @@ async function refresh(){
 				const old=map.get(e.id);const m=e.meta as Partial<BasePost>;
 				map.set(e.id,{id:e.id,path:e.path||old?.path||`src/content/posts/${e.id}.md`,title:String(m.title??old?.title??e.id),description:String(m.description??old?.description??""),published:String(m.published??old?.published??""),updated:String(m.updated??old?.updated??""),category:String(m.category??old?.category??""),tags:Array.isArray(m.tags)?m.tags.map(String):(old?.tags||[]),draft:Boolean(m.draft??old?.draft??false),pinned:Boolean(m.pinned??old?.pinned??false),image:String(m.image??old?.image??""),live:true,baseGitSha:e.baseGitSha||"",revision:e.revision||""});
 			}
-		}catch(e){console.warn("Live content overlay unavailable",e);}
+		}catch(e){throw new Error("实时内容索引读取失败：已停止刷新，避免将过期 Git 列表误认为实时数据。", {cause:e});}
 		rows=[...map.values()].sort((a,b)=>Date.parse(b.published||"0")-Date.parse(a.published||"0"));
 	}catch(e){error=e instanceof Error?e.message:"文章列表读取失败。";}finally{loading=false;}
 }
