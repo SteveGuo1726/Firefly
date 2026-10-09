@@ -50,7 +50,12 @@ function updateStructuredData(meta: Record<string, unknown>) {
 }
 
 onMount(() => {
+	let busy = false;
+	let lastCheckedAt = 0;
+	let disposed = false;
 	const apply = async () => {
+		if (busy || disposed) return;
+		busy = true;
 		try {
 			const response = await fetch(
 				`/api/live-content/item?kind=post&id=${encodeURIComponent(postId)}`,
@@ -63,6 +68,7 @@ onMount(() => {
 			if (response.status === 404) return;
 			if (!response.ok) return;
 			const item = await response.json();
+			if (disposed) return;
 			const meta = item?.meta || {};
 			if (!meta.html || meta.draft || meta.protected) return;
 
@@ -100,8 +106,31 @@ onMount(() => {
 			document.documentElement.dataset.livePostRevision = String(item.revision || "");
 		} catch (error) {
 			console.warn("Live post overlay unavailable", error);
+		} finally {
+			busy = false;
+			lastCheckedAt = Date.now();
 		}
 	};
+	const checkWhenVisible = () => {
+		if (document.visibilityState === "visible" && Date.now() - lastCheckedAt > 3000) void apply();
+	};
+	const onStorage = (event: StorageEvent) => {
+		if (event.key !== "firefly:live-content-updated" || !event.newValue) return;
+		try {
+			if (JSON.parse(event.newValue)?.kind === "post") void apply();
+		} catch { /* Ignore malformed notifications. */ }
+	};
+	window.addEventListener("storage", onStorage);
+	window.addEventListener("focus", checkWhenVisible);
+	window.addEventListener("pageshow", checkWhenVisible);
+	document.addEventListener("visibilitychange", checkWhenVisible);
 	void apply();
+	return () => {
+		disposed = true;
+		window.removeEventListener("storage", onStorage);
+		window.removeEventListener("focus", checkWhenVisible);
+		window.removeEventListener("pageshow", checkWhenVisible);
+		document.removeEventListener("visibilitychange", checkWhenVisible);
+	};
 });
 </script>
