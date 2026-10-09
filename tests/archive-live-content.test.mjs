@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, mkdir, readFile, writeFile } from "node:fs/promises";
+import { mkdtemp, mkdir, readFile, symlink, writeFile } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
@@ -121,4 +121,13 @@ test("replaying tombstone must not ignore recreated files",async()=>{
  await writeFile(file,"recreated independently");
  await assert.rejects(createArchivePlan(deleted,{rootDir:root}),/previously archived Git content changed/);
  assert.equal(await readFile(file,"utf8"),"recreated independently");
+});
+
+
+test("archive refuses symlinked content directories without modifying outside files",async()=>{
+ const root=await workspace(),outside=await mkdtemp(path.join(os.tmpdir(),"firefly-outside-"));
+ await symlink(outside,path.join(root,"src/content/posts/escape"));
+ const data=snapshot([{kind:"post",id:"escape/hidden",path:"src/content/posts/escape/hidden.md",revision:"r1",source:"sensitive",deleted:false}]);
+ await assert.rejects(createArchivePlan(data,{rootDir:root}),/Unsafe archive symlink/);
+ await assert.rejects(readFile(path.join(outside,"hidden.md")),(e)=>e.code==="ENOENT");
 });
