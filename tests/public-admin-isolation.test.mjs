@@ -22,3 +22,13 @@ test("administrator login remains reachable only from admin app",async()=>{
  const source=await readFile("src/components/pages/admin/AdminApp.svelte","utf8");
  assert.match(source,/GitHubAdminLogin/);
 });
+
+test("public gallery uses bounded remote reads and prioritized images",async()=>{
+ const client=await readFile("src/utils/gallery-public-client.ts","utf8");
+ assert.match(client,/AbortSignal\.timeout\(12000\)/);
+ const album=await readFile("src/components/pages/gallery/GalleryAlbumRuntime.svelte","utf8");
+ assert.match(album,/fetchpriority="high"/);
+ assert.match(album,/fetchpriority="low"/);
+ const browser=await readFile("src/components/pages/gallery/GalleryBrowser.svelte","utf8");
+ assert.match(browser,/fetchpriority="low"/);
+});
