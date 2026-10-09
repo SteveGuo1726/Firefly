@@ -119,3 +119,42 @@
     --fancybox-thumbs-width: 40px;
   }
 }
+
+/* Keep original-size photography inside the safe viewport. The image remains
+   contain-fitted until the visitor explicitly zooms; no forced full-screen crop. */
+.fancybox__container {
+  z-index: 100000;
+  --fancybox-bg: rgba(9, 12, 19, 0.96);
+}
+.fancybox__container .fancybox__slide {
+  padding: clamp(12px, 3vw, 36px);
+  box-sizing: border-box;
+}
+.fancybox__container .fancybox__content,
+.fancybox__container .fancybox__image {
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+.fancybox__container .fancybox__toolbar {
+  max-width: 100%;
+  box-sizing: border-box;
+}
+@media (max-width: 700px) {
+  .fancybox__container .fancybox__slide {
+    padding: 8px;
+  }
+  .fancybox__container .fancybox__toolbar {
+    padding: 2px 4px;
+    flex-wrap: wrap;
+  }
+  .fancybox__container .fancybox__toolbar__column {
+    min-width: 0;
+    max-width: 100%;
+  }
+  .fancybox__container .f-button {
+    width: 36px;
+    height: 36px;
+    min-width: 36px;
+  }
+}
