@@ -2,6 +2,18 @@
 import { performance } from "node:perf_hooks";
 import { lookup, resolveCname } from "node:dns/promises";
 
+async function cnameChain(host){
+ const chain=[host];
+ for(let hop=0;hop<8;hop++){
+  const aliases=await resolveCname(chain.at(-1)).catch(()=>[]);
+  if(!aliases.length)break;
+  const next=aliases[0].replace(/\\.$/,"");
+  if(chain.includes(next)){chain.push("[CNAME CYCLE]");break;}
+  chain.push(next);
+ }
+ return chain;
+}
+
 const targets=[
  {name:"blog",url:"https://blog.casto.top/",expect:"text/html"},
  {name:"image-cdn",url:"https://img.casto.top/",expect:null},
@@ -18,7 +30,7 @@ for(const target of targets){
    lookup(hostname,{all:true}).then(x=>x.map(y=>y.address)).catch(()=>[]),
    resolveCname(hostname).catch(()=>[]),
   ]);
-  dns={addresses,cnames};
+  dns={addresses,cnames,cnameChain:await cnameChain(hostname)};
  }catch(error){dns={error:String(error)};}
  const started=performance.now();
  let result;
@@ -32,6 +44,8 @@ for(const target of targets){
   const type=response.headers.get("content-type")||"";
   result={status:response.status,ok:response.ok,
    latencyMs:Math.round(performance.now()-started),
+   cacheControl:response.headers.get("cache-control"),
+   edgeCache:response.headers.get("cf-cache-status"),
    finalHost:new URL(response.url).hostname,contentType:type,
    contentTypeMatch:!target.expect||(target.expect==="json"?type.includes("json"):type.includes(target.expect))};
  }catch(error){
