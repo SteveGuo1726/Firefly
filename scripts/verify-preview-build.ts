@@ -170,6 +170,18 @@ if (writePageSource.includes("WriteManager")) {
   errors.push("legacy WriteManager is still mounted");
 }
 
+const cloudflarePreviewConfig = await readFile(
+  path.join(process.cwd(), "wrangler.preview.jsonc"),
+  "utf8",
+).catch(() => "");
+if (
+  !cloudflarePreviewConfig.includes('"name": "firefly-blog-preview"') ||
+  !cloudflarePreviewConfig.includes('"LIVE_CONTENT_PREVIEW"') ||
+  !cloudflarePreviewConfig.includes('"/api/live-content/*"')
+) {
+  errors.push("Cloudflare preview live-content adapter config missing");
+}
+
 const liveContentFunctionSource = await readFile(
   path.join(process.cwd(), "cloud-functions/api/live-content/[[default]].js"),
   "utf8",
