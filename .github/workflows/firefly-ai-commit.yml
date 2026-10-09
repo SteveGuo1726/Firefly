@@ -71,7 +71,7 @@ jobs:
               if p.parts and p.parts[0] in {'src', 'public', 'docs', 'scripts', 'tests', 'worker'} and len(p.parts) >= 2:
                   return True
               return path in {
-                  'astro.config.mjs', 'package.json', 'pnpm-lock.yaml',
+                  ‘astro.config.mjs’, ‘package.json’, ‘pnpm-lock.yaml’, ‘pnpm-workspace.yaml’,
                   'postcss.config.mjs', 'pagefind.yml', 'svelte.config.js',
                   'tsconfig.json', 'biome.json', 'vercel.json',
                   'wrangler.toml', 'wrangler.jsonc', 'wrangler.gallery.jsonc',
