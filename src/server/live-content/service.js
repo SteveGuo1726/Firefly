@@ -606,11 +606,11 @@ export function createLiveContentService({
 					region: typeof region === "function" ? region(context) : null,
 				});
 			}
-			if (path === "/index" && request.method === "GET") return handleGetIndex(request, url);
-			if (path === "/item" && request.method === "GET") return handleGetItem(request, url);
-			if (path === "/item" && request.method === "PUT") return handlePutItem(request);
-			if (path === "/item" && request.method === "DELETE") return handleDeleteItem(request, url);
-			if (path === "/export" && request.method === "GET") return handleExport(request);
+			if (path === "/index" && request.method === "GET") return await handleGetIndex(request, url);
+			if (path === "/item" && request.method === "GET") return await handleGetItem(request, url);
+			if (path === "/item" && request.method === "PUT") return await handlePutItem(request);
+			if (path === "/item" && request.method === "DELETE") return await handleDeleteItem(request, url);
+			if (path === "/export" && request.method === "GET") return await handleExport(request);
 			return json({ error: "Not Found", path, method: request.method }, 404);
 		} catch (error) {
 			console.error("[Firefly live content]", error);
