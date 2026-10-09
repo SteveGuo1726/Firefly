@@ -38,3 +38,13 @@ test("changing only body preserves YAML and comments exactly", () => {
  assert.match(edited,/custom: >-\n  first\n  second\n# extra comment/);
  assert.match(edited,/New body$/);
 });
+
+test("CRLF frontmatter retains original line endings when editing title", () => {
+ const source = "---\r\ntitle: 'Before'\r\nextra:\r\n  nested: true\r\n---\r\n\r\nHello\r\n";
+ const {fields,body} = parsePostDocument(source);
+ assert.equal(buildPostDocument(fields,body,source),source);
+ fields.title="After";
+ const changed=buildPostDocument(fields,body,source);
+ assert.match(changed,/title: "After"\r\nextra:\r\n  nested: true\r\n/);
+ assert.ok(changed.endsWith("\r\n\r\nHello\r\n"));
+});
