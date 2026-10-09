@@ -31,19 +31,33 @@ async function readJson(response: Response) {
 	return payload;
 }
 
-export async function fetchLiveContentIndex(kind: LiveContentKind): Promise<{
-	updatedAt: string | null;
-	entries: LiveContentIndexEntry[];
-}> {
-	return readJson(await fetch(endpoint("/index", { kind }), { cache: "no-store" }));
+export async function fetchLiveContentIndex(
+	kind: LiveContentKind,
+	session?: GitHubAdminSession,
+): Promise<{ updatedAt: string | null; entries: LiveContentIndexEntry[] }> {
+	return readJson(await fetch(endpoint("/index", { kind }), {
+		cache: "no-store",
+		headers: session
+			? { Authorization: `Bearer ${session.token}` }
+			: undefined,
+	}));
 }
 
 export async function fetchLiveContentItem(
 	kind: LiveContentKind,
 	id: string,
+	session?: GitHubAdminSession,
 ): Promise<LiveContentDocument | null> {
-	const response = await fetch(endpoint("/item", { kind, id }), { cache: "no-store" });
+	const response = await fetch(endpoint("/item", { kind, id }), {
+		cache: "no-store",
+		headers: session
+			? { Authorization: `Bearer ${session.token}` }
+			: undefined,
+	});
 	if (response.status === 404) return null;
+	if (response.status === 410) {
+		return { id, kind, deleted: true } as LiveContentDocument;
+	}
 	return readJson(response);
 }
 

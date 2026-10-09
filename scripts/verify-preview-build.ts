@@ -18,6 +18,7 @@ const required = [
   "projects/index.html",
   "write/index.html",
   "admin/index.html",
+  "__live-post-shell/index.html",
   "posts/firefly-config-manager/index.html",
   "pagefind/pagefind.js",
   "favicon/favicon-light-32.png",
@@ -168,6 +169,25 @@ const writePageSource = await readFile(
 ).catch(() => "");
 if (writePageSource.includes("WriteManager")) {
   errors.push("legacy WriteManager is still mounted");
+}
+
+const livePostOverlaySource = await readFile(
+  path.join(process.cwd(), "src/components/pages/post/LivePostOverlay.svelte"),
+  "utf8",
+).catch(() => "");
+if (
+  !livePostOverlaySource.includes("/api/live-content/item?kind=post") ||
+  !livePostOverlaySource.includes("[data-live-post-content]")
+) {
+  errors.push("live post overlay guard missing");
+}
+
+const livePostFunctionSource = await readFile(
+  path.join(process.cwd(), "cloud-functions/posts/[[default]].js"),
+  "utf8",
+).catch(() => "");
+if (!livePostFunctionSource.includes("renderLivePostFallback")) {
+  errors.push("EdgeOne missing-post live fallback is missing");
 }
 
 const cloudflarePreviewConfig = await readFile(

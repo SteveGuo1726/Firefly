@@ -19,7 +19,11 @@ let previewTimer:ReturnType<typeof setTimeout>|null=null;
 function filtered(){const n=query.trim().toLowerCase();return !n?rows:rows.filter(r=>[r.title,r.description,r.category,r.tags.join(" "),r.path].join(" ").toLowerCase().includes(n));}
 function idFromPath(path:string){return path.replace(/^src\/content\/posts\//,"").replace(/\.(?:md|mdx)$/i,"");}
 function normalizePath(value:string){const relative=value.trim().replace(/^src\/content\/posts\//,"").replace(/^\/+/, "");if(!relative||relative.includes("..")||relative.includes("\\")||!/\.(md|mdx)$/i.test(relative))throw new Error("文件路径必须位于 src/content/posts/ 下，并以 .md 或 .mdx 结尾。");return"src/content/posts/"+relative;}
-function meta(){return{title:fields.title.trim(),description:fields.description.trim(),published:fields.published,updated:fields.updated,category:fields.category.trim(),tags:tagsText.split(/[,\n]/).map(v=>v.trim()).filter(Boolean),draft:fields.draft,pinned:fields.pinned,image:fields.image.trim()};}
+function baseMeta(){return{title:fields.title.trim(),description:fields.description.trim(),published:fields.published,updated:fields.updated,category:fields.category.trim(),tags:tagsText.split(/[,\n]/).map(v=>v.trim()).filter(Boolean),draft:fields.draft,pinned:fields.pinned,image:fields.image.trim(),protected:Boolean(fields.password)};}
+async function liveMeta(){
+	const html=await renderFireflyPreview({source:body,calloutTheme:siteConfig.post.rehypeCallouts.theme,isMdx:currentPath.endsWith(".mdx")});
+	return{...baseMeta(),html};
+}
 
 async function refresh(){
 	loading=true;error="";
@@ -29,7 +33,7 @@ async function refresh(){
 		const base=await baseResponse.json();
 		const map=new Map<string,Row>((base.posts as BasePost[]).map(p=>[p.id,{...p,live:false,baseGitSha:"",revision:""}]));
 		try{
-			const live=await fetchLiveContentIndex("post");
+			const live=await fetchLiveContentIndex("post",session);
 			for(const e of live.entries){
 				if(e.deleted){map.delete(e.id);continue;}
 				const old=map.get(e.id);const m=e.meta as Partial<BasePost>;
@@ -44,7 +48,7 @@ async function open(row:Row){
 	opening=true;error="";message="";
 	try{
 		let source="";let sha=row.baseGitSha;
-		if(row.live){const live=await fetchLiveContentItem("post",row.id);if(live?.source){source=live.source;sha=live.baseGitSha||sha;}}
+		if(row.live){const live=await fetchLiveContentItem("post",row.id,session);if(live?.source){source=live.source;sha=live.baseGitSha||sha;}}
 		if(!source){const git=await fetchGitContentSource(session,row.path);source=git.source;sha=git.sha;}
 		const parsed=parsePostDocument(source);
 		currentId=row.id;currentPath=row.path;baseGitSha=sha;originalSource=source;fields=parsed.fields;body=parsed.body;tagsText=fields.tags.join(", ");
@@ -57,10 +61,11 @@ function createNew(){const stamp=new Date().toISOString().replace(/[-:]/g,"").sl
 async function save(){
 	if(!fields.title.trim()){error="标题不能为空。";return;}
 	let path:string;try{path=normalizePath(currentPath);}catch(e){error=e instanceof Error?e.message:"路径无效。";return;}
-	fields={...fields,tags:meta().tags};
+	fields={...fields,tags:baseMeta().tags};
 	const nextId=idFromPath(path);const source=buildPostDocument(fields,body,originalSource);saving=true;error="";message="";
 	try{
-		const result=await saveLiveContentItem({session,kind:"post",id:nextId,path,source,meta:meta(),baseGitSha,previousId:currentId&&currentId!==nextId?currentId:undefined,previousPath:currentId&&currentId!==nextId?currentPath:undefined,previousBaseGitSha:currentId&&currentId!==nextId?baseGitSha:undefined});
+		const publicMeta=await liveMeta();
+		const result=await saveLiveContentItem({session,kind:"post",id:nextId,path,source,meta:publicMeta,baseGitSha,previousId:currentId&&currentId!==nextId?currentId:undefined,previousPath:currentId&&currentId!==nextId?currentPath:undefined,previousBaseGitSha:currentId&&currentId!==nextId?baseGitSha:undefined});
 		currentId=nextId;currentPath=path;originalSource=source;message=`实时版本已保存：${result.revision.slice(0,8)}。未创建 Git commit。`;await refresh();
 	}catch(e){error=e instanceof Error?e.message:"保存失败。";}finally{saving=false;}
 }
@@ -68,7 +73,7 @@ async function save(){
 async function remove(){
 	if(!currentId||!confirm(`确定将 ${currentPath} 从实时内容中删除？Git 归档前不会删除仓库文件。`))return;
 	deleting=true;error="";message="";
-	try{await deleteLiveContentItem({session,kind:"post",id:currentId,path:currentPath,meta:meta(),baseGitSha});currentId="";currentPath="";originalSource="";await refresh();message="已写入实时删除标记；Git 仓库尚未改动。";}
+	try{await deleteLiveContentItem({session,kind:"post",id:currentId,path:currentPath,meta:baseMeta(),baseGitSha});currentId="";currentPath="";originalSource="";await refresh();message="已写入实时删除标记；Git 仓库尚未改动。";}
 	catch(e){error=e instanceof Error?e.message:"删除失败。";}finally{deleting=false;}
 }
 

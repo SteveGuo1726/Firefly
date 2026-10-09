@@ -9,5 +9,16 @@
     "nodejs": {
       "maxDuration": 30
     }
-  }
+  },
+  "headers": [
+    {
+      "source": "/__live-post-shell/*",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow, noarchive"
+        }
+      ]
+    }
+  ]
 }

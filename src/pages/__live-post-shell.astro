@@ -1,0 +1,33 @@
+---
+import MainGridLayout from "@/layouts/MainGridLayout.astro";
+import "@/styles/banner-post.css";
+import "@/styles/expressive-code.css";
+import "@/styles/markdown.css";
+---
+<MainGridLayout
+	title="__LIVE_POST_TITLE__"
+	description="__LIVE_POST_DESCRIPTION__"
+	setOGTypeArticle={true}
+>
+	<meta slot="head" name="robots" content="noindex,nofollow,noarchive" data-live-shell-robots />
+	<section class="flex w-full rounded-(--radius-large) overflow-hidden relative mb-4">
+		<article id="post-container" class="card-base z-10 px-6 md:px-9 pt-6 pb-6 relative w-full">
+			<div class="relative onload-animation">
+				<h1 data-live-post-title class="transition w-full block font-bold mb-3 text-3xl md:text-[2.25rem]/[2.75rem] text-black/90 dark:text-white/90">
+					__LIVE_POST_TITLE__
+				</h1>
+			</div>
+			<div class="live-post-meta mb-5">
+				<span>__LIVE_POST_PUBLISHED__</span>
+				<span>__LIVE_POST_CATEGORY__</span>
+				<span>__LIVE_POST_TAGS__</span>
+				<span class="live-badge">实时版本</span>
+			</div>
+			<div data-live-post-content class="prose prose-base max-w-none custom-md dark:prose-invert markdown-content onload-animation"><!--LIVE_POST_CONTENT--></div>
+			<div class="live-note">此页面来自实时内容层；GitHub 归档会在后续批次同步。</div>
+		</article>
+	</section>
+</MainGridLayout>
+<style>
+.live-post-meta{display:flex;flex-wrap:wrap;gap:.55rem 1rem;font-size:.78rem;opacity:.62}.live-badge{color:var(--primary);font-weight:800}.live-note{margin-top:1.5rem;padding-top:1rem;border-top:1px dashed var(--line-divider);font-size:.75rem;opacity:.5}
+</style>

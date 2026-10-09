@@ -26,6 +26,7 @@ import utc from "dayjs/plugin/utc";
 import CoverImage from "@/components/common/CoverImage.astro";
 import PostMetadata from "@/components/layout/PostMeta.astro";
 import RecommendedPost from "@/components/misc/RecommendedPost.astro";
+import LivePostOverlay from "@/components/pages/post/LivePostOverlay.svelte";
 import SeriesNav from "@/components/misc/SeriesNav.astro";
 import SharePoster from "@/components/misc/SharePoster.svelte";
 import { coverImageConfig } from "@/config/coverImageConfig";
@@ -367,6 +368,7 @@ const seriesData = await getSeriesPosts(entry);
               data-pagefind-body
               data-pagefind-weight="10"
               data-pagefind-meta="title"
+              data-live-post-title
               class="transition w-full block font-bold mb-3
                         text-3xl md:text-[2.25rem]/[2.75rem]
                         text-black/90 dark:text-white/90
@@ -429,9 +431,11 @@ const seriesData = await getSeriesPosts(entry);
 
       {entry.data.password ? (
         <EncryptedPost password={entry.data.password} slug={entry.id} hint={entry.data.passwordHint}>
-          <Markdown class="mb-6 markdown-content onload-animation">
-            <Content />
-          </Markdown>
+          <div data-live-post-content>
+            <Markdown class="mb-6 markdown-content onload-animation">
+              <Content />
+            </Markdown>
+          </div>
 
           {/* 打赏按钮 & 分享按钮 */}
           {
@@ -519,9 +523,11 @@ const seriesData = await getSeriesPosts(entry);
         </EncryptedPost>
       ) : (
         <>
-          <Markdown class="mb-6 markdown-content onload-animation">
-            <Content />
-          </Markdown>
+          <div data-live-post-content>
+            <Markdown class="mb-6 markdown-content onload-animation">
+              <Content />
+            </Markdown>
+          </div>
 
           {/* 打赏按钮 & 分享按钮 */}
           {
@@ -731,4 +737,5 @@ const seriesData = await getSeriesPosts(entry);
 
   <!-- 评论 -->
   {entry.data.comment && !entry.data.password && <Comment post={entry} />}
+  <LivePostOverlay client:load postId={entry.id} siteTitle={siteConfig.title} />
 </MainGridLayout>

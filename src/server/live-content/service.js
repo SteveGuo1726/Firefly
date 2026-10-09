@@ -75,6 +75,8 @@ function normalizeMeta(kind, raw) {
 			draft: Boolean(meta.draft),
 			pinned: Boolean(meta.pinned),
 			image: String(meta.image || "").slice(0, 2000),
+			protected: Boolean(meta.protected),
+			html: String(meta.html || "").slice(0, 1024 * 1024),
 		};
 	}
 	return {
@@ -165,32 +167,66 @@ export function createLiveContentService({
 		return { token };
 	}
 
-	async function handleGetIndex(url) {
+	async function handleGetIndex(request, url) {
 		const kind = normalizeKind(url.searchParams.get("kind"));
 		if (!kind) return json({ error: "kind 必须是 post 或 dynamic。" }, 400);
 		const index = await readIndex(kind);
+		let entries = Object.values(index.entries || {});
+		const hasAuthorization = (request.headers.get("Authorization") || "").startsWith("Bearer ");
+		if (hasAuthorization) {
+			const auth = await requireAdmin(request);
+			if (auth.error) return auth.error;
+		} else if (kind === "post") {
+			entries = entries.filter(
+				(entry) => entry.deleted || (!entry.meta?.draft && !entry.meta?.protected),
+			);
+		}
 		return json({
 			schemaVersion: SCHEMA_VERSION,
 			kind,
 			updatedAt: index.updatedAt,
-			entries: Object.values(index.entries || {}).sort((a, b) =>
+			entries: entries.sort((a, b) =>
 				String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")),
 			),
 		});
 	}
 
-	async function handleGetItem(url) {
+	async function handleGetItem(request, url) {
 		const kind = normalizeKind(url.searchParams.get("kind"));
 		const id = kind ? normalizeId(kind, url.searchParams.get("id")) : null;
 		if (!kind || !id) return json({ error: "kind 或 id 无效。" }, 400);
 
 		const index = await readIndex(kind);
 		const indexed = index.entries?.[id];
-		if (!indexed || indexed.deleted) return json({ error: "Not Found" }, 404);
+		if (indexed?.deleted) return json({ error: "Gone", deleted: true }, 410);
+		if (!indexed) return json({ error: "Not Found" }, 404);
 
 		const item = await store.getJSON(itemKey(kind, id));
 		if (!item || item.deleted) return json({ error: "Not Found" }, 404);
-		return json(item);
+
+		const hasAuthorization = (request.headers.get("Authorization") || "").startsWith("Bearer ");
+		if (hasAuthorization) {
+			const auth = await requireAdmin(request);
+			if (auth.error) return auth.error;
+			return json(item);
+		}
+
+		if (kind === "post" && (item.meta?.draft || item.meta?.protected)) {
+			return json({ error: "Not Found" }, 404);
+		}
+
+		return json({
+			schemaVersion: item.schemaVersion,
+			kind: item.kind,
+			id: item.id,
+			path: item.path,
+			meta: item.meta,
+			baseGitSha: item.baseGitSha,
+			revision: item.revision,
+			deleted: item.deleted,
+			updatedAt: item.updatedAt,
+			updatedBy: item.updatedBy,
+		});
 	}
 
 	async function handlePutItem(request) {
@@ -375,8 +411,8 @@ export function createLiveContentService({
 					region: typeof region === "function" ? region(context) : null,
 				});
 			}
-			if (path === "/index" && request.method === "GET") return handleGetIndex(url);
-			if (path === "/item" && request.method === "GET") return handleGetItem(url);
+			if (path === "/index" && request.method === "GET") return handleGetIndex(request, url);
+			if (path === "/item" && request.method === "GET") return handleGetItem(request, url);
 			if (path === "/item" && request.method === "PUT") return handlePutItem(request);
 			if (path === "/item" && request.method === "DELETE") return handleDeleteItem(request, url);
 			if (path === "/export" && request.method === "GET") return handleExport(request);
