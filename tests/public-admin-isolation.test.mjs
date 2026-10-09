@@ -51,3 +51,14 @@ test("successful content writes notify open public tabs without rebuilds",async(
  assert.match(feed,/removeEventListener\("storage", onContentChanged\)/);
  assert.match(feed,/JSON.parse\(event.newValue\)\?\.kind === "dynamic"/);
 });
+
+test("article overlay refreshes live content after returning and admin cross-tab updates",async()=>{
+ const overlay=await readFile("src/components/pages/post/LivePostOverlay.svelte","utf8");
+ assert.match(overlay,/cache: "no-store"/);
+ assert.match(overlay,/firefly:live-content-updated/);
+ assert.match(overlay,/JSON.parse\(event.newValue\)\?\.kind === "post"/);
+ assert.match(overlay,/visibilitychange/);
+ assert.match(overlay,/pageshow/);
+ assert.match(overlay,/removeEventListener\("storage", onStorage\)/);
+ assert.match(overlay,/if \(busy \|\| disposed\) return/);
+});
