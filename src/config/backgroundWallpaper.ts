@@ -101,7 +101,12 @@ export const backgroundWallpaper: BackgroundWallpaperConfig = {
 			// 首页横幅标题下方的链接图标（可选，支持 showName 显示文字）
 			// 图标支持 Iconify 格式：fa7-brands:github、fa7-solid:envelope、mdi:rss 等
 
-			links: profileConfig.links.map(({ name, icon, url, showName }) => ({ name, icon, url, showName })),
+			links: profileConfig.links.map(({ name, icon, url, showName }) => ({
+				name,
+				icon,
+				url,
+				showName,
+			})),
 		},
 		// 壁纸轮播配置，横幅壁纸和全屏壁纸共享，仅在配置多张图片时生效
 		carousel: {

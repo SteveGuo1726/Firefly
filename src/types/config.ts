@@ -64,5 +64,4 @@ export type ResponsiveImageLayout = "constrained" | "full-width" | "none";
 // 图像格式类型
 export type ImageFormat = "avif" | "webp" | "png" | "jpg" | "jpeg" | "gif";
 
-
 export type { FriendCircleConfig } from "./friendsConfig";
