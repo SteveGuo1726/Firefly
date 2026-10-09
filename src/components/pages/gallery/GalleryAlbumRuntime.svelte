@@ -120,7 +120,7 @@ onMount(() => {
 <div class="gallery-runtime" bind:this={galleryRoot}>
 {#if album}
 	<section class="album-hero">
-		{#if album.coverUrl}<img src={album.coverUrl} alt={album.name} />{/if}
+		{#if album.coverUrl}<img src={album.coverUrl} alt={album.name} loading="eager" decoding="async" fetchpriority="high" />{/if}
 		<div class="hero-shade"></div>
 		<a class="back" href={url("/gallery/")}>← 返回相册</a>
 		<div class="hero-info">
@@ -140,7 +140,7 @@ onMount(() => {
 			<div class="masonry" style={`--column-width: ${columnWidth}px`}>
 				{#each album.photos as photo (photo.key)}
 					<a class="photo" href={photo.url} data-fancybox={`gallery-${album.id}`} data-gallery-photo data-src={photo.url} onclick={openPhoto}>
-						<img src={photo.url} alt={photo.name} loading="lazy" decoding="async" />
+						<img src={photo.url} alt={photo.name} loading="lazy" decoding="async" fetchpriority="low" />
 					</a>
 				{/each}
 			</div>
