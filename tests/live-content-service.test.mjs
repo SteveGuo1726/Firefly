@@ -268,3 +268,56 @@ test("live post fallback respects comment switch", async () => {
 	assert.match(html, /\/posts\/with-comments/);
 	assert.doesNotMatch(html, /LIVE_POST_COMMENTS_/);
 });
+
+
+test("revision pointer keeps old content visible when index commit fails", async () => {
+	const store = makeStore();
+	const handle = createService(store);
+
+	const firstResponse = await handle(request("/api/live-content/item", {
+		method: "PUT",
+		headers: adminHeaders(),
+		body: JSON.stringify({
+			kind: "post",
+			id: "atomic",
+			path: "src/content/posts/atomic.md",
+			source: "v1 source",
+			meta: { title: "V1", html: "<p>v1</p>" },
+		}),
+	}));
+	assert.equal(firstResponse.status, 200);
+	const first = await firstResponse.json();
+
+	const originalSetJSON = store.setJSON;
+	store.setJSON = async (key, value) => {
+		if (key === "v2/index/posts.json") {
+			throw new Error("simulated index failure");
+		}
+		return originalSetJSON(key, value);
+	};
+
+	const failedResponse = await handle(request("/api/live-content/item", {
+		method: "PUT",
+		headers: adminHeaders(),
+		body: JSON.stringify({
+			kind: "post",
+			id: "atomic",
+			path: "src/content/posts/atomic.md",
+			source: "v2 source",
+			meta: { title: "V2", html: "<p>v2</p>" },
+			expectedRevision: first.revision,
+		}),
+	}));
+	assert.equal(failedResponse.status, 500);
+
+	store.setJSON = originalSetJSON;
+	const visible = await handle(
+		request("/api/live-content/item?kind=post&id=atomic", {
+			headers: { Authorization: "Bearer test-token" },
+		}),
+	);
+	assert.equal(visible.status, 200);
+	const payload = await visible.json();
+	assert.equal(payload.source, "v1 source");
+	assert.equal(payload.revision, first.revision);
+});

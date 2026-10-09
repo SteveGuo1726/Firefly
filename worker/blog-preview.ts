@@ -1,4 +1,7 @@
-import { createLiveContentService } from "../src/server/live-content/service.js";
+import {
+	createLiveContentService,
+	loadLiveContentItem,
+} from "../src/server/live-content/service.js";
 import { renderLivePostFallback } from "../src/server/live-content/render-live-post.js";
 
 let cachedService;
@@ -36,9 +39,17 @@ export default {
 			const asset = await env.ASSETS.fetch(request);
 			if (asset.status !== 404) return asset;
 			return renderLivePostFallback(request, {
-				async loadItem(id) {
-					const value = await env.LIVE_CONTENT_PREVIEW.get(`v1/posts/${id}.json`);
-					return value ? JSON.parse(value) : null;
+				loadItem(id) {
+					return loadLiveContentItem(
+						{
+							async getJSON(key) {
+								const value = await env.LIVE_CONTENT_PREVIEW.get(key);
+								return value ? JSON.parse(value) : null;
+							},
+						},
+						"post",
+						id,
+					);
 				},
 				loadShell() {
 					return env.ASSETS.fetch(new Request(new URL("/internal/live-post-shell/", request.url)));

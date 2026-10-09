@@ -1,4 +1,4 @@
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 const MAX_SOURCE_BYTES = 2 * 1024 * 1024;
 const AUTH_CACHE_MS = 5 * 60 * 1000;
 const ALLOWED_LOGIN = "SteveGuo1726";
@@ -70,12 +70,21 @@ function encodePath(path) {
 	return path.split("/").map(encodeURIComponent).join("/");
 }
 
-function itemKey(kind, id) {
-	return `v1/${kind === "post" ? "posts" : "dynamics"}/${id}.json`;
+function itemKey(kind, id, revision) {
+	return `v2/items/${kind === "post" ? "posts" : "dynamics"}/${id}/${revision}.json`;
 }
 
 function indexKey(kind) {
-	return `v1/index/${kind === "post" ? "posts" : "dynamics"}.json`;
+	return `v2/index/${kind === "post" ? "posts" : "dynamics"}.json`;
+}
+
+export async function loadLiveContentItem(store, kind, id) {
+	const index = await store.getJSON(indexKey(kind));
+	const entry = index?.entries?.[id];
+	if (!entry || entry.deleted || !entry.revision) return null;
+	const item = await store.getJSON(itemKey(kind, id, entry.revision));
+	if (!item || item.deleted || item.revision !== entry.revision) return null;
+	return item;
 }
 
 function normalizeImages(raw) {
@@ -276,8 +285,11 @@ export function createLiveContentService({
 		if (indexed?.deleted) return json({ error: "Gone", deleted: true }, 410);
 		if (!indexed) return json({ error: "Not Found" }, 404);
 
-		const item = await store.getJSON(itemKey(kind, id));
-		if (!item || item.deleted) return json({ error: "Not Found" }, 404);
+		if (!indexed.revision) return json({ error: "Not Found" }, 404);
+		const item = await store.getJSON(itemKey(kind, id, indexed.revision));
+		if (!item || item.deleted || item.revision !== indexed.revision) {
+			return json({ error: "Live revision unavailable" }, 503);
+		}
 
 		const hasAuthorization = (request.headers.get("Authorization") || "").startsWith("Bearer ");
 		if (hasAuthorization) {
@@ -408,7 +420,7 @@ export function createLiveContentService({
 			updatedBy: ALLOWED_LOGIN,
 		};
 
-		await store.setJSON(itemKey(kind, id), document);
+		await store.setJSON(itemKey(kind, id, revision), document);
 		index.entries[id] = {
 			id,
 			path: document.path,
@@ -422,9 +434,7 @@ export function createLiveContentService({
 
 		if (previousId && previousId !== id) {
 			const previousEntry = index.entries[previousId] || {};
-			const tombstone = {
-				schemaVersion: SCHEMA_VERSION,
-				kind,
+			index.entries[previousId] = {
 				id: previousId,
 				path: previousPath || previousEntry.path || "",
 				meta: previousEntry.meta || normalizeMeta(kind, {}),
@@ -435,18 +445,6 @@ export function createLiveContentService({
 					normalizeBranch(body.previousBaseGitBranch) ||
 					previousEntry.baseGitBranch ||
 					baseGitBranch || "",
-				revision,
-				deleted: true,
-				updatedAt: now,
-				updatedBy: ALLOWED_LOGIN,
-			};
-			await store.setJSON(itemKey(kind, previousId), tombstone);
-			index.entries[previousId] = {
-				id: previousId,
-				path: tombstone.path,
-				meta: tombstone.meta,
-				baseGitSha: tombstone.baseGitSha,
-				baseGitBranch: tombstone.baseGitBranch,
 				revision,
 				deleted: true,
 				updatedAt: now,
@@ -480,7 +478,10 @@ export function createLiveContentService({
 
 		const index = await readIndex(kind);
 		const indexed = index.entries?.[id] || {};
-		const existing = await store.getJSON(itemKey(kind, id));
+		const existing =
+			indexed.revision && !indexed.deleted
+				? await store.getJSON(itemKey(kind, id, indexed.revision))
+				: null;
 		const expectedRevision = String(fallback.expectedRevision || "");
 		if (indexed && !indexed.deleted) {
 			if (indexed.revision && (!expectedRevision || indexed.revision !== expectedRevision)) {
@@ -540,7 +541,6 @@ export function createLiveContentService({
 			updatedBy: ALLOWED_LOGIN,
 		};
 
-		await store.setJSON(itemKey(kind, id), tombstone);
 		index.entries[id] = {
 			id,
 			path: tombstone.path,
@@ -567,7 +567,21 @@ export function createLiveContentService({
 		for (const kind of ["post", "dynamic"]) {
 			const index = await readIndex(kind);
 			for (const entry of Object.values(index.entries || {})) {
-				const item = await store.getJSON(itemKey(kind, entry.id));
+				const item = entry.deleted
+					? {
+						schemaVersion: SCHEMA_VERSION,
+						kind,
+						id: entry.id,
+						path: entry.path,
+						meta: entry.meta,
+						baseGitSha: entry.baseGitSha || "",
+						baseGitBranch: entry.baseGitBranch || "",
+						revision: entry.revision,
+						deleted: true,
+						updatedAt: entry.updatedAt,
+						updatedBy: ALLOWED_LOGIN,
+					  }
+					: await store.getJSON(itemKey(kind, entry.id, entry.revision));
 				if (!item) continue;
 				if (kind === "post") result.posts.push(item);
 				else result.dynamics.push(item);
