@@ -52,35 +52,30 @@ function matchesArchiveFilter(entry: LivePost) {
 }
 
 function applyStaticOverlay(entries: LivePost[]) {
-	for (const entry of entries) {
-		const selector = `[data-post-id="${CSS.escape(entry.id)}"]`;
-		const card = document.querySelector<HTMLElement>(selector);
-		if (!card) continue;
-
-		if (entry.deleted || entry.hidden) {
-			const yearBlock = card.closest<HTMLElement>(".archive-year-block");
-			card.remove();
-			if (yearBlock) {
-				const remaining = yearBlock.querySelectorAll(".archive-post").length;
-				const count = yearBlock.querySelector<HTMLElement>(".archive-year-count");
-				if (count) count.textContent = String(remaining);
-				if (remaining === 0) yearBlock.hidden = true;
-			}
-			continue;
-		}
-
-		const title = card.querySelector<HTMLElement>("[data-post-card-title]");
-		const description = card.querySelector<HTMLElement>("[data-post-card-description]");
-		if (card.matches(".archive-post")) {
-			card.dataset.tags = JSON.stringify(entry.meta?.tags || []);
-			card.dataset.category = String(entry.meta?.category || "");
-		}
-		if (title && entry.meta?.title) title.textContent = entry.meta.title;
-		if (description && entry.meta?.description !== undefined) {
-			description.textContent = entry.meta.description;
-		}
-		card.dataset.liveRevision = String((entry as any).revision || "");
-	}
+ const byId = new Map(entries.map(entry => [entry.id, entry]));
+ for (const card of document.querySelectorAll<HTMLElement>("[data-post-id]:not([data-live-post])")) {
+  const entry = byId.get(card.dataset.postId || "");
+  if (!entry) continue;
+  const hidden = Boolean(entry.deleted || entry.hidden);
+  card.hidden = hidden;
+  card.style.display = hidden ? "none" : "";
+  if (hidden) continue;
+  const title = card.querySelector<HTMLElement>("[data-post-card-title]");
+  const description = card.querySelector<HTMLElement>("[data-post-card-description]");
+  if (card.matches(".archive-post")) {
+   card.dataset.tags = JSON.stringify(entry.meta?.tags || []);
+   card.dataset.category = String(entry.meta?.category || "");
+  }
+  if (title && entry.meta?.title) title.textContent = entry.meta.title;
+  if (description && entry.meta?.description !== undefined) description.textContent = entry.meta.description;
+  card.dataset.liveRevision = String((entry as any).revision || "");
+ }
+ for (const block of document.querySelectorAll<HTMLElement>(".archive-year-block")) {
+  const count = [...block.querySelectorAll<HTMLElement>(".archive-post")].filter(card => !card.hidden).length;
+  const label = block.querySelector<HTMLElement>(".archive-year-count");
+  if (label) label.textContent = String(count);
+  block.hidden = count === 0;
+ }
 }
 
 onMount(() => {
