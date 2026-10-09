@@ -119,6 +119,21 @@ try {
  if(staleDeletion.status!==409)throw new Error("v3 stale delete not rejected");
  console.log("EDGEONE_LIVE_PRIVACY_PASS draft/index/dynamic/stale-delete",JSON.stringify({name}));
 
+ // Same-instance race: two requests share a revision; exactly one may commit.
+ const concurrencyBase=await put("edgeone-race","base");
+ if(concurrencyBase.status!==200)throw new Error("v3 race setup failed");
+ const baseRevision=concurrencyBase.body.revision;
+ const [raceA,raceB]=await Promise.all([
+  put("edgeone-race","race-a",{expectedRevision:baseRevision}),
+  put("edgeone-race","race-b",{expectedRevision:baseRevision}),
+ ]);
+ if([raceA.status,raceB.status].sort().join(",")!=="200,409")throw new Error("v3 same-instance race was not serialized");
+ const raced=await invoke("/item?kind=post&id=edgeone-race");
+ const racedItem=await raced.json();
+ if(!["race-a","race-b"].includes(racedItem.meta?.title))throw new Error("v3 raced content wrong");
+ console.log("EDGEONE_LIVE_CONCURRENCY_PASS same-instance revision contention",JSON.stringify({name}));
+
+
 
 } finally {
  let cleanupError:unknown=null;
