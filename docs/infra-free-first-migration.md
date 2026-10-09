@@ -37,3 +37,24 @@ Run `pnpm audit:endpoints` in a runner with network connectivity. This tests sel
 
 ## Current recommendation
 Leave EdgeOne hosting, Cloudflare DNS, image hostname, and Netlify Twikoo unchanged for now. Remove fragile third-party preferred image routing only after a tested replacement has equivalent or better reachability and fits **actual** long-term free quotas.
+
+## Actual read-only inventory (2026-10-10)
+
+Cloudflare account bindings and KV namespace inspection (no modifications):
+- `cloudflare-imgbed`: `ASSETS` and `img_url` KV namespace.
+- `firefly-gallery-api`: admin/login and imagebed API bindings.
+- `firefly-gallery-api-preview`: separate gallery manifest preview namespace.
+- `img_url` KV listed 41 keys in one complete page: photos 23, manage 6, img111 5, blog 1, dynamic 2, posts 2, test 2.
+- The 41 keys are **NOT** a reliable total number of image files or total bytes. Workers Assets objects, KV metadata and other configured origins still need an inventory.
+- Official Cloudflare China Network is Enterprise-only and requires a separate subscription, so it does not qualify for a zero-cost solution.
+- KV free tier offers 1 GiB? Verify units with live official documentation: advertised **1 GB**, 100k reads/day and 1000 writes/day. Check real consumption before recommending KV as an image store.
+
+## Speed-first approach without committing to paid infrastructure
+
+1. Keep EdgeOne blog hosting and current CNAMEs while measuring; avoid changing the Cloudflare zone before a reversible pilot.
+2. Collect CDN headers and CNAME chains with `pnpm audit:endpoints`. A runner outside mainland China cannot establish a mainland-China speed advantage.
+3. Compare actual image downloads through current third-party preferred hostname against a vendor-authorized first-party endpoint from multiple mainland carriers and overseas.
+4. Record transfer size, p50/p95 TTFB, success ratio, cache hit, image resolution and WebP/AVIF support. Avoid comparing only ping times.
+5. Prefer high-cacheability image assets and lazy thumbnails over frequent origin fetches, subject to image quality and privacy needs.
+6. Keep Netlify Twikoo untouched until its database backup and latency audit are complete.
+7. Never enable paid DNS/CDN subscriptions or Cloudflare R2 without confirming the account can use them at zero cost.
