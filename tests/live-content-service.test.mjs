@@ -1,0 +1,213 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import { createLiveContentService } from "../src/server/live-content/service.js";
+import { renderLivePostFallback } from "../src/server/live-content/render-live-post.js";
+
+function clone(value) {
+	return value == null ? value : structuredClone(value);
+}
+
+function makeStore() {
+	const data = new Map();
+	return {
+		data,
+		async getJSON(key) {
+			return clone(data.get(key) ?? null);
+		},
+		async setJSON(key, value) {
+			data.set(key, clone(value));
+		},
+	};
+}
+
+function request(path, init = {}) {
+	return new Request("https://preview.example" + path, init);
+}
+
+function adminHeaders() {
+	return {
+		Authorization: "Bearer test-token",
+		"Content-Type": "application/json",
+	};
+}
+
+function createService(store) {
+	return createLiveContentService({
+		store,
+		provider: "test",
+		storeName: "test-store",
+		authorize: async () => ({ ok: true }),
+	});
+}
+
+test("live content CRUD is public-safe and revision protected", async () => {
+	const store = makeStore();
+	const handle = createService(store);
+	const createResponse = await handle(request("/api/live-content/item", {
+		method: "PUT",
+		headers: adminHeaders(),
+		body: JSON.stringify({
+			kind: "post",
+			id: "hello",
+			path: "src/content/posts/hello.md",
+			source: "---\ntitle: Hello\n---\nsecret source",
+			meta: { title: "Hello", html: "<p>Hello</p>", draft: false },
+			baseGitSha: "",
+			baseGitBranch: "ai/preview-test",
+		}),
+	}));
+	assert.equal(createResponse.status, 200);
+	const created = await createResponse.json();
+	assert.ok(created.revision);
+
+	const publicItemResponse = await handle(
+		request("/api/live-content/item?kind=post&id=hello"),
+	);
+	assert.equal(publicItemResponse.status, 200);
+	const publicItem = await publicItemResponse.json();
+	assert.equal(publicItem.meta.title, "Hello");
+	assert.equal("source" in publicItem, false);
+
+	const staleResponse = await handle(request("/api/live-content/item", {
+		method: "PUT",
+		headers: adminHeaders(),
+		body: JSON.stringify({
+			kind: "post",
+			id: "hello",
+			path: "src/content/posts/hello.md",
+			source: "stale",
+			meta: { title: "Stale", html: "<p>Stale</p>" },
+			expectedRevision: "wrong",
+		}),
+	}));
+	assert.equal(staleResponse.status, 409);
+
+	const updateResponse = await handle(request("/api/live-content/item", {
+		method: "PUT",
+		headers: adminHeaders(),
+		body: JSON.stringify({
+			kind: "post",
+			id: "hello",
+			path: "src/content/posts/hello.md",
+			source: "fresh",
+			meta: { title: "Fresh", html: "<p>Fresh</p>" },
+			expectedRevision: created.revision,
+		}),
+	}));
+	assert.equal(updateResponse.status, 200);
+	const updated = await updateResponse.json();
+	assert.notEqual(updated.revision, created.revision);
+
+	const staleDelete = await handle(request(
+		"/api/live-content/item?kind=post&id=hello",
+		{
+			method: "DELETE",
+			headers: adminHeaders(),
+			body: JSON.stringify({
+				path: "src/content/posts/hello.md",
+				expectedRevision: created.revision,
+			}),
+		},
+	));
+	assert.equal(staleDelete.status, 409);
+
+	const deleteResponse = await handle(request(
+		"/api/live-content/item?kind=post&id=hello",
+		{
+			method: "DELETE",
+			headers: adminHeaders(),
+			body: JSON.stringify({
+				path: "src/content/posts/hello.md",
+				expectedRevision: updated.revision,
+			}),
+		},
+	));
+	assert.equal(deleteResponse.status, 200);
+	const gone = await handle(request("/api/live-content/item?kind=post&id=hello"));
+	assert.equal(gone.status, 410);
+});
+
+test("public post index hides drafts and protected posts but keeps tombstones", async () => {
+	const store = makeStore();
+	const handle = createService(store);
+	for (const [id, meta] of [
+		["public", { title: "Public", html: "<p>ok</p>" }],
+		["draft", { title: "Draft", html: "<p>draft</p>", draft: true }],
+		["protected", { title: "Protected", html: "<p>protected</p>", protected: true }],
+	]) {
+		const response = await handle(request("/api/live-content/item", {
+			method: "PUT",
+			headers: adminHeaders(),
+			body: JSON.stringify({
+				kind: "post",
+				id,
+				path: `src/content/posts/${id}.md`,
+				source: id,
+				meta,
+			}),
+		}));
+		assert.equal(response.status, 200);
+	}
+
+	const publicIndex = await handle(
+		request("/api/live-content/index?kind=post"),
+	);
+	const payload = await publicIndex.json();
+	assert.deepEqual(payload.entries.map((entry) => entry.id), ["public"]);
+});
+
+test("dynamic metadata stays available to public overlay", async () => {
+	const store = makeStore();
+	const handle = createService(store);
+	const response = await handle(request("/api/live-content/item", {
+		method: "PUT",
+		headers: adminHeaders(),
+		body: JSON.stringify({
+			kind: "dynamic",
+			id: "2026-10-09-220000",
+			path: "src/content/dynamic/2026-10-09-220000.md",
+			source: "hello",
+			meta: {
+				published: "2026-10-09 22:00:00",
+				html: "<p>hello</p>",
+				searchText: "hello",
+				images: [],
+			},
+		}),
+	}));
+	assert.equal(response.status, 200);
+	const indexResponse = await handle(
+		request("/api/live-content/index?kind=dynamic"),
+	);
+	const index = await indexResponse.json();
+	assert.equal(index.entries[0].meta.html, "<p>hello</p>");
+});
+
+test("missing static post can render from live content shell", async () => {
+	const response = await renderLivePostFallback(
+		request("/posts/live-only/"),
+		{
+			loadItem: async () => ({
+				id: "live-only",
+				revision: "rev-1",
+				meta: {
+					title: "Live only",
+					description: "desc",
+					published: "2026-10-09",
+					category: "test",
+					tags: ["a", "b"],
+					html: "<p>live body</p>",
+				},
+			}),
+			loadShell: async () => new Response(
+				'<html><head><title>__LIVE_POST_TITLE__</title><meta data-live-shell-robots></head><body><!--LIVE_POST_CONTENT--></body></html>',
+				{ status: 200 },
+			),
+		},
+	);
+	assert.equal(response.status, 200);
+	const html = await response.text();
+	assert.match(html, /Live only/);
+	assert.match(html, /live body/);
+	assert.equal(response.headers.get("X-Firefly-Live-Post"), "rev-1");
+});

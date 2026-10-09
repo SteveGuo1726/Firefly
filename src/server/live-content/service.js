@@ -43,6 +43,33 @@ function normalizeId(kind, raw) {
 		: null;
 }
 
+function normalizeContentPath(kind, raw) {
+	const value = String(raw || "").trim().replace(/^\/+/, "");
+	const root = kind === "post" ? "src/content/posts/" : "src/content/dynamic/";
+	if (
+		!value.startsWith(root) ||
+		value.length > 500 ||
+		value.includes("..") ||
+		value.includes("\\")
+	) {
+		return null;
+	}
+	if (kind === "post" && !/\.(?:md|mdx)$/i.test(value)) return null;
+	if (kind === "dynamic" && !/\.md$/i.test(value)) return null;
+	return value;
+}
+
+function normalizeBranch(raw) {
+	const value = String(raw || "").trim();
+	return value && value.length <= 200 && /^[A-Za-z0-9._/-]+$/.test(value)
+		? value
+		: null;
+}
+
+function encodePath(path) {
+	return path.split("/").map(encodeURIComponent).join("/");
+}
+
 function itemKey(kind, id) {
 	return `v1/${kind === "post" ? "posts" : "dynamics"}/${id}.json`;
 }
@@ -104,6 +131,7 @@ export function createLiveContentService({
 	storeName,
 	routePrefix = "/api/live-content",
 	region,
+	authorize,
 }) {
 	const authCache = new Map();
 
@@ -138,6 +166,20 @@ export function createLiveContentService({
 		const hash = await digestToken(token);
 		if ((authCache.get(hash) || 0) > Date.now()) return { token };
 
+		if (typeof authorize === "function") {
+			const result = await authorize({ request, token });
+			if (!result?.ok) {
+				return {
+					error: json(
+						{ error: result?.error || "管理身份验证失败。" },
+						result?.status || 403,
+					),
+				};
+			}
+			authCache.set(hash, Date.now() + AUTH_CACHE_MS);
+			return { token };
+		}
+
 		const headers = {
 			Accept: "application/vnd.github+json",
 			Authorization: `Bearer ${token}`,
@@ -165,6 +207,38 @@ export function createLiveContentService({
 
 		authCache.set(hash, Date.now() + AUTH_CACHE_MS);
 		return { token };
+	}
+
+	async function verifyGitBaseline(token, branch, path, expectedSha) {
+		if (!expectedSha) return true;
+		const response = await fetch(
+			`https://api.github.com/repos/${REPOSITORY}/contents/${encodePath(path)}?ref=${encodeURIComponent(branch)}`,
+			{
+				headers: {
+					Accept: "application/vnd.github+json",
+					Authorization: `Bearer ${token}`,
+					"User-Agent": "Firefly-Live-Content",
+					"X-GitHub-Api-Version": "2022-11-28",
+				},
+			},
+		);
+		if (response.status === 404) return false;
+		const payload = await response.json().catch(() => ({}));
+		if (!response.ok) {
+			throw new Error(payload?.message || `GitHub 基线校验失败：${response.status}`);
+		}
+		return payload?.sha === expectedSha;
+	}
+
+	function conflict(currentRevision = "") {
+		return json(
+			{
+				error: "内容已在其他标签页或设备被修改，请刷新后再编辑。",
+				code: "REVISION_CONFLICT",
+				currentRevision,
+			},
+			409,
+		);
 	}
 
 	async function handleGetIndex(request, url) {
@@ -249,8 +323,65 @@ export function createLiveContentService({
 		const id = kind ? normalizeId(kind, body.id) : null;
 		const previousId =
 			kind && body.previousId ? normalizeId(kind, body.previousId) : null;
-		if (!kind || !id || (body.previousId && !previousId)) {
-			return json({ error: "kind、id 或 previousId 无效。" }, 400);
+		const path = kind ? normalizeContentPath(kind, body.path) : null;
+		const previousPath =
+			kind && body.previousPath
+				? normalizeContentPath(kind, body.previousPath)
+				: null;
+		const baseGitBranch = body.baseGitSha
+			? normalizeBranch(body.baseGitBranch)
+			: normalizeBranch(body.baseGitBranch) || "";
+		if (
+			!kind ||
+			!id ||
+			!path ||
+			(body.previousId && !previousId) ||
+			(body.previousPath && !previousPath) ||
+			(body.baseGitSha && !baseGitBranch)
+		) {
+			return json({ error: "kind、id、path、branch 或 previousId 无效。" }, 400);
+		}
+
+		const index = await readIndex(kind);
+		const targetEntry = index.entries?.[id];
+		const previousEntry =
+			previousId && previousId !== id ? index.entries?.[previousId] : targetEntry;
+		const expectedRevision = String(body.expectedRevision || "");
+
+		if (previousId && previousId !== id) {
+			if (targetEntry && !targetEntry.deleted) {
+				return json({ error: "目标路径已经存在实时内容。", code: "TARGET_EXISTS" }, 409);
+			}
+			if (
+				previousEntry &&
+				!previousEntry.deleted &&
+				(!expectedRevision || previousEntry.revision !== expectedRevision)
+			) {
+				return conflict(previousEntry.revision);
+			}
+		} else if (targetEntry && !targetEntry.deleted) {
+			if (!expectedRevision || targetEntry.revision !== expectedRevision) {
+				return conflict(targetEntry.revision);
+			}
+		} else if (expectedRevision) {
+			return conflict(targetEntry?.revision || "");
+		}
+
+		if (!previousEntry && body.baseGitSha) {
+			const baselinePath =
+				previousId && previousId !== id ? previousPath : path;
+			const unchanged = await verifyGitBaseline(
+				auth.token,
+				baseGitBranch,
+				baselinePath,
+				String(body.baseGitSha),
+			);
+			if (!unchanged) {
+				return json(
+					{ error: "GitHub 基线文件已变化，请刷新后重新编辑。", code: "GIT_BASE_CHANGED" },
+					409,
+				);
+			}
 		}
 
 		const source = String(body.source || "");
@@ -262,10 +393,11 @@ export function createLiveContentService({
 			schemaVersion: SCHEMA_VERSION,
 			kind,
 			id,
-			path: String(body.path || "").slice(0, 500),
+			path,
 			source,
 			meta: normalizeMeta(kind, body.meta),
 			baseGitSha: String(body.baseGitSha || "").slice(0, 80),
+			baseGitBranch,
 			revision,
 			deleted: false,
 			updatedAt: now,
@@ -273,12 +405,12 @@ export function createLiveContentService({
 		};
 
 		await store.setJSON(itemKey(kind, id), document);
-		const index = await readIndex(kind);
 		index.entries[id] = {
 			id,
 			path: document.path,
 			meta: document.meta,
 			baseGitSha: document.baseGitSha,
+			baseGitBranch: document.baseGitBranch,
 			revision,
 			deleted: false,
 			updatedAt: now,
@@ -290,11 +422,15 @@ export function createLiveContentService({
 				schemaVersion: SCHEMA_VERSION,
 				kind,
 				id: previousId,
-				path: String(body.previousPath || previousEntry.path || "").slice(0, 500),
+				path: previousPath || previousEntry.path || "",
 				meta: previousEntry.meta || normalizeMeta(kind, {}),
 				baseGitSha: String(
 					body.previousBaseGitSha || previousEntry.baseGitSha || "",
 				).slice(0, 80),
+				baseGitBranch:
+					normalizeBranch(body.previousBaseGitBranch) ||
+					previousEntry.baseGitBranch ||
+					baseGitBranch || "",
 				revision,
 				deleted: true,
 				updatedAt: now,
@@ -306,6 +442,7 @@ export function createLiveContentService({
 				path: tombstone.path,
 				meta: tombstone.meta,
 				baseGitSha: tombstone.baseGitSha,
+				baseGitBranch: tombstone.baseGitBranch,
 				revision,
 				deleted: true,
 				updatedAt: now,
@@ -340,6 +477,46 @@ export function createLiveContentService({
 		const index = await readIndex(kind);
 		const indexed = index.entries?.[id] || {};
 		const existing = await store.getJSON(itemKey(kind, id));
+		const expectedRevision = String(fallback.expectedRevision || "");
+		if (indexed && !indexed.deleted) {
+			if (indexed.revision && (!expectedRevision || indexed.revision !== expectedRevision)) {
+				return conflict(indexed.revision);
+			}
+		} else if (expectedRevision) {
+			return conflict(indexed?.revision || "");
+		}
+
+		const fallbackPath = normalizeContentPath(kind, fallback.path);
+		const path = existing?.path || indexed.path || fallbackPath;
+		const baseGitSha = String(
+			existing?.baseGitSha || fallback.baseGitSha || indexed.baseGitSha || "",
+		).slice(0, 80);
+		const baseGitBranch =
+			normalizeBranch(
+				existing?.baseGitBranch ||
+					fallback.baseGitBranch ||
+					indexed.baseGitBranch ||
+					"",
+			) || "";
+		if (!path) return json({ error: "删除内容缺少有效 path。" }, 400);
+
+		if (!indexed.revision && baseGitSha) {
+			if (!baseGitBranch) {
+				return json({ error: "删除内容缺少 Git 基线分支。" }, 400);
+			}
+			const unchanged = await verifyGitBaseline(
+				auth.token,
+				baseGitBranch,
+				path,
+				baseGitSha,
+			);
+			if (!unchanged) {
+				return json(
+					{ error: "GitHub 基线文件已变化，请刷新后重新操作。", code: "GIT_BASE_CHANGED" },
+					409,
+				);
+			}
+		}
 
 		const now = new Date().toISOString();
 		const revision = crypto.randomUUID();
@@ -347,13 +524,12 @@ export function createLiveContentService({
 			schemaVersion: SCHEMA_VERSION,
 			kind,
 			id,
-			path: String(existing?.path || fallback.path || indexed.path || "").slice(0, 500),
+			path,
 			meta:
 				existing?.meta ||
 				normalizeMeta(kind, fallback.meta || indexed.meta || {}),
-			baseGitSha: String(
-				existing?.baseGitSha || fallback.baseGitSha || indexed.baseGitSha || "",
-			).slice(0, 80),
+			baseGitSha,
+			baseGitBranch,
 			revision,
 			deleted: true,
 			updatedAt: now,
@@ -366,6 +542,7 @@ export function createLiveContentService({
 			path: tombstone.path,
 			meta: tombstone.meta,
 			baseGitSha: tombstone.baseGitSha,
+			baseGitBranch: tombstone.baseGitBranch,
 			revision,
 			deleted: true,
 			updatedAt: now,

@@ -69,9 +69,12 @@ export async function saveLiveContentItem(options: {
 	source: string;
 	meta: Record<string, unknown>;
 	baseGitSha?: string;
+	baseGitBranch?: string;
+	expectedRevision?: string;
 	previousId?: string;
 	previousPath?: string;
 	previousBaseGitSha?: string;
+	previousBaseGitBranch?: string;
 }): Promise<{ revision: string; updatedAt: string }> {
 	return readJson(await fetch(endpoint("/item"), {
 		method: "PUT",
@@ -86,9 +89,13 @@ export async function saveLiveContentItem(options: {
 			source: options.source,
 			meta: options.meta,
 			baseGitSha: options.baseGitSha || "",
+			baseGitBranch: options.baseGitBranch || options.session.branch,
+			expectedRevision: options.expectedRevision || "",
 			previousId: options.previousId || "",
 			previousPath: options.previousPath || "",
 			previousBaseGitSha: options.previousBaseGitSha || "",
+			previousBaseGitBranch:
+				options.previousBaseGitBranch || options.session.branch,
 		}),
 	}));
 }
@@ -100,6 +107,8 @@ export async function deleteLiveContentItem(options: {
 	path?: string;
 	meta?: Record<string, unknown>;
 	baseGitSha?: string;
+	baseGitBranch?: string;
+	expectedRevision?: string;
 }): Promise<{ revision: string; updatedAt: string }> {
 	return readJson(await fetch(endpoint("/item", { kind: options.kind, id: options.id }), {
 		method: "DELETE",
@@ -111,6 +120,8 @@ export async function deleteLiveContentItem(options: {
 			path: options.path || "",
 			meta: options.meta || {},
 			baseGitSha: options.baseGitSha || "",
+			baseGitBranch: options.baseGitBranch || options.session.branch,
+			expectedRevision: options.expectedRevision || "",
 		}),
 	}));
 }

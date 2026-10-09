@@ -12,7 +12,7 @@ type BasePost={id:string;path:string;title:string;description:string;published:s
 type Row=BasePost&{live:boolean;baseGitSha:string;revision:string};
 
 let rows:Row[]=[];let query="";let loading=false;let opening=false;let saving=false;let deleting=false;
-let currentId="";let currentPath="";let baseGitSha="";let originalSource="";
+let currentId="";let currentPath="";let baseGitSha="";let liveRevision="";let originalSource="";
 let fields:AdminPostFields=emptyPostFields();let body="";let tagsText="";let previewHtml="";let message="";let error="";
 let previewTimer:ReturnType<typeof setTimeout>|null=null;
 
@@ -48,7 +48,7 @@ async function open(row:Row){
 	opening=true;error="";message="";
 	try{
 		let source="";let sha=row.baseGitSha;
-		if(row.live){const live=await fetchLiveContentItem("post",row.id,session);if(live?.source){source=live.source;sha=live.baseGitSha||sha;}}
+		if(row.live){const live=await fetchLiveContentItem("post",row.id,session);if(live?.source){source=live.source;sha=live.baseGitSha||sha;liveRevision=live.revision||row.revision||"";}}else{liveRevision="";}
 		if(!source){const git=await fetchGitContentSource(session,row.path);source=git.source;sha=git.sha;}
 		const parsed=parsePostDocument(source);
 		currentId=row.id;currentPath=row.path;baseGitSha=sha;originalSource=source;fields=parsed.fields;body=parsed.body;tagsText=fields.tags.join(", ");
@@ -56,24 +56,24 @@ async function open(row:Row){
 	}catch(e){error=e instanceof Error?e.message:"读取文章失败。";}finally{opening=false;}
 }
 
-function createNew(){const stamp=new Date().toISOString().replace(/[-:]/g,"").slice(0,13).replace("T","-").toLowerCase();currentId="";currentPath=`src/content/posts/${stamp}.md`;baseGitSha="";originalSource="";fields=emptyPostFields();body="# 新文章\n\n";tagsText="";message="新文章尚未写入 Blob。";error="";void updatePreview();}
+function createNew(){const stamp=new Date().toISOString().replace(/[-:]/g,"").slice(0,13).replace("T","-").toLowerCase();currentId="";currentPath=`src/content/posts/${stamp}.md`;baseGitSha="";liveRevision="";originalSource="";fields=emptyPostFields();body="# 新文章\n\n";tagsText="";message="新文章尚未写入 Blob。";error="";void updatePreview();}
 
 async function save(){
 	if(!fields.title.trim()){error="标题不能为空。";return;}
 	let path:string;try{path=normalizePath(currentPath);}catch(e){error=e instanceof Error?e.message:"路径无效。";return;}
 	fields={...fields,tags:baseMeta().tags};
-	const nextId=idFromPath(path);const source=buildPostDocument(fields,body,originalSource);saving=true;error="";message="";
+	const nextId=idFromPath(path);if(rows.some((row)=>row.id===nextId&&row.id!==currentId)){error="目标文章路径已经存在，请换一个文件路径。";return;}const source=buildPostDocument(fields,body,originalSource);saving=true;error="";message="";
 	try{
 		const publicMeta=await liveMeta();
-		const result=await saveLiveContentItem({session,kind:"post",id:nextId,path,source,meta:publicMeta,baseGitSha,previousId:currentId&&currentId!==nextId?currentId:undefined,previousPath:currentId&&currentId!==nextId?currentPath:undefined,previousBaseGitSha:currentId&&currentId!==nextId?baseGitSha:undefined});
-		currentId=nextId;currentPath=path;originalSource=source;message=`实时版本已保存：${result.revision.slice(0,8)}。未创建 Git commit。`;await refresh();
+		const result=await saveLiveContentItem({session,kind:"post",id:nextId,path,source,meta:publicMeta,baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision,previousId:currentId&&currentId!==nextId?currentId:undefined,previousPath:currentId&&currentId!==nextId?currentPath:undefined,previousBaseGitSha:currentId&&currentId!==nextId?baseGitSha:undefined,previousBaseGitBranch:session.branch});
+		currentId=nextId;currentPath=path;liveRevision=result.revision;originalSource=source;message=`实时版本已保存：${result.revision.slice(0,8)}。未创建 Git commit。`;await refresh();
 	}catch(e){error=e instanceof Error?e.message:"保存失败。";}finally{saving=false;}
 }
 
 async function remove(){
 	if(!currentId||!confirm(`确定将 ${currentPath} 从实时内容中删除？Git 归档前不会删除仓库文件。`))return;
 	deleting=true;error="";message="";
-	try{await deleteLiveContentItem({session,kind:"post",id:currentId,path:currentPath,meta:baseMeta(),baseGitSha});currentId="";currentPath="";originalSource="";await refresh();message="已写入实时删除标记；Git 仓库尚未改动。";}
+	try{await deleteLiveContentItem({session,kind:"post",id:currentId,path:currentPath,meta:baseMeta(),baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision});currentId="";currentPath="";originalSource="";await refresh();message="已写入实时删除标记；Git 仓库尚未改动。";}
 	catch(e){error=e instanceof Error?e.message:"删除失败。";}finally{deleting=false;}
 }
 
