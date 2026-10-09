@@ -1626,8 +1626,6 @@ packages:
     resolution: {integrity: sha512-u4zSac1JKhhrWiYSbqWm4zw8Uo3b+nruz2rBcgxEdWaCIvyLQzcSJVBN3OVVe2QeqS4olXqrifoYsYRD9sXOEA==}
     engines: {node: '>=18.0.0'}
 
-  '@edgeone/pages-blob@0.0.14': {}
-
   '@expressive-code/plugin-collapsible-sections@0.44.2':
     resolution: {integrity: sha512-iT8PPitb32Te5tGd1LiIlVeZve/HDZUtygwLjqg3f47aHR3AeUreDXDZUis5qMHr+/Vrt8tKfQSWtT7qm8Fkng==}
 
@@ -6709,6 +6707,8 @@ packages:
     resolution: {integrity: sha512-bXE4cR/kVZhKZX/RjPEflHaKVhUVl85noU3v6b8apfQEc1x4A+zBxjZ4lN8LqGd6WZ3dl98pY4o717VFmoPp+A==}
 
 snapshots:
+
+  '@edgeone/pages-blob@0.0.14': {}
 
   '@adobe/css-tools@4.3.3': {}
 
