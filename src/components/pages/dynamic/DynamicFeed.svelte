@@ -37,7 +37,7 @@ type LiveDynamicIndexEntry = {
 
 function parseLivePublished(value: string | undefined): number {
 	if (!value) return 0;
-	const normalized = /^\\d{4}-\\d{2}-\\d{2} \\d{2}:\\d{2}:\\d{2}$/.test(value)
+	const normalized = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)
 		? value.replace(" ", "T") + "Z"
 		: value;
 	const parsed = Date.parse(normalized);

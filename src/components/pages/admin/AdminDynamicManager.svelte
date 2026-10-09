@@ -14,7 +14,7 @@ let rows:Row[]=[];let query="";let loading=false;let opening=false;let saving=fa
 function filtered(){const n=query.trim().toLowerCase();return !n?rows:rows.filter(r=>[r.excerpt,r.location,r.published,r.path].join(" ").toLowerCase().includes(n));}
 function idFromPath(path:string){return path.replace(/^src\/content\/dynamic\//,"").replace(/\.md$/i,"");}
 function normalizePath(value:string){const rel=value.trim().replace(/^src\/content\/dynamic\//,"").replace(/^\/+/, "");if(!rel||rel.includes("..")||rel.includes("\\")||!rel.endsWith(".md"))throw new Error("动态路径必须位于 src/content/dynamic/ 下并以 .md 结尾。");return"src/content/dynamic/"+rel;}
-const markdownImagePattern=/!\\[([^\\]]*)\\]\\((\\S+?)(?:\\s+["']([^"']*)["'])?\\)/g;
+const markdownImagePattern=/!\[([^\]]*)\]\((\S+?)(?:\s+["']([^"']*)["'])?\)/g;
 function baseMeta(){return{published:fields.published,pinned:fields.pinned,location:fields.location.trim(),excerpt:excerptMarkdown(body,160)};}
 async function liveMeta(){
 	const images:Array<{alt:string;src:string;title?:string}>=[];
