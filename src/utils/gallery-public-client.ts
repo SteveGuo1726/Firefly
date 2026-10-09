@@ -11,7 +11,12 @@ export async function fetchPublicGallery(
  const endpoint = new URL("/api/gallery/public", origin);
  if (albumId) endpoint.searchParams.set("album", albumId);
  if (summary) endpoint.searchParams.set("summary", "true");
- const response = await fetch(endpoint, {cache:"no-store"});
+ // Fail back to the prerendered gallery instead of leaving mainland visitors
+ // waiting indefinitely when the gallery API route is slow or unreachable.
+ const response = await fetch(endpoint, {
+  cache:"no-store",
+  signal:AbortSignal.timeout(12000),
+ });
  if (!response.ok) throw new Error(`相册读取失败：${response.status}`);
  const payload = await response.json() as {albums?:PublicGalleryAlbum[]};
  if (!Array.isArray(payload.albums)) throw new Error("相册响应格式错误");
