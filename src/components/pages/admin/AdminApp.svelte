@@ -5,6 +5,7 @@ import {
 	type GitHubAdminSession,
 	getGitHubAdminSession,
 } from "@/utils/admin/github-session";
+import GitHubAdminLogin from "@/components/features/GitHubAdminLogin.svelte";
 import AdminDynamicManager from "./AdminDynamicManager.svelte";
 import AdminPostManager from "./AdminPostManager.svelte";
 
@@ -35,6 +36,7 @@ onMount(()=>{
 	<header class="admin-heading card-base">
 		<div><span class="eyebrow">FIREFLY ADMIN</span><h1>内容后台</h1><p>实时保存到 EdgeOne Blob；GitHub 只作为源码基线和后续定时归档。</p></div>
 		{#if session}<div class="identity"><strong>{session.login}</strong><span>{session.owner}/{session.repo} · {session.branch}</span></div>{/if}
+			<GitHubAdminLogin />
 	</header>
 	{#if !session}
 		<section class="login-hint card-base"><h2>需要 GitHub 管理身份</h2><p>请使用右上角 GitHub 登录。Token 只保存在当前标签页，用于读取 Git 基线和验证管理权限。</p></section>
