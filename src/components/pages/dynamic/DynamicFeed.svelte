@@ -286,12 +286,16 @@ onMount(() => {
 	searchInput?.addEventListener("input", filter);
 	yearSelect?.addEventListener("change", filter);
 
-	const load = async () => {
+	let refreshing = false;
+	let lastRefreshAt = 0;
+	const load = async (background = false) => {
+		if (refreshing) return;
+		refreshing = true;
 		try {
 			if (memos?.enable) {
 				entries = await fetchMemos(memos.apiUrl, { parent: memos.parent });
 			} else {
-				const response = await fetch(source);
+				const response = await fetch(source, { cache: "no-store" });
 				if (!response.ok) throw new Error(`HTTP ${response.status}`);
 				entries = await mergeLiveDynamics((await response.json()) as DynamicData[]);
 			}
@@ -313,16 +317,30 @@ onMount(() => {
 					restoreAnchorAfterRender = true;
 				}
 			}
+			failed = false;
+			lastRefreshAt = Date.now();
 		} catch (error) {
 			console.error("Failed to load dynamics", error);
-			failed = true;
+			if (!background || entries.length === 0) failed = true;
 		} finally {
 			loading = false;
+			refreshing = false;
+		}
+	};
+	const refreshIfStale = () => {
+		if (document.visibilityState === "visible" && Date.now() - lastRefreshAt > 3000) {
+			void load(true);
 		}
 	};
 	void load();
+	window.addEventListener("focus", refreshIfStale);
+	window.addEventListener("pageshow", refreshIfStale);
+	document.addEventListener("visibilitychange", refreshIfStale);
 
 	return () => {
+		window.removeEventListener("focus", refreshIfStale);
+		window.removeEventListener("pageshow", refreshIfStale);
+		document.removeEventListener("visibilitychange", refreshIfStale);
 		searchInput?.removeEventListener("input", filter);
 		yearSelect?.removeEventListener("change", filter);
 	};
