@@ -6,24 +6,46 @@ import {
 	getGitHubAdminSession,
 } from "@/utils/admin/github-session";
 import GitHubAdminLogin from "@/components/features/GitHubAdminLogin.svelte";
-import AdminDynamicManager from "./AdminDynamicManager.svelte";
-import AdminPostManager from "./AdminPostManager.svelte";
 
-type Section="posts"|"dynamic";
+
+type Section="posts"|"dynamic"|"gallery";
+type PostComponentType=typeof import("./AdminPostManager.svelte").default;
+type DynamicComponentType=typeof import("./AdminDynamicManager.svelte").default;
+type GalleryComponentType=typeof import("../gallery/GalleryAdminManager.svelte").default;
+let PostComponent:PostComponentType|null=null;
+let DynamicComponent:DynamicComponentType|null=null;
+let GalleryComponent:GalleryComponentType|null=null;
+let sectionLoading=false;
+let sectionError="";
+let loadGeneration=0;
 let session:GitHubAdminSession|null=null;
 let section:Section="posts";
 
 function readSection():Section{
 	if(typeof window==="undefined")return"posts";
-	return new URLSearchParams(window.location.search).get("section")==="dynamic"?"dynamic":"posts";
+	const value=new URLSearchParams(window.location.search).get("section");
+	return value==="dynamic"||value==="gallery"?value:"posts";
 }
 function choose(next:Section){
 	section=next;
+	void ensureSectionLoaded();
 	const url=new URL(window.location.href);
 	url.searchParams.set("section",next);
 	history.replaceState(history.state,"",url);
 }
-function syncSession(){session=getGitHubAdminSession();}
+function syncSession(){session=getGitHubAdminSession();void ensureSectionLoaded();}
+async function ensureSectionLoaded(){
+ const generation=++loadGeneration;
+ if(!session){sectionLoading=false;return;}
+ if((section==="posts"&&PostComponent)||(section==="dynamic"&&DynamicComponent)||(section==="gallery"&&GalleryComponent)){sectionLoading=false;return;}
+ sectionLoading=true;sectionError="";
+ try{
+  if(section==="posts"){const module=await import("./AdminPostManager.svelte");if(generation===loadGeneration)PostComponent=module.default;}
+  else if(section==="dynamic"){const module=await import("./AdminDynamicManager.svelte");if(generation===loadGeneration)DynamicComponent=module.default;}
+  else{const module=await import("../gallery/GalleryAdminManager.svelte");if(generation===loadGeneration)GalleryComponent=module.default;}
+ }catch(e){if(generation===loadGeneration)sectionError=e instanceof Error?e.message:"后台模块加载失败";}
+ finally{if(generation===loadGeneration)sectionLoading=false;}
+}
 onMount(()=>{
 	section=readSection();
 	syncSession();
@@ -39,14 +61,18 @@ onMount(()=>{
 			<GitHubAdminLogin />
 	</header>
 	{#if !session}
-		<section class="login-hint card-base"><h2>需要 GitHub 管理身份</h2><p>请使用右上角 GitHub 登录。Token 只保存在当前标签页，用于读取 Git 基线和验证管理权限。</p></section>
+		<section class="login-hint card-base"><h2>需要 GitHub 管理身份</h2><p>请使用上方 GitHub 管理登录。当前仍为过渡性 PAT 认证；独立 OAuth 会话尚未接入，勿使用长期或超范围 Token。</p></section>
 	{:else}
 		<nav class="admin-tabs card-base" aria-label="内容管理">
 			<button class:active={section==="posts"} onclick={()=>choose("posts")}>文章</button>
 			<button class:active={section==="dynamic"} onclick={()=>choose("dynamic")}>动态</button>
-			<a href="/gallery/manage/">相册</a>
+			<button class:active={section==="gallery"} onclick={()=>choose("gallery")}>相册</button>
 		</nav>
-		{#if section==="posts"}<AdminPostManager {session}/>{:else}<AdminDynamicManager {session}/>{/if}
+		{#if sectionLoading}<section class="login-hint card-base" role="status">正在加载管理模块...</section>
+		{:else if sectionError}<section class="login-hint card-base" role="alert">{sectionError}<button onclick={()=>ensureSectionLoaded()}>重试</button></section>
+		{:else if section==="posts"&&PostComponent}<PostComponent {session}/>
+		{:else if section==="dynamic"&&DynamicComponent}<DynamicComponent {session}/>
+		{:else if section==="gallery"&&GalleryComponent}<GalleryComponent/>{/if}
 	{/if}
 </div>
 <style>
