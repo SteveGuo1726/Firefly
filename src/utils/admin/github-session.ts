@@ -38,27 +38,11 @@ function storageAvailable(): boolean {
 	return typeof window !== "undefined" && typeof sessionStorage !== "undefined";
 }
 
-function migrateLegacySession(): void {
-	if (typeof window === "undefined" || typeof localStorage === "undefined") return;
-	const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
-	if (!legacy) return;
-	try {
-		const session = JSON.parse(legacy) as GitHubAdminSession;
-		if (
-			session.token &&
-			session.login &&
-			session.expiresAt &&
-			Date.now() < session.expiresAt &&
-			session.login.toLowerCase() ===
-				githubAdminConfig.allowedLogin.toLowerCase()
-		) {
-			sessionStorage.setItem(STORAGE_KEY, legacy);
-		}
-	} catch {
-		// Invalid legacy data is simply discarded.
-	} finally {
-		localStorage.removeItem(LEGACY_STORAGE_KEY);
-	}
+// Never restore bearer credentials from persistent localStorage.
+function discardLegacyPersistentToken(): void {
+ if (typeof window === "undefined") return;
+ try { window.localStorage.removeItem(LEGACY_STORAGE_KEY); }
+ catch { /* Storage can be blocked by the browser. */ }
 }
 
 function notifySessionChanged(): void {
@@ -68,7 +52,7 @@ function notifySessionChanged(): void {
 
 export function getGitHubAdminSession(): GitHubAdminSession | null {
 	if (!storageAvailable()) return null;
-	migrateLegacySession();
+	discardLegacyPersistentToken();
 	const raw = sessionStorage.getItem(STORAGE_KEY);
 	if (!raw) return null;
 
