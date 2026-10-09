@@ -95,6 +95,30 @@ try {
  if(deleted.status!==410)throw new Error("v3 tombstone not visible");
  console.log("EDGEONE_LIVE_V3_PASS create/index/public-safety/409/update/rename/tombstone",JSON.stringify({name}));
 
+ const draft=await put("edgeone-probe-draft","hidden",{
+  meta:{title:"Hidden draft",html:"<p>private</p>",draft:true},
+ });
+ if(draft.status!==200)throw new Error("v3 draft create failed");
+ const draftPublic=await invoke("/item?kind=post&id=edgeone-probe-draft");
+ if(draftPublic.status!==410)throw new Error("v3 draft content was public");
+ const draftsIndex=await (await invoke("/index?kind=post")).json();
+ if(draftsIndex.entries?.some((e:{id:string})=>e.id==="edgeone-probe-draft"))throw new Error("v3 draft leaked in public index");
+ const dynamicResponse=await invoke("/item",{
+  method:"PUT",headers,body:JSON.stringify({
+   kind:"dynamic",id:"edgeone-probe-dynamic",path:"src/content/dynamic/edgeone-probe-dynamic.md",
+   source:"dynamic source",meta:{published:"2026-10-10 00:00:00",html:"<p>dynamic</p>",images:[]},
+  }),
+ });
+ if(dynamicResponse.status!==200)throw new Error("v3 dynamic create failed");
+ const dynamicIndex=await (await invoke("/index?kind=dynamic")).json();
+ if(!dynamicIndex.entries?.some((e:{id:string})=>e.id==="edgeone-probe-dynamic"))throw new Error("v3 dynamic absent");
+ const staleDeletion=await invoke("/item?kind=post&id=edgeone-probe-draft",{
+  method:"DELETE",headers,body:JSON.stringify({path:"src/content/posts/edgeone-probe-draft.md",expectedRevision:"outdated"}),
+ });
+ if(staleDeletion.status!==409)throw new Error("v3 stale delete not rejected");
+ console.log("EDGEONE_LIVE_PRIVACY_PASS draft/index/dynamic/stale-delete",JSON.stringify({name}));
+
+
 } finally {
  let cleanupError:unknown=null;
  for (const key of clean) {
