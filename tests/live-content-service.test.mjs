@@ -235,3 +235,36 @@ test("public draft overlay signals static pages to hide", async () => {
 	const payload = await publicItem.json();
 	assert.equal(payload.hidden, true);
 });
+
+
+test("live post fallback respects comment switch", async () => {
+	const shell = '<html><body><!--LIVE_POST_CONTENT--><!--LIVE_POST_COMMENTS_START--><div id="post-comments">__LIVE_POST_COMMENT_PATH__</div><!--LIVE_POST_COMMENTS_END--></body></html>';
+	const hidden = await renderLivePostFallback(
+		request("/posts/no-comments/"),
+		{
+			loadItem: async () => ({
+				id: "no-comments",
+				revision: "r1",
+				meta: { title: "No comments", html: "<p>body</p>", comment: false },
+			}),
+			loadShell: async () => new Response(shell, { status: 200 }),
+		},
+	);
+	assert.doesNotMatch(await hidden.text(), /post-comments/);
+
+	const visible = await renderLivePostFallback(
+		request("/posts/with-comments/"),
+		{
+			loadItem: async () => ({
+				id: "with-comments",
+				revision: "r2",
+				meta: { title: "With comments", html: "<p>body</p>", comment: true },
+			}),
+			loadShell: async () => new Response(shell, { status: 200 }),
+		},
+	);
+	const html = await visible.text();
+	assert.match(html, /post-comments/);
+	assert.match(html, /\/posts\/with-comments/);
+	assert.doesNotMatch(html, /LIVE_POST_COMMENTS_/);
+});

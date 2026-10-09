@@ -1,4 +1,5 @@
 ---
+import Comment from "@/components/comment/index.astro";
 import MainGridLayout from "@/layouts/MainGridLayout.astro";
 import "@/styles/banner-post.css";
 import "@/styles/expressive-code.css";
@@ -27,6 +28,9 @@ import "@/styles/markdown.css";
 			<div class="live-note">此页面来自实时内容层；GitHub 归档会在后续批次同步。</div>
 		</article>
 	</section>
+	<!--LIVE_POST_COMMENTS_START-->
+	<Comment customPath="__LIVE_POST_COMMENT_PATH__" title="__LIVE_POST_TITLE__" />
+	<!--LIVE_POST_COMMENTS_END-->
 </MainGridLayout>
 <style>
 .live-post-meta{display:flex;flex-wrap:wrap;gap:.55rem 1rem;font-size:.78rem;opacity:.62}.live-badge{color:var(--primary);font-weight:800}.live-note{margin-top:1.5rem;padding-top:1rem;border-top:1px dashed var(--line-divider);font-size:.75rem;opacity:.5}

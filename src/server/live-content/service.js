@@ -103,6 +103,7 @@ function normalizeMeta(kind, raw) {
 			pinned: Boolean(meta.pinned),
 			image: String(meta.image || "").slice(0, 2000),
 			protected: Boolean(meta.protected),
+			comment: meta.comment !== false,
 			html: String(meta.html || "").slice(0, 1024 * 1024),
 		};
 	}

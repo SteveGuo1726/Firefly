@@ -239,6 +239,7 @@ const seriesData = await getSeriesPosts(entry);
   <script
     is:inline
     slot="head"
+    id="post-jsonld"
     type="application/ld+json"
     set:html={JSON.stringify(jsonLd)}
   />
@@ -291,6 +292,7 @@ const seriesData = await getSeriesPosts(entry);
                 data-pagefind-body
                 data-pagefind-weight="10"
                 data-pagefind-meta="title"
+                data-live-post-title
                 class="mb-2 text-xl md:text-2xl font-bold leading-tight text-white"
               >
                 {entry.data.title}

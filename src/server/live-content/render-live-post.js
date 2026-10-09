@@ -43,6 +43,7 @@ export async function renderLivePostFallback(request, { loadItem, loadShell }) {
 	const category = escapeHtml(meta.category || "");
 	const tags = escapeHtml(Array.isArray(meta.tags) ? meta.tags.join(" · ") : "");
 	const requestUrl = escapeHtml(new URL(request.url).toString());
+	const commentPath = escapeHtml(`/posts/${id}`);
 
 	html = html
 		.replaceAll("__LIVE_POST_TITLE__", title)
@@ -50,9 +51,21 @@ export async function renderLivePostFallback(request, { loadItem, loadShell }) {
 		.replaceAll("__LIVE_POST_PUBLISHED__", published)
 		.replaceAll("__LIVE_POST_CATEGORY__", category)
 		.replaceAll("__LIVE_POST_TAGS__", tags)
+		.replaceAll("__LIVE_POST_COMMENT_PATH__", commentPath)
 		.replaceAll("https://blog.casto.top/internal/live-post-shell/", requestUrl)
 		.replace('<!--LIVE_POST_CONTENT-->', String(meta.html))
 		.replace(/<meta[^>]+data-live-shell-robots[^>]*>/, "");
+
+	if (meta.comment === false) {
+		html = html.replace(
+			/<!--LIVE_POST_COMMENTS_START-->[\s\S]*?<!--LIVE_POST_COMMENTS_END-->/,
+			"",
+		);
+	} else {
+		html = html
+			.replace("<!--LIVE_POST_COMMENTS_START-->", "")
+			.replace("<!--LIVE_POST_COMMENTS_END-->", "");
+	}
 
 	return new Response(html, {
 		status: 200,
