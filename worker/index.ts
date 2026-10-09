@@ -172,7 +172,7 @@ async function requireGitHubAdmin(
 	const repo = (await repoResponse.json().catch(() => ({}))) as {
 		permissions?: { push?: boolean };
 	};
-	if (!repoResponse.ok || repo.permissions?.push === false) {
+	if (!repoResponse.ok || repo.permissions?.push !== true) {
 		return errorResponse("GitHub 仓库写入权限验证失败。", 403);
 	}
 
