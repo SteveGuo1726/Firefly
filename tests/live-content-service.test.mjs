@@ -536,3 +536,42 @@ test("different items can save concurrently without losing each other's pointers
 	const payload = await indexResponse.json();
 	assert.deepEqual(payload.entries.map((entry) => entry.id).sort(), ["alpha", "beta"]);
 });
+
+
+test("simultaneous v3 writes to different items remain visible and private", async () => {
+ const store=makeStore(), handle=createService(store);
+ const create=async(id)=>handle(request("/api/live-content/item",{
+  method:"PUT",headers:adminHeaders(),
+  body:JSON.stringify({kind:"post",id,path:"src/content/posts/"+id+".md",
+   source:"private "+id,meta:{title:id,html:"<p>"+id+"</p>"}}),
+ }));
+ const responses=await Promise.all(["batch-a","batch-b","batch-c","batch-d"].map(create));
+ assert.deepEqual(responses.map(x=>x.status),[200,200,200,200]);
+ const index=await (await handle(request("/api/live-content/index?kind=post"))).json();
+ for(const id of ["batch-a","batch-b","batch-c","batch-d"]){
+  assert.ok(index.entries.find(x=>x.id===id));
+  const publicDocument=await (await handle(request("/api/live-content/item?kind=post&id="+id))).json();
+  assert.equal("source" in publicDocument,false);
+ }
+});
+
+test("rename to an occupied v3 item refuses overwrite and preserves both pointers",async()=>{
+ const store=makeStore(),handle=createService(store);
+ const save=async (id,extra={})=>handle(request("/api/live-content/item",{
+  method:"PUT",headers:adminHeaders(),
+  body:JSON.stringify({kind:"post",id,path:"src/content/posts/"+id+".md",source:id,
+   meta:{title:id,html:"<p>"+id+"</p>"},...extra}),
+ }));
+ const a=await save("rename-source"), b=await save("rename-target");
+ assert.equal(a.status,200);assert.equal(b.status,200);
+ const aRevision=(await a.json()).revision;
+ const rejected=await save("rename-target",{
+  previousId:"rename-source",previousPath:"src/content/posts/rename-source.md",
+  expectedRevision:aRevision,
+ });
+ assert.equal(rejected.status,409);
+ for(const id of ["rename-source","rename-target"]){
+  const response=await handle(request("/api/live-content/item?kind=post&id="+id));
+  assert.equal(response.status,200);
+ }
+});
