@@ -217,6 +217,23 @@ if (
   errors.push("Cloudflare preview live-content adapter config missing");
 }
 
+const archiveWorkflowSource = await readFile(
+  path.join(process.cwd(), ".github/workflows/live-content-archive.yml"),
+  "utf8",
+).catch(() => "");
+const archiveScriptSource = await readFile(
+  path.join(process.cwd(), "scripts/archive-live-content.mjs"),
+  "utf8",
+).catch(() => "");
+if (
+  !archiveWorkflowSource.includes("FIREFLY_ARCHIVE_ALLOW_MASTER") ||
+  !archiveWorkflowSource.includes(".firefly/live-content-archive-state.json") ||
+  !archiveScriptSource.includes("Archive conflicts detected") ||
+  !archiveScriptSource.includes("gitBlobSha")
+) {
+  errors.push("live content archive safety guard missing");
+}
+
 const liveContentFunctionSource = await readFile(
   path.join(process.cwd(), "cloud-functions/api/live-content/[[default]].js"),
   "utf8",

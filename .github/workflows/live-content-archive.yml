@@ -33,12 +33,12 @@ jobs:
       - name: Commit archive snapshot
         shell: bash
         run: |
-          if git diff --quiet -- src/content/posts src/content/dynamic; then
+          if [[ -z "$(git status --porcelain -- src/content/posts src/content/dynamic .firefly/live-content-archive-state.json)" ]]; then
             echo "No live content changes to archive."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add -- src/content/posts src/content/dynamic
+          git add -- src/content/posts src/content/dynamic .firefly/live-content-archive-state.json
           git commit -m "chore(content): archive live content"
           git push origin "HEAD:${TARGET_BRANCH}"
