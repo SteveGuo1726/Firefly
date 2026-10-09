@@ -52,13 +52,24 @@ async function readMaybe(file) {
 }
 
 export async function loadArchiveState(rootDir = process.cwd()) {
+	let raw;
 	try {
-		const parsed = JSON.parse(await readFile(path.resolve(rootDir, ARCHIVE_STATE_PATH), "utf8"));
-		if (parsed?.schemaVersion === 1 && parsed.entries && typeof parsed.entries === "object") return parsed;
+		raw = await readFile(path.resolve(rootDir, ARCHIVE_STATE_PATH), "utf8");
 	} catch (error) {
-		if (error?.code !== "ENOENT" && !(error instanceof SyntaxError)) throw error;
+		if (error?.code === "ENOENT") return { schemaVersion: 1, archivedAt: null, entries: {} };
+		throw error;
 	}
-	return { schemaVersion: 1, archivedAt: null, entries: {} };
+	let parsed;
+	try {
+		parsed = JSON.parse(raw);
+	} catch {
+		throw new Error("Archive state JSON is malformed; refusing to reset recorded history.");
+	}
+	if (parsed?.schemaVersion !== 1 || !parsed.entries || typeof parsed.entries !== "object" ||
+		Array.isArray(parsed.entries)) {
+		throw new Error("Archive state schema is unsupported or invalid; refusing to reset recorded history.");
+	}
+	return parsed;
 }
 
 function validatePayload(payload) {
