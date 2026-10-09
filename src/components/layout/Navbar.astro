@@ -433,10 +433,8 @@ if (document.readyState === 'loading') {
             {/* 你的 loadPagefind 函数的完整内容放在这里 */}
             async function loadPagefind() {
                 try {
-                    const response = await fetch(scriptUrl, { method: 'HEAD' });
-                    if (!response.ok) {
-                        throw new Error(`Pagefind script not found: ${response.status}`);
-                    }
+                    // Dynamic import already rejects when Pagefind is unavailable.
+                    // Avoid a redundant HEAD probe that Chromium can report as aborted.
                     const pagefind = await import(scriptUrl);
                     await pagefind.options({
                         excerptLength: 20

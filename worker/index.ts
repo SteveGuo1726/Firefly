@@ -152,7 +152,12 @@ async function requireGitHubAdmin(
 			headers,
 		},
 	);
-	if (!repoResponse.ok) return errorResponse("GitHub 仓库权限验证失败。", 403);
+	const repo = (await repoResponse.json().catch(() => ({}))) as {
+		permissions?: { push?: boolean };
+	};
+	if (!repoResponse.ok || repo.permissions?.push === false) {
+		return errorResponse("GitHub 仓库写入权限验证失败。", 403);
+	}
 
 	authCache.set(hash, Date.now() + AUTH_CACHE_MS);
 	return null;

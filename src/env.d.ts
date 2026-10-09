@@ -6,6 +6,8 @@ declare global {
 		readonly MEILI_MASTER_KEY: string;
 		// 视图设置面板总开关，可在部署平台配置（true / 1 / on / yes 开启）
 		readonly PUBLIC_DISPLAY_SETTINGS?: string;
+		// 在线 GitHub 管理/写作页目标分支；正式环境缺省为 master，预览环境应显式覆盖。
+		readonly PUBLIC_GITHUB_ADMIN_BRANCH?: string;
 	}
 
 	interface ITOCManager {

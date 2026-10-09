@@ -91,6 +91,8 @@ declare global {
 		__floatingTOCAutoCloseInit?: boolean;
 		/** 文章列表页布局监听器守卫,确保只注册一次 */
 		__postPageInit?: boolean;
+		/** Twikoo 的 Swup 重初始化钩子只注册一次 */
+		__twikooSwupHookInit?: boolean;
 	}
 
 	interface MediaQueryList {

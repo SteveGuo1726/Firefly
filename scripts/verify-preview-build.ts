@@ -1,6 +1,5 @@
-// Preview build guard: edit this file to add post-build checks without
-// changing GitHub Actions workflow files. Runs on every Netlify build.
-import { readFile, stat } from "node:fs/promises";
+// Post-build guard shared by local, Cloudflare, EdgeOne, Netlify and Vercel builds.
+import { readFile, readdir, stat } from "node:fs/promises";
 import path from "node:path";
 import { resolveSiteRoot } from "./site-root";
 
@@ -8,41 +7,253 @@ const root = resolveSiteRoot();
 const required = [
   "index.html",
   "archive/index.html",
-  "gallery/index.html",
   "search/index.html",
+  "gallery/index.html",
+  "gallery/manage/index.html",
+  "friends/index.html",
+  "bilibili/index.html",
+  "bangumi/index.html",
+  "dynamic/index.html",
+  "booknav/index.html",
+  "projects/index.html",
+  "write/index.html",
+  "posts/firefly-config-manager/index.html",
   "pagefind/pagefind.js",
+  "favicon/favicon-light-32.png",
   "rss.xml",
+  "atom.xml",
+  "sitemap-index.xml",
+  "404.html",
 ];
+
 const errors: string[] = [];
-const inlineCss = await readFile(path.join(process.cwd(), "src/styles/markdown.css"), "utf8");
-if (!inlineCss.includes(":not(pre) > code")) errors.push("code block and inline code selectors overlap");
-if (/counter-reset:\s*line\b|span\.line\s*\{/.test(inlineCss)) errors.push("legacy synthetic line-number rules conflict with Expressive Code");
+
+const inlineCss = await readFile(
+  path.join(process.cwd(), "src/styles/markdown.css"),
+  "utf8",
+);
+if (!inlineCss.includes(":not(pre) > code")) {
+  errors.push("code block and inline code selectors overlap");
+}
+if (/counter-reset:\s*line\b|span\.line\s*\{/.test(inlineCss)) {
+  errors.push("legacy synthetic line-number rules conflict with Expressive Code");
+}
 
 for (const relative of required) {
   const file = path.join(root, relative);
   try {
     const entry = await stat(file);
-    if (!entry.isFile() || entry.size === 0) errors.push(relative + " is empty or not a file");
+    if (!entry.isFile() || entry.size === 0) {
+      errors.push(relative + " is empty or not a file");
+    }
   } catch {
     errors.push(relative + " missing");
   }
 }
+
 const home = await readFile(path.join(root, "index.html"), "utf8").catch(() => "");
 if (!home.includes("--font-code:")) {
   errors.push("home page is missing upstream --font-code fallback");
 }
-if (!home.includes("id=\"navbar\"")) {
+if (!home.includes('id="navbar"')) {
   errors.push("home page is missing its navbar");
 }
-const codeGuide = await readFile(path.join(process.cwd(), "src/content/posts/firefly-config-manager.md"), "utf8").catch(() => "");
-const codeFence = new RegExp("^" + String.fromCharCode(96).repeat(3) + "text[ \\t]*\\n([\\s\\S]*?)^" + String.fromCharCode(96).repeat(3) + "[ \\t]*$", "gm");
+if (!home.includes("data-local-fallback")) {
+  errors.push("home page is missing random-cover local fallback");
+}
+
+const codeGuide = await readFile(
+  path.join(process.cwd(), "src/content/posts/firefly-config-manager.md"),
+  "utf8",
+).catch(() => "");
+const codeFence = new RegExp(
+  "^" +
+    String.fromCharCode(96).repeat(3) +
+    "text[ \\t]*\\n([\\s\\S]*?)^" +
+    String.fromCharCode(96).repeat(3) +
+    "[ \\t]*$",
+  "gm",
+);
 const guideExamples = [...codeGuide.matchAll(codeFence)];
-if (guideExamples.length !== 3 || guideExamples.some(x => x[1].startsWith("\n") || x[1].endsWith("\n\n"))) errors.push("metadata guide contains empty code-block lines");
-const codeStyle = await readFile(path.join(process.cwd(), "src/styles/expressive-code.css"), "utf8").catch(() => "");
-if (!codeStyle.includes(".custom-md .expressive-code .frame pre") || !codeStyle.includes("white-space: pre;")) errors.push("mobile code block style guard missing");
+if (
+  guideExamples.length !== 3 ||
+  guideExamples.some(
+    (match) => match[1].startsWith("\n") || match[1].endsWith("\n\n"),
+  )
+) {
+  errors.push("metadata guide contains empty code-block lines");
+}
+
+const codeStyle = await readFile(
+  path.join(process.cwd(), "src/styles/expressive-code.css"),
+  "utf8",
+).catch(() => "");
+if (
+  !codeStyle.includes(".custom-md .expressive-code .frame pre") ||
+  !codeStyle.includes("white-space: pre;") ||
+  !codeStyle.includes("overflow-x: auto")
+) {
+  errors.push("mobile code block style guard missing");
+}
+
+const adminConfig = await readFile(
+  path.join(process.cwd(), "src/config/githubAdminConfig.ts"),
+  "utf8",
+).catch(() => "");
+if (
+  !adminConfig.includes("PUBLIC_GITHUB_ADMIN_BRANCH") ||
+  !adminConfig.includes('|| "master"')
+) {
+  errors.push("GitHub admin branch is not preview-overridable with master fallback");
+}
+
+const searchSource = await readFile(
+  path.join(process.cwd(), "src/pages/search.astro"),
+  "utf8",
+).catch(() => "");
+if (searchSource.includes("pagefind/pagefind.js")) {
+  errors.push("search page duplicates the global Pagefind loader");
+}
+
+const navbarSource = await readFile(
+  path.join(process.cwd(), "src/components/layout/Navbar.astro"),
+  "utf8",
+).catch(() => "");
+if (navbarSource.includes("method: 'HEAD'")) {
+  errors.push("global Pagefind loader still performs a redundant HEAD probe");
+}
+
+const backToTopSource = await readFile(
+  path.join(process.cwd(), "src/components/controls/BackToTop.astro"),
+  "utf8",
+).catch(() => "");
+if (
+  (backToTopSource.match(/DOMContentLoaded/g) || []).length !== 1 ||
+  !backToTopSource.includes("updateVisibility();")
+) {
+  errors.push("back-to-top initialization guard regressed");
+}
+
+const twikooSource = await readFile(
+  path.join(process.cwd(), "src/components/comment/Twikoo.astro"),
+  "utf8",
+).catch(() => "");
+if (
+  !twikooSource.includes("__twikooSwupHookInit") ||
+  !twikooSource.includes('document.readyState === "loading"')
+) {
+  errors.push("Twikoo Swup initialization guard missing");
+}
+
+const galleryWorkerSource = await readFile(
+  path.join(process.cwd(), "worker/index.ts"),
+  "utf8",
+).catch(() => "");
+if (!galleryWorkerSource.includes("repo.permissions?.push === false")) {
+  errors.push("gallery admin API does not verify repository write permission");
+}
+
+async function collectHtmlFiles(directory: string): Promise<string[]> {
+  const files: string[] = [];
+  for (const entry of await readdir(directory, { withFileTypes: true })) {
+    const full = path.join(directory, entry.name);
+    if (entry.isDirectory()) {
+      files.push(...(await collectHtmlFiles(full)));
+    } else if (entry.isFile() && entry.name.endsWith(".html")) {
+      files.push(full);
+    }
+  }
+  return files;
+}
+
+async function internalTargetExists(urlPath: string): Promise<boolean> {
+  const clean = urlPath.split(/[?#]/, 1)[0];
+  if (
+    !clean ||
+    clean === "/" ||
+    clean.startsWith("//") ||
+    clean.startsWith("/api/")
+  ) {
+    return true;
+  }
+  let decoded = clean;
+  try {
+    decoded = decodeURI(clean);
+  } catch {
+    // Keep the encoded path; malformed URLs will fail the filesystem checks below.
+  }
+  const relative = decoded.replace(/^\/+/, "");
+  const direct = path.join(root, relative);
+  const candidates = [
+    direct,
+    path.join(direct, "index.html"),
+    path.join(root, relative.replace(/\/+$/, "") + ".html"),
+  ];
+  for (const candidate of candidates) {
+    try {
+      if ((await stat(candidate)).isFile()) return true;
+    } catch {
+      // Try the next representation.
+    }
+  }
+  return false;
+}
+
+const expectedAdminBranch = process.env.PUBLIC_GITHUB_ADMIN_BRANCH?.trim();
+if (expectedAdminBranch) {
+  const astroAssetsDir = path.join(root, "_astro");
+  const assetNames = await readdir(astroAssetsDir).catch(() => []);
+  let compiledBranchFound = false;
+  for (const name of assetNames) {
+    if (!name.endsWith(".js")) continue;
+    const source = await readFile(path.join(astroAssetsDir, name), "utf8").catch(
+      () => "",
+    );
+    if (source.includes(expectedAdminBranch)) {
+      compiledBranchFound = true;
+      break;
+    }
+  }
+  if (!compiledBranchFound) {
+    errors.push(
+      "PUBLIC_GITHUB_ADMIN_BRANCH was not compiled into the client assets",
+    );
+  }
+}
+
+const brokenRefs: string[] = [];
+const htmlFiles = await collectHtmlFiles(root);
+for (const file of htmlFiles) {
+  const html = await readFile(file, "utf8");
+  for (const match of html.matchAll(/(?:src|href)=["'](\/[^"'#]*)["']/g)) {
+    const target = match[1];
+    if (!(await internalTargetExists(target))) {
+      brokenRefs.push(path.relative(root, file) + " -> " + target);
+      if (brokenRefs.length >= 20) break;
+    }
+  }
+  if (brokenRefs.length >= 20) break;
+}
+if (brokenRefs.length) {
+  errors.push(
+    "broken internal asset/route references: " + brokenRefs.join(", "),
+  );
+}
+
 if (errors.length) {
   for (const error of errors) console.error("FIREFLY_BUILD_CHECK_FAIL", error);
   process.exitCode = 1;
 } else {
-  console.log("FIREFLY_BUILD_CHECK_PASS", JSON.stringify({ root, files: required.length, fontCode: true, navbar: true }));
+  console.log(
+    "FIREFLY_BUILD_CHECK_PASS",
+    JSON.stringify({
+      root,
+      files: required.length,
+      htmlFiles: htmlFiles.length,
+      brokenInternalRefs: 0,
+      fontCode: true,
+      navbar: true,
+      localCoverFallback: true,
+    }),
+  );
 }

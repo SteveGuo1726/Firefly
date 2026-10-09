@@ -66,30 +66,26 @@ const config = {
     }
   }
 
-  // 页面加载时初始化
-  document.addEventListener("DOMContentLoaded", initTwikoo);
-
-  // Swup 页面切换后重新初始化
-  if (window.swup && window.swup.hooks) {
-    window.swup.hooks.on("content:replace", function () {
-      setTimeout(initTwikoo, 200);
-    });
+  // 首次直达评论页时等 DOM；若是通过 Swup 首次进入，此时 DOMContentLoaded 已结束，直接初始化。
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initTwikoo, { once: true });
   } else {
-    document.addEventListener("swup:enable", function () {
-      if (window.swup && window.swup.hooks) {
-        window.swup.hooks.on("content:replace", function () {
-          setTimeout(initTwikoo, 200);
-        });
-      }
-    });
+    setTimeout(initTwikoo, 0);
   }
 
-  // 自定义事件监听
-  document.addEventListener("firefly:page:loaded", function () {
-    const commentEl = document.getElementById("tcomment");
-    if (commentEl) {
-      console.log("[Twikoo] Re-initializing via custom event");
-      initTwikoo();
+  // Swup 钩子只注册一次，避免多次进入文章页后重复初始化评论。
+  if (!window.__twikooSwupHookInit) {
+    window.__twikooSwupHookInit = true;
+    const registerTwikooHook = () => {
+      if (!window.swup?.hooks) return;
+      window.swup.hooks.on("content:replace", function () {
+        setTimeout(initTwikoo, 200);
+      });
+    };
+    if (window.swup?.hooks) {
+      registerTwikooHook();
+    } else {
+      document.addEventListener("swup:enable", registerTwikooHook, { once: true });
     }
-  });
+  }
 </script>
