@@ -131,3 +131,14 @@ test("archive refuses symlinked content directories without modifying outside fi
  await assert.rejects(createArchivePlan(data,{rootDir:root}),/Unsafe archive symlink/);
  await assert.rejects(readFile(path.join(outside,"hidden.md")),(e)=>e.code==="ENOENT");
 });
+
+
+test("invalid archive state fails closed instead of silently resetting history",async()=>{
+ const root=await workspace(),stateFile=path.join(root,".firefly/live-content-archive-state.json");
+ await mkdir(path.dirname(stateFile),{recursive:true});
+ await writeFile(stateFile,"{broken");
+ await assert.rejects(loadArchiveState(root),/malformed/);
+ await assert.rejects(createArchivePlan(snapshot([]),{rootDir:root}),/malformed/);
+ await writeFile(stateFile,JSON.stringify({schemaVersion:999,entries:{}}));
+ await assert.rejects(loadArchiveState(root),/unsupported or invalid/);
+});
