@@ -4,7 +4,8 @@ import type { GitHubRepoConfig } from "@/utils/write/github";
 export const GITHUB_SESSION_CHANGED_EVENT =
 	"firefly:github-admin-session-changed";
 
-const STORAGE_KEY = "FIREFLY_GITHUB_ADMIN_SESSION_V1";
+const STORAGE_KEY = "FIREFLY_GITHUB_ADMIN_SESSION_V2";
+const LEGACY_STORAGE_KEY = "FIREFLY_GITHUB_ADMIN_SESSION_V1";
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 export type GitHubAdminSession = {
@@ -34,7 +35,30 @@ type GitHubRepositoryResponse = {
 };
 
 function storageAvailable(): boolean {
-	return typeof window !== "undefined" && typeof localStorage !== "undefined";
+	return typeof window !== "undefined" && typeof sessionStorage !== "undefined";
+}
+
+function migrateLegacySession(): void {
+	if (typeof window === "undefined" || typeof localStorage === "undefined") return;
+	const legacy = localStorage.getItem(LEGACY_STORAGE_KEY);
+	if (!legacy) return;
+	try {
+		const session = JSON.parse(legacy) as GitHubAdminSession;
+		if (
+			session.token &&
+			session.login &&
+			session.expiresAt &&
+			Date.now() < session.expiresAt &&
+			session.login.toLowerCase() ===
+				githubAdminConfig.allowedLogin.toLowerCase()
+		) {
+			sessionStorage.setItem(STORAGE_KEY, legacy);
+		}
+	} catch {
+		// Invalid legacy data is simply discarded.
+	} finally {
+		localStorage.removeItem(LEGACY_STORAGE_KEY);
+	}
 }
 
 function notifySessionChanged(): void {
@@ -44,7 +68,8 @@ function notifySessionChanged(): void {
 
 export function getGitHubAdminSession(): GitHubAdminSession | null {
 	if (!storageAvailable()) return null;
-	const raw = localStorage.getItem(STORAGE_KEY);
+	migrateLegacySession();
+	const raw = sessionStorage.getItem(STORAGE_KEY);
 	if (!raw) return null;
 
 	try {
@@ -80,7 +105,10 @@ export function getGitHubRepoConfigFromSession(
 }
 
 export function clearGitHubAdminSession(notify = true): void {
-	if (storageAvailable()) localStorage.removeItem(STORAGE_KEY);
+	if (storageAvailable()) sessionStorage.removeItem(STORAGE_KEY);
+	if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+		localStorage.removeItem(LEGACY_STORAGE_KEY);
+	}
 	if (notify) notifySessionChanged();
 }
 
@@ -131,7 +159,7 @@ export async function loginWithGitHubToken(
 		branch: githubAdminConfig.branch,
 		expiresAt: Date.now() + githubAdminConfig.sessionDays * DAY_MS,
 	};
-	localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+	sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
 	notifySessionChanged();
 	return session;
 }
