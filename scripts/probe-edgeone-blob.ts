@@ -49,6 +49,7 @@ try {
  };
  const service=createLiveContentService({
   store:serviceStore,provider:"edgeone-blob-test",storeName:name,
+  region:()=> "edgeone-probe",
   authorize:async()=>({ok:true}),
  });
  const headers={Authorization:"Bearer isolated-test-token","Content-Type":"application/json"};
@@ -74,9 +75,9 @@ try {
  if(!publicIndex.entries?.some((e:{id:string})=>e.id===id))throw new Error("v3 index missing new item");
  const stale=await put(id,"stale",{expectedRevision:"outdated"});
  if(stale.status!==409)throw new Error("v3 stale update was not rejected");
- const updated=await put(id,"second",{expectedRevision:firstRevision});
- if(updated.status!==200||updated.body.revision===firstRevision)throw new Error("v3 revision update failed");
- const currentRevision=updated.body.revision;
+ const updatedRevisionResponse=await put(id,"second",{expectedRevision:firstRevision});
+ if(updatedRevisionResponse.status!==200||updatedRevisionResponse.body.revision===firstRevision)throw new Error("v3 revision update failed");
+ const currentRevision=updatedRevisionResponse.body.revision;
  const renamed=await put("edgeone-probe-renamed","renamed",{
   previousId:id,previousPath:path,expectedRevision:currentRevision,
  });
