@@ -4,6 +4,7 @@ import { getPostUrlBySlug } from "@utils/url-utils";
 import PostCard from "@/components/layout/PostCard.astro";
 import LivePostDiscover from "@/components/pages/post/LivePostDiscover.svelte";
 import { siteConfig } from "@/config";
+import { getSortedPostsList } from "@/utils/content-utils";
 
 const { page } = Astro.props;
 
@@ -15,6 +16,7 @@ type PostEntry = CollectionEntry<"posts">;
 
 const masonryEnabled = siteConfig.postListLayout.grid.masonry;
 const columnWidth = siteConfig.postListLayout.grid.columnWidth || 280;
+const allStaticPostIds = (await getSortedPostsList()).map((post) => post.id);
 
 // 根据配置设置初始布局模式，避免闪烁
 const defaultLayout = siteConfig.postListLayout.defaultMode || "list";
@@ -41,7 +43,7 @@ const coverPositionClass =
 >
   <LivePostDiscover
     client:load
-    staticIds={page.data.map((entry: PostEntry) => entry.id)}
+    staticIds={allStaticPostIds}
     enabled={page.currentPage === 1}
   />
   {

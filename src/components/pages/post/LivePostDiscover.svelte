@@ -1,5 +1,5 @@
 <script lang="ts">
-import { onMount } from "svelte";
+import { onMount, tick } from "svelte";
 
 type LivePost = {
 	id: string;
@@ -88,7 +88,7 @@ onMount(() => {
 					return publishedTime(b) - publishedTime(a);
 				});
 
-			await Promise.resolve();
+			await tick();
 			window.dispatchEvent(new CustomEvent("livePostsUpdated"));
 		} catch (error) {
 			console.warn("Live post discovery unavailable", error);
