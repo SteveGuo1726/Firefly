@@ -25,6 +25,14 @@ function endpoint(path: string, params?: Record<string, string>): string {
 	return url.toString();
 }
 
+function announceLiveMutation(kind: LiveContentKind): void {
+ try {
+  window.localStorage.setItem("firefly:live-content-updated", JSON.stringify({kind, at: Date.now()}));
+ } catch {
+  // Never fail a successful write because storage is unavailable.
+ }
+}
+
 async function readJson(response: Response) {
 	const payload = await response.json().catch(() => ({}));
 	if (response.status === 409) throw new Error(`远端实时版本已变化，保存已取消。请先复制当前编辑内容，再重新打开最新版本并合并修改。${payload?.error ? `（${payload.error}）` : ""}`);
@@ -77,7 +85,7 @@ export async function saveLiveContentItem(options: {
 	previousBaseGitSha?: string;
 	previousBaseGitBranch?: string;
 }): Promise<{ revision: string; updatedAt: string }> {
-	return readJson(await fetch(endpoint("/item"), {
+	const result = await readJson(await fetch(endpoint("/item"), {
 		method: "PUT",
 		headers: {
 			Authorization: `Bearer ${options.session.token}`,
@@ -99,6 +107,8 @@ export async function saveLiveContentItem(options: {
 				options.previousBaseGitBranch || options.session.branch,
 		}),
 	}));
+	announceLiveMutation(options.kind);
+	return result;
 }
 
 export async function deleteLiveContentItem(options: {
@@ -111,7 +121,7 @@ export async function deleteLiveContentItem(options: {
 	baseGitBranch?: string;
 	expectedRevision?: string;
 }): Promise<{ revision: string; updatedAt: string }> {
-	return readJson(await fetch(endpoint("/item", { kind: options.kind, id: options.id }), {
+	const result = await readJson(await fetch(endpoint("/item", { kind: options.kind, id: options.id }), {
 		method: "DELETE",
 		headers: {
 			Authorization: `Bearer ${options.session.token}`,
@@ -125,6 +135,8 @@ export async function deleteLiveContentItem(options: {
 			expectedRevision: options.expectedRevision || "",
 		}),
 	}));
+	announceLiveMutation(options.kind);
+	return result;
 }
 
 export async function exportLiveContent(session: GitHubAdminSession): Promise<unknown> {
