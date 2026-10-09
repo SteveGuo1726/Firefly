@@ -333,11 +333,21 @@ onMount(() => {
 		}
 	};
 	void load();
+	const onContentChanged = (event: StorageEvent) => {
+		if (event.key !== "firefly:live-content-updated" || !event.newValue) return;
+		try {
+			if (JSON.parse(event.newValue)?.kind === "dynamic") void load(true);
+		} catch {
+			// Ignore malformed cross-tab notifications.
+		}
+	};
+	window.addEventListener("storage", onContentChanged);
 	window.addEventListener("focus", refreshIfStale);
 	window.addEventListener("pageshow", refreshIfStale);
 	document.addEventListener("visibilitychange", refreshIfStale);
 
 	return () => {
+		window.removeEventListener("storage", onContentChanged);
 		window.removeEventListener("focus", refreshIfStale);
 		window.removeEventListener("pageshow", refreshIfStale);
 		document.removeEventListener("visibilitychange", refreshIfStale);
