@@ -1,5 +1,7 @@
 <script lang="ts">
-import { onMount } from "svelte";
+import { onMount, tick } from "svelte";
+import { uploadImageBedFile } from "@/utils/admin/imagebed-client";
+import { markdownImage, insertMarkdownAt } from "@/utils/admin/editor-image";
 import { readDraft, writeDraft, clearDraft } from "@/utils/admin/draft-storage";
 import { siteConfig } from "@/config/siteConfig";
 import type { GitHubAdminSession } from "@/utils/admin/github-session";
@@ -17,6 +19,7 @@ let currentId="";let currentPath="";let loadedPath="";let baseGitSha="";let live
 let fields:AdminPostFields=emptyPostFields();let body="";let tagsText="";let previewHtml="";let message="";let error="";
 let previewTimer:ReturnType<typeof setTimeout>|null=null;
 let savedEditorSnapshot="";
+let imageUploading=false;let editorTextarea:HTMLTextAreaElement|null=null;
 let liveIndexHealthy=false;
 let deletedRows:{id:string;path:string;revision:string;baseGitSha:string}[]=[];
 let deletedGitSha="";
@@ -112,6 +115,29 @@ async function undoGitDelete(){
  }catch(e){error=e instanceof Error?e.message:"撤销删除失败。";}
  finally{deleting=false;}
 }
+async function uploadEditorImage(event:Event){
+ const input=event.currentTarget as HTMLInputElement;
+ const file=input.files?.[0];
+ input.value="";
+ if(!file)return;
+ if(!file.type.startsWith("image/")||file.size>30*1024*1024){
+  error="仅支持不超过 30 MB 的图片。";return;
+ }
+ imageUploading=true;error="";message="";
+ try{
+  const position=editorTextarea?.selectionStart??body.length;
+  const ending=editorTextarea?.selectionEnd??position;
+  const image=await uploadImageBedFile(file,"blog");
+  const result=insertMarkdownAt(body,position,ending,markdownImage(file.name,image.url));
+  body=result.value;
+  await tick();
+  editorTextarea?.focus();
+  editorTextarea?.setSelectionRange(result.caret,result.caret);
+  await updatePreview();
+  message="图片上传完成，已插入编辑器。";
+ }catch(e){error=e instanceof Error?e.message:"图片上传失败，原有正文未改动。";}
+ finally{imageUploading=false;}
+}
 async function loadHistory(){
  if(!currentId || historyLoading)return;
  historyLoading=true;error="";
@@ -190,7 +216,8 @@ onMount(()=>{
 <label><span>密码</span><input bind:value={fields.password}/></label><label><span>密码提示</span><input bind:value={fields.passwordHint}/></label>
 </div>
 <div class="checks"><label><input type="checkbox" bind:checked={fields.draft}/>草稿</label><label><input type="checkbox" bind:checked={fields.pinned}/>置顶</label><label><input type="checkbox" bind:checked={fields.comment}/>评论</label></div>
-<label class="body"><span>正文 Markdown / MDX</span><textarea bind:value={body} oninput={schedulePreview}></textarea></label>
+<label class="image-upload"><span>插入图片</span><input type="file" accept="image/*" onchange={uploadEditorImage} disabled={imageUploading}/>{#if imageUploading}<small>上传中，请勿关闭页面...</small>{/if}</label>
+<label class="body"><span>正文 Markdown / MDX</span><textarea bind:this={editorTextarea} bind:value={body} oninput={schedulePreview}></textarea></label>
 {#if needsStaticSecurityRebuild()}
 <div class="security-warning">这篇文章已经存在于当前静态构建中。实时层可以立刻把它从索引隐藏并让正常浏览跳转 404，但旧 HTML 仍可能被直接缓存或读取；密码保护/真正下线需要后续 Git 归档并重新构建后才彻底生效。</div>
 {/if}
@@ -212,6 +239,7 @@ onMount(()=>{
 </div>
 </section>
 <style>
+.image-upload{display:flex;align-items:center;flex-wrap:wrap;gap:.6rem;padding:.45rem 0;font-size:.78rem}.image-upload input{font-size:.76rem;max-width:100%}
 .deleted-entries{display:grid;gap:.4rem;padding:.8rem 0;border-top:1px solid var(--line-divider)}.deleted-entries strong{font-size:.8rem;color:#b55050}.deleted-entries button{text-align:left;overflow-wrap:anywhere}
 .history-controls{display:flex;flex-wrap:wrap;gap:.45rem;padding:.7rem 0;align-items:center}.history-controls select{max-width:100%;min-width:9rem;border:1px solid var(--line-divider);border-radius:.5rem;background:var(--card-bg);color:inherit;padding:.5rem}
 .manager{overflow:hidden}header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem;border-bottom:1px solid var(--line-divider)}h2{margin:0;font-size:1.05rem}header p{margin:.25rem 0 0;font-size:.76rem;opacity:.58}.actions{display:flex;gap:.45rem}button{border:1px solid var(--line-divider);border-radius:.55rem;background:transparent;color:inherit;padding:.55rem .7rem;font:inherit;font-size:.76rem;font-weight:700;cursor:pointer}button.primary{background:var(--primary);border-color:var(--primary);color:white}button.danger{color:#c43d3d;border-color:rgb(196 61 61/.3)}button:disabled{opacity:.5;cursor:not-allowed}.layout{display:grid;grid-template-columns:17rem minmax(28rem,1fr) minmax(22rem,.8fr);min-height:68vh}aside{padding:.75rem;border-right:1px solid var(--line-divider)}.search,.grid input,.grid textarea,.body textarea{width:100%;border:1px solid var(--line-divider);border-radius:.55rem;background:transparent;color:inherit;font:inherit}.search{padding:.62rem}.list{display:grid;gap:.3rem;margin-top:.6rem;max-height:64vh;overflow:auto}.list button{display:grid;text-align:left;gap:.15rem}.list button.active{border-color:var(--primary);background:color-mix(in oklab,var(--primary) 9%,transparent)}.list span,.list small{font-size:.67rem;opacity:.55;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.editor{padding:.9rem;border-right:1px solid var(--line-divider);min-width:0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}.grid label,.body{display:grid;gap:.3rem;font-size:.72rem;font-weight:700}.grid .wide{grid-column:span 2}.grid input,.grid textarea{padding:.6rem}.checks{display:flex;gap:1rem;margin:.8rem 0;font-size:.76rem}.checks label{display:flex;align-items:center;gap:.3rem}.body textarea{min-height:25rem;padding:.7rem;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.6}.status{display:flex;justify-content:space-between;gap:.7rem;align-items:center;margin-top:.7rem;font-size:.7rem}.status>div:first-child{display:grid}.ok{color:#059669}.bad{color:#c43d3d}.security-warning{margin-top:.7rem;padding:.7rem .8rem;border:1px solid rgb(217 119 6/.28);border-radius:.55rem;background:rgb(217 119 6/.08);color:#b45309;font-size:.72rem;line-height:1.55}.preview{padding:1rem;overflow:auto;max-height:68vh}.preview>strong{display:block;margin-bottom:.8rem}@media(max-width:1380px){.layout{grid-template-columns:16rem minmax(0,1fr)}.preview{grid-column:1/-1;border-top:1px solid var(--line-divider);max-height:none}}@media(max-width:800px){header{align-items:flex-start;flex-direction:column}.layout{grid-template-columns:1fr}aside,.editor{border-right:0;border-bottom:1px solid var(--line-divider)}.list{max-height:16rem}.grid{grid-template-columns:1fr}.grid .wide{grid-column:auto}.status{align-items:flex-start;flex-direction:column}}
