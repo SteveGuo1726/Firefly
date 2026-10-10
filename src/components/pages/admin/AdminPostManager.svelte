@@ -71,7 +71,7 @@ async function open(row:Row){if(saving||deleting||opening||!guardUnsaved())retur
 
 function createNew(){if(saving||deleting||opening||!guardUnsaved())return;const stamp=new Date().toISOString().replace(/[-:]/g,"").slice(0,13).replace("T","-").toLowerCase();historyEntries=[];historyRevision="";deletedGitSha="";currentId="";currentPath=`src/content/posts/${stamp}.md`;loadedPath="";baseGitSha="";liveRevision="";originalSource="";fields=emptyPostFields();body="# 新文章\n\n";tagsText="";message="新文章尚未写入 Blob。";error="";savedEditorSnapshot=editorSnapshot();void updatePreview();}
 
-async function save(){if(!liveIndexHealthy){error="实时内容索引尚未成功同步，请刷新列表后重试保存。";return;}
+async function save(){if(imageUploading){error="请等待图片上传完成后再保存。";return;}if(!liveIndexHealthy){error="实时内容索引尚未成功同步，请刷新列表后重试保存。";return;}
 	if(!fields.title.trim()){error="标题不能为空。";return;}
 	let path:string;try{path=normalizePath(currentPath);}catch(e){error=e instanceof Error?e.message:"路径无效。";return;}
 	fields={...fields,tags:baseMeta().tags};
@@ -125,10 +125,12 @@ async function uploadEditorImage(event:Event){
  }
  imageUploading=true;error="";message="";
  try{
+  const beforeUpload=body;
   const position=editorTextarea?.selectionStart??body.length;
   const ending=editorTextarea?.selectionEnd??position;
   const image=await uploadImageBedFile(file,"blog");
-  const result=insertMarkdownAt(body,position,ending,markdownImage(file.name,image.url));
+  const editedDuringUpload=body!==beforeUpload;
+  const result=insertMarkdownAt(body,editedDuringUpload?body.length:position,editedDuringUpload?body.length:ending,markdownImage(file.name,image.url));
   body=result.value;
   await tick();
   editorTextarea?.focus();
