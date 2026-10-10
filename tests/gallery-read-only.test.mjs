@@ -135,3 +135,38 @@ test("gallery directory rename rolls back earlier files after a later rename fai
   ]);
  }finally{globalThis.fetch=originalFetch;}
 });
+
+test("public gallery allows cross-origin reads but never opens admin CORS", async () => {
+ const album={id:"album",sourceDir:"photos/album",name:"Public album",photoOrder:[],cover:""};
+ const env={
+  ALLOWED_ORIGIN:"https://firefly-blog-preview.guojunyang666666.workers.dev",
+  GALLERY_MANIFEST:{async get(){return {version:1,updatedAt:"2026-10-10T00:00:00.000Z",albums:[album]};}},
+ };
+ const origin="https://sb-6kuax07bfhra.vercel.run";
+ const publicRequest=new Request("https://gallery.example/api/gallery/public?summary=true",{headers:{Origin:origin}});
+ const publicResponse=await galleryWorker.fetch(publicRequest,env);
+ assert.equal(publicResponse.status,200);
+ assert.equal(publicResponse.headers.get("Access-Control-Allow-Origin"),"*");
+ const payload=await publicResponse.json();
+ assert.ok(Array.isArray(payload.albums));
+ const preflight=await galleryWorker.fetch(new Request("https://gallery.example/api/gallery/public",{
+  method:"OPTIONS",headers:{Origin:origin},
+ }),env);
+ assert.equal(preflight.status,204);
+ assert.equal(preflight.headers.get("Access-Control-Allow-Origin"),"*");
+ const blocked=await galleryWorker.fetch(new Request("https://gallery.example/api/admin/gallery/state",{
+  headers:{Origin:origin},
+ }),env);
+ assert.equal(blocked.status,403);
+ assert.equal(blocked.headers.get("Access-Control-Allow-Origin"),null);
+});
+
+test("public gallery errors do not reveal storage exception secrets",async()=>{
+ const env={
+  GALLERY_MANIFEST:{async get(){throw new Error("PRIVATE_KV_KEY_MUST_NOT_LEAK");}},
+ };
+ const res=await galleryWorker.fetch(new Request("https://gallery.example/api/gallery/public"),env);
+ assert.ok([200,503].includes(res.status));
+ const text=await res.text();
+ assert.doesNotMatch(text,/PRIVATE_KV_KEY_MUST_NOT_LEAK/);
+});

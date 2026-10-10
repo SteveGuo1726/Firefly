@@ -34,3 +34,12 @@ test("public demo does not appear in production builds without explicit preview 
  assert.match(source,/previewOriginAllowed/);
  assert.doesNotMatch(workflow,/github\.ref.*master/);
 });
+
+
+test("sandbox demo only accepts the exact configured development hostname", async () => {
+ const app = await readFile("src/components/pages/admin/AdminApp.svelte","utf8");
+ assert.match(app,/PUBLIC_FIREFLY_SANDBOX_HOST/);
+ assert.match(app,/SANDBOX_PREVIEW_HOST !== ""/);
+ assert.match(app,/import\.meta\.env\.DEV/);
+ assert.match(app,/window\.location\.hostname === SANDBOX_PREVIEW_HOST/);
+});

@@ -10,6 +10,7 @@ import GitHubAdminLogin from "@/components/features/GitHubAdminLogin.svelte";
 
 const PREVIEW_DEMO_COMPILED = import.meta.env.PUBLIC_FIREFLY_PREVIEW_DEMO === "true";
 const PREVIEW_HOST = "firefly-blog-preview.guojunyang666666.workers.dev";
+const SANDBOX_PREVIEW_HOST = import.meta.env.PUBLIC_FIREFLY_SANDBOX_HOST?.trim() || "";
 const DEMO_STORAGE_KEY = "firefly:preview-admin-demo";
 type PreviewDemoType = typeof import("./PreviewDemoAdmin.svelte").default;
 let PreviewDemoComponent: PreviewDemoType | null = null;
@@ -21,7 +22,10 @@ let demoError = "";
 function previewOriginAllowed(): boolean {
  return typeof window !== "undefined" &&
   (window.location.hostname === PREVIEW_HOST ||
-   (import.meta.env.DEV && /^(localhost|127\\.0\\.0\\.1)$/.test(window.location.hostname)));
+   (import.meta.env.DEV && (
+    /^(localhost|127\\.0\\.0\\.1)$/.test(window.location.hostname) ||
+    (SANDBOX_PREVIEW_HOST !== "" && window.location.hostname === SANDBOX_PREVIEW_HOST)
+   )));
 }
 async function loadDemoView(){
  if(!demoSupported) return;

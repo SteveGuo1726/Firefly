@@ -1,5 +1,5 @@
 <script lang="ts">
-import { onMount } from "svelte";
+import { onMount } from "svelte";\nimport { createGalleryManifestBackup, inspectGalleryManifest } from "@/utils/admin/gallery-manifest-backup";
 import type {
 	GalleryAdminState,
 	GalleryManifest,
@@ -37,7 +37,7 @@ let errorMessage = $state("");
 let successMessage = $state("");
 let draggedAlbumId = $state("");
 let draggedPhotoKey = $state("");
-let stateLoadGeneration = 0;
+let stateLoadGeneration = 0;\nlet showIntegrity = $state(false);\nconst integrity = $derived(inspectGalleryManifest(manifest,state));
 
 const selectedAlbum = $derived(
 	manifest.albums.find((album) => album.id === selectedId) || null,
@@ -386,16 +386,46 @@ async function removeAlbum() {
 	}
 }
 
+async function downloadManifestBackup() {
+ if (!session || loading) return;
+ errorMessage = "";
+ try {
+  const result = await createGalleryManifestBackup(manifest,state);
+  const blob = new Blob([result.json],{type:"application/json;charset=utf-8"});
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "firefly-gallery-manifest-" + new Date().toISOString().slice(0,10) + ".json";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+  setMessage("清单备份已下载（仅元数据，无图片）。SHA-256：" + result.sha256 +
+   (dirty ? "；包含尚未保存的本地修改。" : ""));
+ } catch (error) {
+  setMessage(error instanceof Error ? error.message : "清单备份失败。",true);
+ }
+}
+
 function syncSession() {
 	session = getGitHubAdminSession();
 	void loadState();
 }
 
 onMount(() => {
-	syncSession();
-	window.addEventListener(GITHUB_SESSION_CHANGED_EVENT, syncSession);
-	return () =>
-		window.removeEventListener(GITHUB_SESSION_CHANGED_EVENT, syncSession);
+ syncSession();
+ const preventUnsavedLoss = (event: BeforeUnloadEvent) => {
+  if (dirty && session) {
+   event.preventDefault();
+   event.returnValue = "";
+  }
+ };
+ window.addEventListener(GITHUB_SESSION_CHANGED_EVENT, syncSession);
+ window.addEventListener("beforeunload", preventUnsavedLoss);
+ return () => {
+  window.removeEventListener(GITHUB_SESSION_CHANGED_EVENT, syncSession);
+  window.removeEventListener("beforeunload", preventUnsavedLoss);
+ };
 });
 </script>
 
@@ -410,6 +440,8 @@ onMount(() => {
 			<span>{manifest.albums.length} 个相册 · 拖动后统一保存，不触发博客构建</span>
 		</div>
 		<div class="toolbar-actions">
+            <button type="button" onclick={() => (showIntegrity = !showIntegrity)} disabled={loading}>{showIntegrity ? "收起校验" : "检查清单"}{integrity.errorCount ? " ⚠" : ""}</button>
+            <button type="button" onclick={downloadManifestBackup} disabled={loading || uploading}>下载清单备份</button>
 			<button type="button" onclick={() => loadState()} disabled={loading || saving || uploading}>刷新</button>
 			<button type="button" onclick={() => createAlbum()} disabled={loading || saving}>新建相册</button>
 			<button class="primary" type="button" onclick={saveAll} disabled={!dirty || loading || saving || uploading}>
@@ -420,6 +452,20 @@ onMount(() => {
 
 	{#if errorMessage}<div class="message error">{errorMessage}</div>{/if}
 	{#if successMessage}<div class="message success">{successMessage}</div>{/if}
+
+ {#if showIntegrity}
+  <section class="integrity card-base" aria-label="相册清单检查">
+   <strong>相册清单完整性：{integrity.albumCount} 个相册、{integrity.listedPhotoCount} 条图片排序记录</strong>
+   <span>{integrity.errorCount} 项错误 · {integrity.warningCount} 项提醒</span>
+   {#if integrity.issues.length}
+    <ul>{#each integrity.issues as item,i (i)}
+     <li class:error={item.severity === "error"}><strong>{item.albumId}</strong>：{item.message}</li>
+    {/each}</ul>
+   {:else}
+    <p>未发现清单结构问题。此检查不验证图床图片文件的实际内容及可用性。</p>
+   {/if}
+  </section>
+ {/if}
 
 	{#if state?.unmappedDirectories.length}
 		<div class="unmapped card-base">
@@ -550,6 +596,11 @@ onMount(() => {
 	.message { margin: 0.75rem 0; padding: 0.7rem 0.85rem; border-radius: 0.4rem; font-size: 0.82rem; }
 	.message.error { border: 1px solid rgb(196 61 61 / 0.3); background: rgb(196 61 61 / 0.08); color: #c43d3d; }
 	.message.success { border: 1px solid rgb(35 139 82 / 0.25); background: rgb(35 139 82 / 0.08); color: #238b52; }
+ .integrity { padding: .85rem 1rem; margin: .75rem 0; display: grid; gap: .45rem; font-size: .82rem; }
+ .integrity > span { opacity: .7; }
+ .integrity ul { margin: 0; padding-left: 1.2rem; display: grid; gap: .25rem; }
+ .integrity li.error { color: #c43d3d; }
+ .integrity p { margin: 0; opacity: .7; }
 	.unmapped { padding: 0.8rem 1rem; margin-bottom: 0.75rem; }
 	.unmapped > div { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-top: 0.55rem; }
 	.admin-layout { display: grid; grid-template-columns: minmax(13rem, 16rem) minmax(0, 1fr); gap: 0.8rem; align-items: start; }

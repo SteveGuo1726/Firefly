@@ -64,6 +64,16 @@ function isAllowedOrigin(request: Request, env: Env): boolean {
 	return !origin || origin === (env.ALLOWED_ORIGIN || "https://blog.casto.top");
 }
 
+function withPublicGalleryCors(response: Response): Response {
+ const headers = new Headers(response.headers);
+ headers.set("Access-Control-Allow-Origin", "*");
+ headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+ headers.set("Access-Control-Allow-Headers", "Content-Type");
+ return new Response(response.body, {
+  status: response.status, statusText: response.statusText, headers,
+ });
+}
+
 function withCors(response: Response, request: Request, env: Env): Response {
 	const origin = request.headers.get("Origin");
 	if (!origin || !isAllowedOrigin(request, env)) return response;
@@ -591,11 +601,9 @@ async function handlePublicGallery(
 			},
 			{ headers },
 		);
-	} catch (error) {
-		return errorResponse(
-			error instanceof Error ? error.message : "相册读取失败。",
-			503,
-		);
+	} catch {
+        // Do not leak KV or upstream exception details in a public response.
+		return errorResponse("公开相册暂时不可用。", 503);
 	}
 }
 
@@ -790,14 +798,19 @@ async function handleAdminApi(request: Request, env: Env): Promise<Response> {
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const pathname = new URL(request.url).pathname;
+        // Public album GET may be embedded in cloud development previews.
+        // Admin/write endpoints keep their same-origin and auth restrictions.
+        if (pathname === "/api/gallery/public" && request.method === "OPTIONS") {
+          return withPublicGalleryCors(new Response(null,{status:204}));
+        }
+        if (pathname === "/api/gallery/public" && request.method === "GET") {
+          return withPublicGalleryCors(await handlePublicGallery(request,env));
+        }
 		if (pathname.startsWith("/api/") && !isAllowedOrigin(request, env)) {
 			return errorResponse("请求来源不受信任。", 403);
 		}
 		if (pathname.startsWith("/api/") && request.method === "OPTIONS") {
 			return withCors(new Response(null, { status: 204 }), request, env);
-		}
-		if (pathname === "/api/gallery/public" && request.method === "GET") {
-			return withCors(await handlePublicGallery(request, env), request, env);
 		}
 		if (pathname.startsWith("/api/admin/")) {
 			return withCors(await handleAdminApi(request, env), request, env);
