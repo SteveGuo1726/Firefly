@@ -3,6 +3,7 @@ import {edgeOneAtomicAuthStore,assertEdgeOneAtomicWrites} from "./edgeone-store.
 import {createAdminSessionService} from "./session-service.js";
 import {readAdminSessionId} from "./controller.js";
 
+let cachedBlob=null;
 const routes=new Set([
  "/api/admin/gallery/state",
  "/api/admin/gallery/manifest",
@@ -15,7 +16,7 @@ const routes=new Set([
 ]);
 const allowedMethods=new Set(["GET","POST","PUT"]);
 
-export async function proxyGalleryManagement(request,{env=process.env,fetcher=fetch,storeFactory=()=>getStore({name:"firefly-auth-live",consistency:"strong"})}={}){
+export async function proxyGalleryManagement(request,{env=process.env,fetcher=fetch,storeFactory=()=>cachedBlob||(cachedBlob=getStore({name:"firefly-auth-live",consistency:"strong"}))}={}){
  const url=new URL(request.url);
  if(!routes.has(url.pathname)||!allowedMethods.has(request.method))return new Response("Not Found",{status:404});
  if(request.method!=="GET"&&request.headers.get("Origin")!==url.origin){
