@@ -319,7 +319,7 @@ export function createLiveContentService({
 			{
 				headers: {
 					Accept: "application/vnd.github+json",
-					Authorization: `Bearer ${token}`,
+					...(token ? { Authorization: `Bearer ${token}` } : {}),
 					"User-Agent": "Firefly-Live-Content",
 					"X-GitHub-Api-Version": "2022-11-28",
 				},
