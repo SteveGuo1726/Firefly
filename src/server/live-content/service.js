@@ -406,7 +406,8 @@ export function createLiveContentService({
 			return json({ error: "Live revision unavailable" }, 503);
 		}
 
-		const hasAuthorization = (request.headers.get("Authorization") || "").startsWith("Bearer ");
+		const hasAuthorization = (request.headers.get("Authorization") || "").startsWith("Bearer ") ||
+			(typeof authorizeSession === "function" && (request.headers.get("Cookie") || "").includes("__Host-firefly-admin="));
 		if (hasAuthorization) {
 			const auth = await requireAdmin(request);
 			if (auth.error) return auth.error;
@@ -762,7 +763,9 @@ export function createLiveContentService({
 						updatedBy: ALLOWED_LOGIN,
 					  }
 					: await store.getJSON(itemKey(kind, entry.id, entry.revision));
-				if (!item) continue;
+				if (!item || item.kind !== kind || item.id !== entry.id || item.revision !== entry.revision) {
+					throw new Error(`Backup integrity failure: missing or mismatched ${kind}:${entry.id}@${entry.revision}`);
+				}
 				if (kind === "post") result.posts.push(item);
 				else result.dynamics.push(item);
 			}
