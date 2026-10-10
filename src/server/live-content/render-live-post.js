@@ -13,11 +13,11 @@ export function livePostIdFromRequest(request) {
 	let id;
 	try {
 		id = decodeURIComponent(pathname.slice("/posts/".length))
-			.replace(/^\\/+|\\/+$/g, "");
+			.replace(/^\/+|\/+$/g, "");
 	} catch {
 		return null;
 	}
-	if (!id || id.includes("..") || id.includes("\\\\") || /[\\u0000-\\u001f\\u007f]/.test(id)) return null;
+	if (!id || id.includes("..") || id.includes("\\") || /[\u0000-\u001f\u007f]/.test(id)) return null;
 	if (id.split("/").some(segment => !segment || segment === ".")) return null;
 	return id;
 }
