@@ -37,6 +37,7 @@ let errorMessage = $state("");
 let successMessage = $state("");
 let draggedAlbumId = $state("");
 let draggedPhotoKey = $state("");
+let stateLoadGeneration = 0;
 
 const selectedAlbum = $derived(
 	manifest.albums.find((album) => album.id === selectedId) || null,
@@ -110,26 +111,36 @@ async function refreshRemoteStatePreservingManifest() {
 }
 
 async function loadState(preferredId = selectedId) {
-	if (dirty && !confirm("相册有尚未保存的修改，刷新将丢失这些修改。确定继续吗？")) return;
+	const generation = ++stateLoadGeneration;
 	if (!session) {
 		state = null;
 		manifest = { version: 1, updatedAt: "", albums: [] };
+		selectedId = "";
+		dirty = false;
+		errorMessage = "";
+		successMessage = "";
+		loading = false;
 		return;
 	}
+	if (dirty && !confirm("相册有尚未保存的修改，刷新将丢失这些修改。确定继续吗？")) return;
 	loading = true;
 	errorMessage = "";
 	try {
-		state = await fetchGalleryAdminState();
-		manifest = cloneManifest(state.manifest);
+		const incoming = await fetchGalleryAdminState();
+		if (generation !== stateLoadGeneration || !session) return;
+		state = incoming;
+		manifest = cloneManifest(incoming.manifest);
 		selectedId =
 			manifest.albums.find((album) => album.id === preferredId)?.id ||
 			manifest.albums[0]?.id ||
 			"";
 		dirty = false;
 	} catch (error) {
-		setMessage(error instanceof Error ? error.message : "相册读取失败。", true);
+		if (generation === stateLoadGeneration) {
+			setMessage(error instanceof Error ? error.message : "相册读取失败。", true);
+		}
 	} finally {
-		loading = false;
+		if (generation === stateLoadGeneration) loading = false;
 	}
 }
 
@@ -229,6 +240,7 @@ async function uploadFiles(event: Event) {
  const files=Array.from(input.files||[]);
  const target=selectedAlbum;
  if(!target||files.length===0)return;
+ const existingOrder=orderedPhotos.map(photo=>photo.key);
  uploading=true;errorMessage="";
  const uploaded:ManagedGalleryPhoto[]=[];
  try{
@@ -238,13 +250,12 @@ async function uploadFiles(event: Event) {
  }finally{
   if(uploaded.length){
    try{
-    const previous=[...target.photoOrder];
     await refreshRemoteStatePreservingManifest();
     const active=manifest.albums.find(album=>album.id===target.id);
     if(active){
      const keys=uploaded.map(photo=>photo.key);
      selectedId=active.id;
-     updateAlbum({photoOrder:[...previous.filter(key=>!keys.includes(key)),...keys]});
+     updateAlbum({photoOrder:[...existingOrder.filter(key=>!keys.includes(key)),...keys]});
      if(uploaded.length===files.length)setMessage(`已上传 ${uploaded.length} 张图片，请保存相册清单。`);
     }
    }catch(error){setMessage("图片已上传，但同步相册清单失败；请刷新图床并检查未纳入相册的图片。",true);}
@@ -261,9 +272,9 @@ async function removePhoto(photo: ManagedGalleryPhoto) {
 		return;
 	try {
 		await deleteImageBedFile(photo.key);
-		const nextOrder = selectedAlbum.photoOrder.filter(
-			(key) => key !== photo.key,
-		);
+		const nextOrder = orderedPhotos.filter(
+			(item) => item.key !== photo.key,
+		).map((item) => item.key);
 		const nextCover =
 			selectedAlbum.cover === photo.key
 				? nextOrder[0] || ""
@@ -283,8 +294,8 @@ async function renamePhoto(photo: ManagedGalleryPhoto) {
 	const newKey = `${selectedAlbum.sourceDir}/${nextName}`;
 	try {
 		const result = await renameImageBedFile(photo.key, newKey);
-		const nextOrder = selectedAlbum.photoOrder.map((key) =>
-			key === photo.key ? result.newKey : key,
+		const nextOrder = orderedPhotos.map((item) =>
+			item.key === photo.key ? result.newKey : item.key,
 		);
 		const nextCover =
 			selectedAlbum.cover === photo.key ? result.newKey : selectedAlbum.cover;
@@ -310,8 +321,8 @@ async function renameDirectory() {
 	const nextDir = `photos/${value}`;
 	try {
 		const moved = await renameImageBedAlbum(current, nextDir);
-		const nextOrder = selectedAlbum.photoOrder.map(
-			(key) => moved[key] || `${nextDir}/${key.slice(current.length + 1)}`,
+		const nextOrder = orderedPhotos.map(
+			(photo) => moved[photo.key] || `${nextDir}/${photo.key.slice(current.length + 1)}`,
 		);
 		const nextCover = selectedAlbum.cover
 			? moved[selectedAlbum.cover] ||
