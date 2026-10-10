@@ -227,3 +227,9 @@ test("recovered editor drafts retain revision and base Git identity instead of b
   assert.match(component,/originalSource=typeof draft\.originalSource/);
  }
 });
+
+test("public static management index excludes draft and protected metadata",async()=>{
+ const source=await readFile("src/pages/api/admin-content-index.json.ts","utf8");
+ assert.match(source,/filter\(\(post\)=>!post\.data\.draft && !post\.data\.protected\)/);
+ assert.doesNotMatch(source,/draft:post\.data\.draft/);
+});
