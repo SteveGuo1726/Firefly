@@ -150,6 +150,7 @@ export function createLiveContentService({
 	routePrefix = "/api/live-content",
 	region,
 	authorize,
+	authorizeSession,
 }) {
 	const authCache = new Map();
 	const repoWriterCache = new Map();
@@ -216,7 +217,13 @@ export function createLiveContentService({
 		const token = authorization.startsWith("Bearer ")
 			? authorization.slice(7).trim()
 			: "";
-		if (!token) return { error: json({ error: "需要 GitHub 管理登录。" }, 401) };
+		if (!token) {
+			if (typeof authorizeSession === "function") {
+				const result = await authorizeSession(request);
+				if (result?.ok) return { token: "", login: result.login };
+			}
+			return { error: json({ error: "需要 GitHub 管理登录。" }, 401) };
+		}
 
 		const hash = await digestToken(token);
 		if ((authCache.get(hash) || 0) > Date.now()) return { token };
@@ -341,7 +348,8 @@ export function createLiveContentService({
 		const kind = normalizeKind(url.searchParams.get("kind"));
 		if (!kind) return json({ error: "kind 必须是 post 或 dynamic。" }, 400);
 		let entries = await readPointers(kind);
-		const hasAuthorization = (request.headers.get("Authorization") || "").startsWith("Bearer ");
+		const hasAuthorization = (request.headers.get("Authorization") || "").startsWith("Bearer ") ||
+			(typeof authorizeSession === "function" && (request.headers.get("Cookie") || "").includes("__Host-firefly-admin="));
 		if (hasAuthorization) {
 			const auth = await requireAdmin(request);
 			if (auth.error) return auth.error;
