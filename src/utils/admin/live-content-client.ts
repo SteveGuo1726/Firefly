@@ -175,3 +175,18 @@ export async function restoreLiveContentRevision(options: {
  announceLiveMutation(options.kind);
  return result;
 }
+
+export async function undoGitBaselineDeletion(options: {
+ session: GitHubAdminSession;
+ kind: LiveContentKind;
+ id: string;
+ expectedRevision: string;
+}): Promise<{ok:boolean;restoredGitBaseline:boolean}> {
+ const result=await readJson(await fetch(endpoint("/undo-delete"),{
+  method:"POST",
+  headers:{Authorization:`Bearer ${options.session.token}`,"Content-Type":"application/json"},
+  body:JSON.stringify({kind:options.kind,id:options.id,expectedRevision:options.expectedRevision}),
+ }));
+ announceLiveMutation(options.kind);
+ return result;
+}
