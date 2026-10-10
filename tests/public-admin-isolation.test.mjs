@@ -155,3 +155,27 @@ test("private editors restore drafts and clear drafts only on successful mutatio
   assert.ok(content.includes('"'+kind+'"'));
  }
 });
+
+test("both content managers expose authenticated history and safe revision restore",async()=>{
+ const api=await readFile("src/server/live-content/service.js","utf8");
+ const client=await readFile("src/utils/admin/live-content-client.ts","utf8");
+ assert.match(api,/async function handleHistory/);
+ assert.match(api,/async function handleRestore/);
+ assert.match(api,/path === "\/restore"/);
+ assert.match(api,/path === "\/history"/);
+ assert.match(client,/fetchLiveContentHistory/);
+ assert.match(client,/restoreLiveContentRevision/);
+ for(const name of ["AdminPostManager","AdminDynamicManager"]){
+  const editor=await readFile("src/components/pages/admin/"+name+".svelte","utf8");
+  assert.match(editor,/async function loadHistory/);
+  assert.match(editor,/async function restoreHistory/);
+  assert.match(editor,/historyRevision/);
+  assert.match(editor,/guardUnsaved\(\)/);
+ }
+});
+test("lightbox photo detail captions are HTML escaped",async()=>{
+ const gallery=await readFile("src/components/pages/gallery/GalleryAlbumRuntime.svelte","utf8");
+ assert.match(gallery,/safeCaption\(photo.name, photo.width, photo.height, photo.size\)/);
+ assert.match(gallery,/replaceAll\("<", "&lt;"\)/);
+ assert.match(gallery,/caption: true/);
+});
