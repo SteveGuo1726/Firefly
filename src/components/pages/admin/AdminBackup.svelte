@@ -23,7 +23,7 @@ async function downloadBackup(){
   }finally{
    window.setTimeout(()=>URL.revokeObjectURL(address),5000);
   }
-  success="已生成本地实时内容备份。请妥善保存：文件可能包含未公开文章和动态正文。";
+  success=`已校验并导出 ${documents.length} 条实时内容记录。文件可能包含未公开文章和动态正文，请妥善保存。`;
  }catch(e){
   error=e instanceof Error?e.message:"备份下载失败。";
  }finally{busy=false;}
