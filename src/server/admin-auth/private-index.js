@@ -24,7 +24,7 @@ export async function buildPrivatePostIndex({token,owner,repo,branch,fetcher=fet
   const {data}=matter(source);
   const text=value=>value==null?"":value instanceof Date?value.toISOString():String(value);
   const list=value=>Array.isArray(value)?value.map(text).filter(Boolean):[];
-  return {id:file.path.slice("src/content/posts/".length).replace(/\\.mdx?$/,""),path:file.path,
+  return {id:file.path.slice("src/content/posts/".length).replace(/\.mdx?$/,""),path:file.path,
    title:text(data.title),description:text(data.description),published:text(data.published),
    updated:text(data.updated),category:text(data.category),tags:list(data.tags),
    draft:data.draft===true,pinned:data.pinned===true,image:text(data.image)};
