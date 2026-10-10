@@ -889,3 +889,25 @@ test("backup contains previous immutable versions and current pointer without om
  assert.equal(backup.history.filter(x=>x.id==="history-export").length,2);
  assert.ok(backup.history.some(x=>x.revision===first.revision&&x.source.includes("First")));
 });
+
+
+test("backup export rejects corrupt pointers rather than silently dropping content", async () => {
+ const store=makeStore(),handle=createService(store);
+ store.data.set("v3/pointers/posts/secret.json",{
+  schemaVersion:3,kind:"post",id:"secret",revision:"missing",
+  path:"src/content/posts/../secret.md",deleted:false,
+ });
+ const backup=await handle(request("/api/live-content/export",{headers:adminHeaders()}));
+ assert.equal(backup.status,500);
+});
+
+test("backup export rejects mismatched immutable revision keys", async () => {
+ const store=makeStore(),handle=createService(store);
+ store.data.set("v3/items/posts/wrong/11111111-1111-4111-8111-111111111111.json",{
+  schemaVersion:3,kind:"post",id:"another",
+  revision:"11111111-1111-4111-8111-111111111111",
+  path:"src/content/posts/another.md",source:"secret",deleted:false,
+ });
+ const backup=await handle(request("/api/live-content/export",{headers:adminHeaders()}));
+ assert.equal(backup.status,500);
+});
