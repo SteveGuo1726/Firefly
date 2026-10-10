@@ -64,6 +64,8 @@ type PreviewDeps = {
 	rehypeSlug: GenericPlugin;
 	rehypeAutolinkHeadings: GenericPlugin;
 	rehypeCallouts: GenericPlugin;
+	codeGroup: GenericPlugin;
+	admonition: GenericPlugin;
 	visit: GenericVisit;
 };
 
@@ -503,6 +505,8 @@ async function loadPreviewDeps(): Promise<PreviewDeps> {
 				rehypeSlugModule,
 				rehypeAutolinkHeadingsModule,
 				rehypeCalloutsModule,
+				codeGroupModule,
+				admonitionModule,
 				visitModule,
 			] = await Promise.all([
 				import("unified"),
@@ -518,6 +522,8 @@ async function loadPreviewDeps(): Promise<PreviewDeps> {
 				import("rehype-slug"),
 				import("rehype-autolink-headings"),
 				import("rehype-callouts"),
+				import("rehype-code-group"),
+				import("remark-admonition-to-blockquote-callout"),
 				import("unist-util-visit"),
 			]);
 
@@ -536,6 +542,8 @@ async function loadPreviewDeps(): Promise<PreviewDeps> {
 				rehypeAutolinkHeadings:
 					rehypeAutolinkHeadingsModule.default as GenericPlugin,
 				rehypeCallouts: rehypeCalloutsModule.default as GenericPlugin,
+				codeGroup: codeGroupModule.default as GenericPlugin,
+				admonition: admonitionModule.default as GenericPlugin,
 				visit: visitModule.visit as GenericVisit,
 			};
 		})();
@@ -845,6 +853,7 @@ export async function renderFireflyPreview(
 		.use(deps.remarkGfm)
 		.use(deps.remarkDirective)
 		.use(deps.remarkMath)
+		.use(deps.admonition)
 		.use(createGithubDirectivePlugin(deps.visit))
 		.use(createMermaidDirectivePlugin(deps.visit))
 		.use(createPlantumlDirectivePlugin(deps.visit))
@@ -858,6 +867,7 @@ export async function renderFireflyPreview(
 			theme: options.calloutTheme || siteConfig.post.rehypeCallouts.theme,
 		})
 		.use(deps.rehypeSlug)
+		.use(deps.codeGroup)
 		.use(rehypeFigure)
 		.use(rehypeExternalLinks, { siteUrl: siteConfig.site_url })
 		.use(deps.rehypeAutolinkHeadings, {
