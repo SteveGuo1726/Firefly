@@ -763,7 +763,8 @@ export function createLiveContentService({
 						updatedBy: ALLOWED_LOGIN,
 					  }
 					: await store.getJSON(itemKey(kind, entry.id, entry.revision));
-				if (!item || item.kind !== kind || item.id !== entry.id || item.revision !== entry.revision) {
+				if (!item || item.kind !== kind || item.id !== entry.id || item.revision !== entry.revision ||
+					(!entry.deleted && (item.deleted || typeof item.source !== "string"))) {
 					throw new Error(`Backup integrity failure: missing or mismatched ${kind}:${entry.id}@${entry.revision}`);
 				}
 				if (kind === "post") result.posts.push(item);
