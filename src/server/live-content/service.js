@@ -151,6 +151,7 @@ export function createLiveContentService({
 	region,
 	authorize,
 	authorizeSession,
+	distributedLock,
 }) {
 	const authCache = new Map();
 	const repoWriterCache = new Map();
@@ -169,6 +170,11 @@ export function createLiveContentService({
 				mutationLocks.set(key, current);
 				await previous;
 				releases.push({ key, current, release });
+			}
+			if (distributedLock) {
+				const releaseDistributed = await distributedLock.acquire(ordered);
+				try { return await operation(); }
+				finally { await releaseDistributed(); }
 			}
 			return await operation();
 		} finally {
@@ -827,6 +833,7 @@ export function createLiveContentService({
 			}
 			return json({ error: "Not Found", path, method: request.method }, 404);
 		} catch (error) {
+			if (error?.code === "CONTENT_LOCK_BUSY") return json({error:"内容正在其他节点保存，请稍后重试。"},409);
 			console.error("[Firefly live content]", error);
 			return json({
 				error: error instanceof Error ? error.message : "Live content service failed.",
