@@ -179,3 +179,14 @@ test("lightbox photo detail captions are HTML escaped",async()=>{
  assert.match(gallery,/replaceAll\("<", "&lt;"\)/);
  assert.match(gallery,/caption: true/);
 });
+
+test("deleted post and moment records are recoverable from the admin UI",async()=>{
+ for(const filename of ["AdminPostManager.svelte","AdminDynamicManager.svelte"]){
+  const source=await readFile("src/components/pages/admin/"+filename,"utf8");
+  assert.match(source,/deletedRows\.push\(/);
+  assert.match(source,/async function openDeleted/);
+  assert.match(source,/已删除 \(\{deletedRows\.length\}\)/);
+  assert.match(source,/await loadHistory\(\)/);
+  assert.match(source,/restoreLiveContentRevision/);
+ }
+});
