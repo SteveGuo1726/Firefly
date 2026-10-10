@@ -8,12 +8,12 @@ import type { GitHubAdminSession } from "@/utils/admin/github-session";
 import { buildDynamicDocument, excerptMarkdown, parseDynamicDocument, type AdminDynamicFields } from "@/utils/admin/content-format";
 import { fetchGitContentSource } from "@/utils/admin/github-content-reader";
 import { deleteLiveContentItem, fetchLiveContentIndex, fetchLiveContentItem, saveLiveContentItem, fetchLiveContentHistory, restoreLiveContentRevision, undoGitBaselineDeletion, type LiveHistoryEntry } from "@/utils/admin/live-content-client";
-import { renderFireflyPreview } from "@/utils/write/preview";
+import { createPreviewController } from "@/utils/admin/preview-controller";
 
 export let session:GitHubAdminSession;
 type Base={id:string;path:string;published:string;pinned:boolean;location:string;excerpt:string};
 type Row=Base&{live:boolean;baseGitSha:string;revision:string};
-let rows:Row[]=[];let query="";let loading=false;let opening=false;let saving=false;let deleting=false;let currentId="";let currentPath="";let loadedPath="";let baseGitSha="";let liveRevision="";let originalSource="";let fields:AdminDynamicFields={published:"",pinned:false,location:""};let body="";let previewHtml="";let message="";let error="";let previewTimer:ReturnType<typeof setTimeout>|null=null;
+let rows:Row[]=[];let query="";let loading=false;let opening=false;let saving=false;let deleting=false;let currentId="";let currentPath="";let loadedPath="";let baseGitSha="";let liveRevision="";let originalSource="";let fields:AdminDynamicFields={published:"",pinned:false,location:""};let body="";let previewHtml="";let message="";let error="";let previewLoading=false;let previewFailure="";
 let savedEditorSnapshot="";
 let imageUploading=false;let editorTextarea:HTMLTextAreaElement|null=null;
 let liveIndexHealthy=false;
@@ -34,24 +34,39 @@ async function liveMeta(){
 		images.push({alt,src,...(title?{title}:{})});
 		return "";
 	});
-	const html=await renderFireflyPreview({source:markdown,calloutTheme:siteConfig.post.rehypeCallouts.theme});
+	const html=await previewController.renderNow({source:markdown});
 	return{...baseMeta(),html,images,searchText:[excerptMarkdown(body,1200),fields.location].filter(Boolean).join(" ").toLocaleLowerCase()};
 }
 async function refresh(){liveIndexHealthy=false;loading=true;error="";try{const baseRes=await fetch("/api/admin-content-index.json",{cache:"no-store"});if(!baseRes.ok)throw new Error("读取构建期内容索引失败。");const base=await baseRes.json();deletedRows=[];const map=new Map<string,Row>((base.dynamics as Base[]).map(x=>[x.id,{...x,live:false,baseGitSha:"",revision:""}]));try{const live=await fetchLiveContentIndex("dynamic",session);for(const e of live.entries){if(e.deleted){deletedRows.push({id:e.id,path:e.path||"",revision:e.revision||"",baseGitSha:e.baseGitSha||""});map.delete(e.id);continue;}const old=map.get(e.id);const m=e.meta as Partial<Base>;map.set(e.id,{id:e.id,path:e.path||old?.path||`src/content/dynamic/${e.id}.md`,published:String(m.published??old?.published??""),pinned:Boolean(m.pinned??old?.pinned??false),location:String(m.location??old?.location??""),excerpt:String(m.excerpt??old?.excerpt??""),live:true,baseGitSha:e.baseGitSha||"",revision:e.revision||""});}}catch(e){throw new Error("实时内容索引读取失败：已停止刷新，避免将过期 Git 列表误认为实时数据。", {cause:e});}liveIndexHealthy=true;rows=[...map.values()].sort((a,b)=>Date.parse(b.published||"0")-Date.parse(a.published||"0"));}catch(e){liveIndexHealthy=false;error=e instanceof Error?e.message:"动态列表读取失败。";}finally{loading=false;}}
-async function open(row:Row){if(saving||deleting||opening||!guardUnsaved())return;historyEntries=[];historyRevision="";deletedGitSha="";opening=true;error="";message="";try{let source="";let sha=row.baseGitSha;if(row.live){const live=await fetchLiveContentItem("dynamic",row.id,session);if(live?.source){source=live.source;sha=live.baseGitSha||sha;liveRevision=live.revision||row.revision||"";}}else{liveRevision="";}if(!source){const git=await fetchGitContentSource(session,row.path);source=git.source;sha=git.sha;}const parsed=parseDynamicDocument(source);currentId=row.id;currentPath=row.path;loadedPath=row.path;baseGitSha=sha;originalSource=source;fields=parsed.fields;body=parsed.body;savedEditorSnapshot=editorSnapshot();await updatePreview();}catch(e){error=e instanceof Error?e.message:"读取动态失败。";}finally{opening=false;}}
+async function open(row:Row){if(saving||deleting||opening||!guardUnsaved())return;historyEntries=[];historyRevision="";deletedGitSha="";opening=true;error="";message="";previewController.cancel();previewHtml="";previewLoading=false;previewFailure="";try{let source="";let sha=row.baseGitSha;if(row.live){const live=await fetchLiveContentItem("dynamic",row.id,session);if(live?.source){source=live.source;sha=live.baseGitSha||sha;liveRevision=live.revision||row.revision||"";}}else{liveRevision="";}if(!source){const git=await fetchGitContentSource(session,row.path);source=git.source;sha=git.sha;}const parsed=parseDynamicDocument(source);currentId=row.id;currentPath=row.path;loadedPath=row.path;baseGitSha=sha;originalSource=source;fields=parsed.fields;body=parsed.body;savedEditorSnapshot=editorSnapshot();updatePreview();}catch(e){error=e instanceof Error?e.message:"读取动态失败。";}finally{opening=false;}}
 function nowText(){const p=Object.fromEntries(new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Shanghai",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(new Date()).filter(x=>x.type!=="literal").map(x=>[x.type,x.value]));return`${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}`;}
 function fileFromDate(v:string){const m=/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(v);return m?`${m[1]}-${m[2]}-${m[3]}-${m[4]}${m[5]}${m[6]}.md`:`dynamic-${Date.now()}.md`;}
 function createNew(){if(saving||deleting||opening||!guardUnsaved())return;const published=nowText();historyEntries=[];historyRevision="";deletedGitSha="";currentId="";currentPath="src/content/dynamic/"+fileFromDate(published);loadedPath="";baseGitSha="";liveRevision="";originalSource="";fields={published,pinned:false,location:""};body="";message="新动态尚未写入 Blob。";error="";savedEditorSnapshot=editorSnapshot();void updatePreview();}
 async function save(){if(imageUploading){error="请等待图片上传完成后再保存。";return;}if(!liveIndexHealthy){error="实时内容索引尚未成功同步，请刷新列表后重试保存。";return;}if(!/^\d{4}-\d{2}-\d{2} [0-2]\d:[0-5]\d:[0-5]\d$/.test(fields.published.trim())){error="发布时间格式必须为 YYYY-MM-DD HH:mm:ss。";return;}if(!body.trim()){error="动态正文不能为空。";return;}let path:string;try{path=normalizePath(currentPath);}catch(e){error=e instanceof Error?e.message:"路径无效。";return;}const nextId=idFromPath(path);if(rows.some((row)=>row.id===nextId&&row.id!==currentId)){error="目标动态路径已经存在，请换一个文件路径。";return;}const source=buildDynamicDocument(fields,body,originalSource);saving=true;error="";message="";try{const publicMeta=await liveMeta();const result=await saveLiveContentItem({session,kind:"dynamic",id:nextId,path,source,meta:publicMeta,baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision,previousId:currentId&&currentId!==nextId?currentId:undefined,previousPath:currentId&&currentId!==nextId?loadedPath:undefined,previousBaseGitSha:currentId&&currentId!==nextId?baseGitSha:undefined,previousBaseGitBranch:session.branch});currentId=nextId;currentPath=path;loadedPath=path;liveRevision=result.revision;originalSource=source;savedEditorSnapshot=editorSnapshot();try{clearDraft(window.sessionStorage,"dynamic",session.login);}catch{}message=`实时版本已保存：${result.revision.slice(0,8)}。未创建 Git commit。`;await refresh();}catch(e){error=e instanceof Error?e.message:"保存失败。";}finally{saving=false;}}
-async function remove(){if(!liveIndexHealthy){error="实时内容索引尚未成功同步，请刷新列表后重试删除。";return;}if(!currentId||!confirm(`确定隐藏 ${currentPath}？Git 归档前不会删除仓库文件。`))return;deleting=true;error="";message="";try{await deleteLiveContentItem({session,kind:"dynamic",id:currentId,path:loadedPath||currentPath,meta:baseMeta(),baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision});currentId="";currentPath="";loadedPath="";originalSource="";liveRevision="";baseGitSha="";fields={published:"",pinned:false,location:""};body="";previewHtml="";savedEditorSnapshot=editorSnapshot();try{clearDraft(window.sessionStorage,"dynamic",session.login);}catch{}await refresh();message="已写入实时删除标记；Git 仓库尚未改动。";}catch(e){error=e instanceof Error?e.message:"删除失败。";}finally{deleting=false;}}
-async function updatePreview(){try{previewHtml=await renderFireflyPreview({source:body,calloutTheme:siteConfig.post.rehypeCallouts.theme});}catch(e){previewHtml=`<p>${e instanceof Error?e.message:"预览失败"}</p>`;}}
-function schedulePreview(){if(previewTimer)clearTimeout(previewTimer);previewTimer=setTimeout(()=>void updatePreview(),180);}
+async function remove(){if(!liveIndexHealthy){error="实时内容索引尚未成功同步，请刷新列表后重试删除。";return;}if(!currentId||!confirm(`确定隐藏 ${currentPath}？Git 归档前不会删除仓库文件。`))return;deleting=true;error="";message="";try{await deleteLiveContentItem({session,kind:"dynamic",id:currentId,path:loadedPath||currentPath,meta:baseMeta(),baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision});currentId="";currentPath="";loadedPath="";originalSource="";liveRevision="";baseGitSha="";fields={published:"",pinned:false,location:""};body="";previewController.cancel();previewHtml="";previewLoading=false;previewFailure="";savedEditorSnapshot=editorSnapshot();try{clearDraft(window.sessionStorage,"dynamic",session.login);}catch{}await refresh();message="已写入实时删除标记；Git 仓库尚未改动。";}catch(e){error=e instanceof Error?e.message:"删除失败。";}finally{deleting=false;}}
+// Lazily load the expensive Markdown/MDX renderer; never display stale results.
+const previewController=createPreviewController(
+ async document=>{
+  const {renderFireflyPreview}=await import("@/utils/write/preview");
+  return renderFireflyPreview({
+   source:document.source,calloutTheme:siteConfig.post.rehypeCallouts.theme,
+   ...(document.isMdx?{isMdx:true}:{})
+  });
+ },
+ {
+  onReady:html=>{previewHtml=html;previewLoading=false;previewFailure="";},
+  onBusy:()=>{previewLoading=true;previewFailure="";previewHtml="";},
+  onFailure:message=>{previewHtml="";previewLoading=false;previewFailure=message;},
+ },
+);
+function updatePreview(){previewController.schedule({source:body},true);}
+function schedulePreview(){previewController.schedule({source:body});}
 async function openDeleted(item:{id:string;path:string;revision:string;baseGitSha:string}){
  if(saving||deleting||opening||!guardUnsaved())return;
  currentId=item.id;currentPath=item.path;loadedPath=item.path;
  liveRevision=item.revision;baseGitSha=item.baseGitSha;deletedGitSha=item.baseGitSha;originalSource="";body="";
  fields={published:"",pinned:false,location:""};
- historyEntries=[];historyRevision="";previewHtml="";
+ historyEntries=[];historyRevision="";previewController.cancel();previewHtml="";previewLoading=false;previewFailure="";
  savedEditorSnapshot=editorSnapshot();
  message="已选中删除记录。请从历史版本中选择需要恢复的内容。";error="";
  await loadHistory();
@@ -151,7 +166,7 @@ onMount(()=>{
   persist();
   window.clearInterval(interval);
   window.removeEventListener("pagehide",persist);
-  if(previewTimer)clearTimeout(previewTimer);
+  previewController.clear();
  };
 });
 </script>
@@ -169,7 +184,11 @@ onMount(()=>{
   <button type="button" onclick={restoreHistory} disabled={!historyRevision||saving||deleting}>恢复所选版本</button>
  {/if}
 </div>
-<div class="status"><div>{#if opening}<span>读取源码...</span>{/if}{#if message}<span class="ok">{message}</span>{/if}{#if error}<span class="bad">{error}</span>{/if}</div><div class="actions"><button class="danger" onclick={remove} disabled={!currentId||saving||deleting}>删除实时版本</button><button class="primary" onclick={save} disabled={saving||deleting||opening}>{saving?"保存中...":"实时保存"}</button></div></div></div><div class="preview"><strong>动态预览</strong><div class="prose prose-base max-w-none custom-md dark:prose-invert">{@html previewHtml}</div></div></div></section>
+<div class="status"><div>{#if opening}<span>读取源码...</span>{/if}{#if message}<span class="ok">{message}</span>{/if}{#if error}<span class="bad">{error}</span>{/if}</div><div class="actions"><button class="danger" onclick={remove} disabled={!currentId||saving||deleting}>删除实时版本</button><button class="primary" onclick={save} disabled={saving||deleting||opening}>{saving?"保存中...":"实时保存"}</button></div></div></div><div class="preview"><strong>动态预览</strong>
+ {#if previewLoading}<p role="status">正在生成预览，可以继续操作...</p>{/if}
+ {#if previewFailure}<p role="alert">{previewFailure}</p>{/if}
+ <div class="prose prose-base max-w-none custom-md dark:prose-invert">{@html previewHtml}</div>
+</div></div></section>
 <style>
 .image-upload{display:flex;align-items:center;flex-wrap:wrap;gap:.6rem;padding:.45rem 0;font-size:.78rem}.image-upload input{font-size:.76rem;max-width:100%}
 .deleted-entries{display:grid;gap:.4rem;padding:.8rem 0;border-top:1px solid var(--line-divider)}.deleted-entries strong{font-size:.8rem;color:#b55050}.deleted-entries button{text-align:left;overflow-wrap:anywhere}
