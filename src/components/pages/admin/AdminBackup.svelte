@@ -11,7 +11,9 @@ async function downloadBackup(){
  try{
   const data=await exportLiveContent(session);
   if(!data || typeof data!=="object" || !Array.isArray((data as any).posts) || !Array.isArray((data as any).dynamics))throw new Error("备份格式异常：缺少文章或动态列表。");
-  const documents=[...(data as any).posts,...(data as any).dynamics];
+  if(!Array.isArray((data as any).history))throw new Error("备份格式异常：缺少历史版本列表。");
+  const history=(data as any).history as any[];
+  const documents=[...(data as any).posts,...(data as any).dynamics,...history];
   for(const item of documents){
    if(!item || typeof item.id!=="string" || typeof item.revision!=="string" || (item.deleted!==true && typeof item.source!=="string")){
     throw new Error("备份完整性校验失败：内容缺少 ID、版本或正文。");
@@ -30,7 +32,7 @@ async function downloadBackup(){
   }finally{
    window.setTimeout(()=>URL.revokeObjectURL(address),5000);
   }
-  success=`已校验并导出 ${documents.length} 条实时内容记录。文件可能包含未公开文章和动态正文，请妥善保存。`;
+  success=`已校验并导出 ${(data as any).posts.length+(data as any).dynamics.length} 条当前内容及 ${history.length} 条历史版本。文件可能包含未公开正文，请妥善保存。`;
  }catch(e){
   error=e instanceof Error?e.message:"备份下载失败。";
  }finally{busy=false;}
