@@ -71,3 +71,12 @@ Before OAuth can replace PAT:
 - Lock collisions return HTTP 409 and never silently overwrite the other writer. Lock expiration is deliberately not auto-recovered: recovery must quiesce writers and clear stale keys explicitly.
 - `tests/live-content-service.test.mjs` now includes an inter-instance lock-collision regression case.
 - **Still unverified**: `pnpm` tests, Astro compilation, EdgeOne SDK runtime compatibility, and gallery browser interactions. No cloud builds triggered.
+
+## 2026-10-10 — Private-index and preview handoff
+
+- Public `/api/admin-content-index.json` filters draft and protected posts. Authenticated `/api/admin/private-index` is implemented in `cloud-functions/api/admin/private-index.js` and returns complete Git baseline metadata without article bodies.
+- OAuth private index requires server-only `FIREFLY_GITHUB_CONTENT_READ_TOKEN`; without it the endpoint fails closed with HTTP 503. Never place this token in a public build variable or client bundle.
+- Private index now parses YAML frontmatter via `gray-matter` and validates the Git tree completeness; regression coverage was added to `tests/admin-oauth-controller.test.mjs`.
+- Backup exports fail closed on missing/mismatched immutable revisions, and client validates source identity. Gallery refresh guards unsaved manifest changes.
+- Historical Cloudflare preview worker: `firefly-blog-preview`; prior build-only command: `pnpm verify:preview`; prior deploy command: `echo 'verify-only: no deployment'`.
+- Current Cloudflare API lookup returns **zero Workers Builds triggers** for `firefly-blog-preview` and `firefly-blog`. Do not claim current SHA was built or deployed; recover/recreate a build-only trigger after verifying repo binding, then explicitly deploy the isolated preview only if requested. No production deployment.
