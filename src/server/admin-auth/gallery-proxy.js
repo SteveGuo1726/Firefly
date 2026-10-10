@@ -40,7 +40,7 @@ export async function proxyGalleryManagement(request,{env=process.env,fetcher=fe
  const headers=new Headers();
  const contentType=request.headers.get("Content-Type");
  if(contentType)headers.set("Content-Type",contentType);
- headers.set("Origin",url.origin);
+ // This is server-to-server. Browser Origin is verified above and never forwarded.
  headers.set("X-Firefly-Service-Key",env.FIREFLY_GALLERY_SERVICE_SECRET);
  const response=await fetcher(upstream.toString(),{
   method:request.method,headers,
