@@ -10,6 +10,13 @@ async function downloadBackup(){
  busy=true;error="";success="";
  try{
   const data=await exportLiveContent(session);
+  if(!data || typeof data!=="object" || !Array.isArray((data as any).posts) || !Array.isArray((data as any).dynamics))throw new Error("备份格式异常：缺少文章或动态列表。");
+  const documents=[...(data as any).posts,...(data as any).dynamics];
+  for(const item of documents){
+   if(!item || typeof item.id!=="string" || typeof item.revision!=="string" || (item.deleted!==true && typeof item.source!=="string")){
+    throw new Error("备份完整性校验失败：内容缺少 ID、版本或正文。");
+   }
+  }
   const text=JSON.stringify(data,null,2);
   if(!text || text==="null" || text==="{}")throw new Error("备份内容为空，已取消导出。");
   const file=new Blob([text],{type:"application/json;charset=utf-8"});
