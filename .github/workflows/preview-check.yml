@@ -2,6 +2,11 @@ name: Preview Branch Check
 
 on:
   workflow_dispatch:
+  # One explicit CI run for preview safety work. Ordinary code pushes stay quiet.
+  push:
+    branches: [ai/preview-test]
+    paths:
+      - .github/workflows/preview-check.yml
 
 concurrency:
   group: preview-check-${{ github.ref }}
