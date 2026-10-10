@@ -143,6 +143,7 @@ async function digestToken(token) {
 		.join("");
 }
 
+/** @param {{store:any,provider:string,storeName:string,routePrefix?:string,region?:any,authorize?:any,authorizeSession?:any,distributedLock?:any}} options */
 export function createLiveContentService({
 	store,
 	provider,
