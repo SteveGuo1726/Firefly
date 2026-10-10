@@ -82,11 +82,11 @@ onMount(()=>{
 		{#if sectionLoading}<section class="login-hint card-base" role="status">正在加载管理模块...</section>
 		{:else if sectionError}<section class="login-hint card-base" role="alert">{sectionError}<button onclick={()=>ensureSectionLoaded()}>重试</button></section>
 		{/if}
-		{#if DashboardComponent && section==="dashboard"}<DashboardComponent {session}/>{/if}
-		{#if BackupComponent && section==="backup"}<BackupComponent {session}/>{/if}
-		{#if PostComponent && section==="posts"}<PostComponent {session}/>{/if}
-		{#if DynamicComponent && section==="dynamic"}<DynamicComponent {session}/>{/if}
-		{#if GalleryComponent && section==="gallery"}<GalleryComponent/>{/if}
+		{#if DashboardComponent}<div hidden={section!=="dashboard"}><DashboardComponent {session}/></div>{/if}
+		{#if BackupComponent}<div hidden={section!=="backup"}><BackupComponent {session}/></div>{/if}
+		{#if PostComponent}<div hidden={section!=="posts"}><PostComponent {session}/></div>{/if}
+		{#if DynamicComponent}<div hidden={section!=="dynamic"}><DynamicComponent {session}/></div>{/if}
+		{#if GalleryComponent}<div hidden={section!=="gallery"}><GalleryComponent/></div>{/if}
 	{/if}
 </div>
 <style>
