@@ -132,3 +132,10 @@ test("gallery lightbox uses a single delegated Fancybox v6 opener",async()=>{
  assert.doesNotMatch(styles,/\.fancybox__button/);
  assert.doesNotMatch(styles,/\.fancybox__container \.fancybox__image/);
 });
+
+test("lazy Fancybox import never binds after album unmount",async()=>{
+ const source=await readFile("src/components/pages/gallery/GalleryAlbumRuntime.svelte","utf8");
+ assert.match(source,/if \(!disposed\) Fancybox\.bind/);
+ assert.match(source,/disposed = true/);
+ assert.match(source,/Fancybox\.unbind\(root, photoSelector\)/);
+});
