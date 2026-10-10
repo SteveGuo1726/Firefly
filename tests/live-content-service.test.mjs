@@ -685,3 +685,11 @@ test("new live article publishes, updates, hides, restores and deletes without a
  assert.equal((await shell()).status,404);
  assert.equal((await handle(request("/api/live-content/item?kind=post&id="+id))).status,410);
 });
+
+test("invalid percent encodings and control bytes do not crash live post routing",async()=>{
+ const {livePostIdFromRequest}=await import("../src/server/live-content/render-live-post.js");
+ for(const path of ["/posts/%ZZ/","/posts/%E0%A4%A/","/posts/%00/","/posts/%7F/","/posts/%2e%2e/"]){
+  assert.equal(livePostIdFromRequest(request(path)),null,path);
+ }
+ assert.equal(livePostIdFromRequest(request("/posts/valid/child/")),"valid/child");
+});
