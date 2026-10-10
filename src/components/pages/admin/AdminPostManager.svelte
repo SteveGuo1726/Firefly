@@ -7,6 +7,7 @@ import { siteConfig } from "@/config/siteConfig";
 import type { GitHubAdminSession } from "@/utils/admin/github-session";
 import { buildPostDocument, emptyPostFields, excerptMarkdown, parsePostDocument, type AdminPostFields } from "@/utils/admin/content-format";
 import { fetchGitContentSource } from "@/utils/admin/github-content-reader";
+import { fetchPrivatePostIndex } from "@/utils/admin/private-content-index";
 import { deleteLiveContentItem, fetchLiveContentIndex, fetchLiveContentItem, saveLiveContentItem, fetchLiveContentHistory, restoreLiveContentRevision, undoGitBaselineDeletion, type LiveHistoryEntry } from "@/utils/admin/live-content-client";
 import { renderFireflyPreview } from "@/utils/write/preview";
 
@@ -44,7 +45,8 @@ async function refresh(){
 		const baseResponse=await fetch("/api/admin-content-index.json",{cache:"no-store"});
 		if(!baseResponse.ok)throw new Error("读取构建期内容索引失败。");
 		const base=await baseResponse.json();
-		deletedRows=[];const map=new Map<string,Row>((base.posts as BasePost[]).map(p=>[p.id,{...p,live:false,baseGitSha:"",revision:""}]));
+		const privatePosts=await fetchPrivatePostIndex(session,base.posts as BasePost[]);
+		deletedRows=[];const map=new Map<string,Row>(privatePosts.map(p=>[p.id,{...p,live:false,baseGitSha:"",revision:""}]));
 		try{
 			const live=await fetchLiveContentIndex("post",session);
 			for(const e of live.entries){
