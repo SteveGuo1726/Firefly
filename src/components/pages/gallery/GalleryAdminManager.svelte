@@ -322,6 +322,7 @@ async function renameDirectory() {
 		});
 		const saved = await saveGalleryManifest(manifest);
 		manifest = cloneManifest(saved);
+		dirty = false;
 		await loadState(selectedId);
 		setMessage("图床目录和相册清单已同步重命名。");
 	} catch (error) {
