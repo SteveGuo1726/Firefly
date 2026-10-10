@@ -2,7 +2,7 @@ import {
 	createLiveContentService,
 	loadLiveContentItem,
 } from "../src/server/live-content/service.js";
-import { renderLivePostFallback } from "../src/server/live-content/render-live-post.js";
+import { livePostIdFromRequest, renderLivePostFallback } from "../src/server/live-content/render-live-post.js";
 
 let cachedService;
 
@@ -49,6 +49,20 @@ export default {
 			return getService(env)(request, { env, ctx });
 		}
 		if (url.pathname.startsWith("/posts/")) {
+			// A published static page must never bypass a newer live draft, protection
+			// flag, or tombstone. Check the overlay before serving bundled HTML.
+			const id = livePostIdFromRequest(request);
+			if (!id) return new Response("Not Found", { status: 404 });
+			const rawPointer = await env.LIVE_CONTENT_PREVIEW.get(`v3/pointers/posts/${id}.json`);
+			if (rawPointer) {
+				const pointer = JSON.parse(rawPointer);
+				if (pointer.deleted || pointer.meta?.draft || pointer.meta?.protected) {
+					return new Response("Not Found", {
+						status: 404,
+						headers: { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" },
+					});
+				}
+			}
 			const asset = await env.ASSETS.fetch(request);
 			if (asset.status !== 404) return asset;
 			return renderLivePostFallback(request, {
