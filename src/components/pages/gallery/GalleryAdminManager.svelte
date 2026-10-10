@@ -1,5 +1,6 @@
 <script lang="ts">
-import { onMount } from "svelte";\nimport { createGalleryManifestBackup, inspectGalleryManifest } from "@/utils/admin/gallery-manifest-backup";
+import { onMount } from "svelte";
+import { createGalleryManifestBackup, inspectGalleryManifest } from "@/utils/admin/gallery-manifest-backup";
 import type {
 	GalleryAdminState,
 	GalleryManifest,
@@ -37,7 +38,9 @@ let errorMessage = $state("");
 let successMessage = $state("");
 let draggedAlbumId = $state("");
 let draggedPhotoKey = $state("");
-let stateLoadGeneration = 0;\nlet showIntegrity = $state(false);\nconst integrity = $derived(inspectGalleryManifest(manifest,state));
+let stateLoadGeneration = 0;
+let showIntegrity = $state(false);
+const integrity = $derived(inspectGalleryManifest(manifest,state));
 
 const selectedAlbum = $derived(
 	manifest.albums.find((album) => album.id === selectedId) || null,

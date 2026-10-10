@@ -17,7 +17,8 @@ type Row=BasePost&{live:boolean;baseGitSha:string;revision:string};
 
 let rows:Row[]=[];let query="";let loading=false;let opening=false;let saving=false;let deleting=false;
 let currentId="";let currentPath="";let loadedPath="";let baseGitSha="";let liveRevision="";let originalSource="";
-let fields:AdminPostFields=emptyPostFields();let body="";let tagsText="";let previewHtml="";let message="";let error="";\nlet previewPresentation:"article"|"body"="article";
+let fields:AdminPostFields=emptyPostFields();let body="";let tagsText="";let previewHtml="";let message="";let error="";
+let previewPresentation:"article"|"body"="article";
 let previewTimer:ReturnType<typeof setTimeout>|null=null;
 let savedEditorSnapshot="";
 let imageUploading=false;let editorTextarea:HTMLTextAreaElement|null=null;

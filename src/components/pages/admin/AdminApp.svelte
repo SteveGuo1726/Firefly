@@ -4,7 +4,8 @@ import {
 	GITHUB_SESSION_CHANGED_EVENT,
 	type GitHubAdminSession,
 	getGitHubAdminSession,
-	refreshOAuthAdminSession,\n    logoutOAuthAdmin,
+	refreshOAuthAdminSession,
+    logoutOAuthAdmin,
 } from "@/utils/admin/github-session";
 import GitHubAdminLogin from "@/components/features/GitHubAdminLogin.svelte";
 
