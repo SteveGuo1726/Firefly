@@ -98,3 +98,14 @@ test("OAuth callback rejects state replay from a different browser even if state
  assert.match(response.headers.get("Location"),/auth=failed/);
  assert.equal(response.headers.get("Set-Cookie"),null);
 });
+
+test("OAuth must refuse old Blob adapters that ignore conditional onlyIfNew writes",async()=>{
+ const {assertEdgeOneAtomicWrites}=await import("../src/server/admin-auth/edgeone-store.js");
+ const values=new Map();
+ const unsafeBlob={
+  async setJSON(key,value){values.set(key,value);},
+  async get(key){return values.get(key)||null;},
+  async delete(key){values.delete(key);},
+ };
+ await assert.rejects(assertEdgeOneAtomicWrites(unsafeBlob),/conditional writes unavailable/);
+});
