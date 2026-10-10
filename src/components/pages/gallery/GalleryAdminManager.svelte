@@ -312,38 +312,59 @@ async function renamePhoto(photo: ManagedGalleryPhoto) {
 }
 
 async function renameDirectory() {
-	if (!selectedAlbum) return;
-	const current = selectedAlbum.sourceDir;
+	if (!selectedAlbum || saving || uploading || loading) return;
+	if (dirty) {
+		setMessage("请先保存当前相册修改，再重命名图床目录。", true);
+		return;
+	}
+	const original = selectedAlbum;
+	const current = original.sourceDir;
 	const value = prompt(
 		"输入 photos/ 下的新目录名",
 		current.slice("photos/".length),
 	)?.trim();
 	if (!value || value.includes("/") || `photos/${value}` === current) return;
 	const nextDir = `photos/${value}`;
+	const previousManifest = cloneManifest(manifest);
+	let filesMoved = false;
+	saving = true;
+	errorMessage = "";
 	try {
 		const moved = await renameImageBedAlbum(current, nextDir);
+		filesMoved = true;
 		const nextOrder = orderedPhotos.map(
 			(photo) => moved[photo.key] || `${nextDir}/${photo.key.slice(current.length + 1)}`,
 		);
-		const nextCover = selectedAlbum.cover
-			? moved[selectedAlbum.cover] ||
-				`${nextDir}/${selectedAlbum.cover.slice(current.length + 1)}`
+		const nextCover = original.cover
+			? moved[original.cover] ||
+				`${nextDir}/${original.cover.slice(current.length + 1)}`
 			: "";
-		updateAlbum({
-			sourceDir: nextDir,
-			photoOrder: nextOrder,
-			cover: nextCover,
-		});
+		updateAlbum({ sourceDir: nextDir, photoOrder: nextOrder, cover: nextCover });
 		const saved = await saveGalleryManifest(manifest);
 		manifest = cloneManifest(saved);
 		dirty = false;
 		await loadState(selectedId);
 		setMessage("图床目录和相册清单已同步重命名。");
 	} catch (error) {
+		let rollbackFailed = false;
+		if (filesMoved) {
+			try {
+				await renameImageBedAlbum(nextDir, current);
+				manifest = previousManifest;
+				dirty = false;
+			} catch {
+				rollbackFailed = true;
+			}
+		}
+		const detail = error instanceof Error ? error.message : "未知错误";
 		setMessage(
-			error instanceof Error ? error.message : "目录重命名失败。",
+			rollbackFailed
+				? `重命名后保存失败（${detail}），图片目录回滚也失败。请先手动核对图床文件和相册清单，暂勿重复操作。`
+				: `目录重命名未完成：${detail}${filesMoved ? "；已尝试恢复原目录。" : ""}`,
 			true,
 		);
+	} finally {
+		saving = false;
 	}
 }
 
