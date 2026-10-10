@@ -49,3 +49,16 @@ Do not invoke Cloudflare build-only, EdgeOne builds, or production deployment on
 
 ## Cost priorities
 Keep hosting entirely on free plans with enough headroom. Mainland speed is a secondary optimization after reliability and truly free service. Do not enable R2, Access, paid China Network, or other billing-dependent products without owner approval. Preserve Cloudflare DNS and Netlify Twikoo until tested migration and rollback exist.
+
+## Implementation note — 2026-10-10
+
+The new `src/server/admin-auth/oauth-core.js` is **server-only groundwork**, not a working login system. It creates random transaction state, builds an OAuth authorization URL, checks callback state expiry, exchanges a code server-side, and builds opaque HttpOnly session cookies; unit tests have been added but are **not yet run in a reliable pnpm environment**.
+
+Before OAuth can replace PAT:
+1. Confirm GitHub OAuth App PKCE support for this particular flow; do not claim PKCE security based only on a generated verifier. The current authorization URL does not yet send a PKCE challenge.
+2. Implement durable short-lived transaction storage and single-use callback consumption; validate session expiry and revocation server-side.
+3. Create GitHub OAuth App credentials with a real callback and store client secret only server-side.
+4. Build auth routes, fetch GitHub identity server-side, bind exact allowlisted administrator, store GitHub token on the server only.
+5. Refactor post/dynamic baseline GitHub readers and all authenticated live-content/gallery write endpoints to use the same session. No PAT fallback once OAuth is accepted.
+6. Test login, logout, expiry, replay, CSRF, failed GitHub responses and cross-origin requests.
+7. Do not expose partial login as production-ready or modify master.
