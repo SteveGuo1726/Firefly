@@ -48,3 +48,12 @@ test("sandbox demo only accepts the exact configured development hostname", asyn
  assert.match(app,/import\.meta\.env\.DEV/);
  assert.match(app,/window\.location\.hostname === SANDBOX_PREVIEW_HOST/);
 });
+
+
+test("persistent v1 preview exposes password login without the sandbox demo flag", async () => {
+ const app=await readFile("src/components/pages/admin/AdminApp.svelte","utf8");
+ assert.match(app,/v1-preview\.casto\.top/);
+ assert.match(app,/previewPasswordLogin=PREVIEW_HOSTS\.has\(window\.location\.hostname\)/);
+ assert.doesNotMatch(app,/previewPasswordLogin=demoSupported/);
+ assert.match(app,/fetch\("\/api\/preview-admin\/login"/);
+});
