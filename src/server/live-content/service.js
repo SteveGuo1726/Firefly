@@ -748,16 +748,37 @@ export function createLiveContentService({
 			history: [],
 		};
 		for (const kind of ["post", "dynamic"]) {
-			const pointers = await readPointers(kind);
+			// Export must not silently omit malformed pointers. The public index may
+			// skip invalid records, but a backup has to fail closed.
+			const pointerKeys = await store.listKeys(pointerPrefix(kind));
+			const pointers = [];
+			for (const key of pointerKeys) {
+				const entry = await store.getJSON(key);
+				if (!entry || entry.schemaVersion !== SCHEMA_VERSION || entry.kind !== kind ||
+					!entry.id || !entry.revision || pointerKey(kind, entry.id) !== key ||
+					!normalizeId(kind, entry.id) || !normalizeContentPath(kind, entry.path)) {
+					throw new Error(`Backup integrity failure: corrupt content pointer at ${key}`);
+				}
+				pointers.push(entry);
+			}
 			const revisionKeys = await store.listKeys(`v3/items/${kindBucket(kind)}/`);
+			const exportedRevisions = new Set();
 			for (const key of revisionKeys) {
 				const snapshot = await store.getJSON(key);
-				if (!snapshot || snapshot.kind !== kind || !snapshot.id || !snapshot.revision || typeof snapshot.source !== "string") {
+				if (!snapshot || snapshot.schemaVersion !== SCHEMA_VERSION || snapshot.kind !== kind ||
+					!snapshot.id || !snapshot.revision || snapshot.deleted ||
+					!normalizeId(kind, snapshot.id) || !normalizeContentPath(kind, snapshot.path) ||
+					itemKey(kind, snapshot.id, snapshot.revision) !== key ||
+					typeof snapshot.source !== "string") {
 					throw new Error(`Backup integrity failure: corrupt historical revision at ${key}`);
 				}
+				exportedRevisions.add(key);
 				result.history.push(snapshot);
 			}
 			for (const entry of pointers) {
+				if (!entry.deleted && !exportedRevisions.has(itemKey(kind, entry.id, entry.revision))) {
+					throw new Error(`Backup integrity failure: active revision missing from history for ${kind}:${entry.id}`);
+				}
 				const item = entry.deleted
 					? {
 						schemaVersion: SCHEMA_VERSION,
