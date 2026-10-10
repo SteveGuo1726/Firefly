@@ -24,7 +24,7 @@
 		"github-cards": "npx tsx scripts/generate-github-card-data.ts",
 		"friend-circle": "npx tsx scripts/generate-friend-circle-data.ts",
 		"deploy:cf-preview": "pnpm verify:preview && wrangler deploy -c wrangler.preview.jsonc",
-		"test:live-content": "tsx --test tests/live-content-service.test.mjs tests/dynamic-live.test.ts tests/archive-live-content.test.mjs tests/live-post-search.test.ts tests/admin-content-format.test.ts tests/live-revision-gc.test.mjs tests/public-admin-isolation.test.mjs tests/live-taxonomy.test.ts tests/admin-oauth-core.test.mjs",
+		"test:live-content": "tsx --test tests/live-content-service.test.mjs tests/dynamic-live.test.ts tests/archive-live-content.test.mjs tests/live-post-search.test.ts tests/admin-content-format.test.ts tests/live-revision-gc.test.mjs tests/public-admin-isolation.test.mjs tests/live-taxonomy.test.ts tests/admin-oauth-core.test.mjs tests/admin-session-service.test.mjs",
 		"build:preview": "npx tsx scripts/generate-lqips.ts && astro build && npx tsx scripts/prune-pio-assets.ts && npx tsx scripts/subset-fonts.ts && npx tsx scripts/minify-inline-scripts.ts && npx tsx scripts/run-pagefind.ts && npx tsx scripts/verify-preview-build.ts",
 		"verify:preview": "pnpm test:live-content && pnpm verify:runtimes && pnpm astro check && pnpm build:preview",
 		"verify:runtimes": "tsx scripts/verify-runtime-bundles.ts",
