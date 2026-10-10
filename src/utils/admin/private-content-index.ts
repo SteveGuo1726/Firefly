@@ -35,6 +35,13 @@ function asPost(path:string,source:string):PrivateBasePost {
  * Public prerendered index remains filtered. GitHub access permissions still apply.
  */
 export async function fetchPrivatePostIndex(session:GitHubAdminSession,publicPosts:PrivateBasePost[]):Promise<PrivateBasePost[]>{
+ if(session.oauth){
+  const response=await fetch("/api/admin/private-index",{credentials:"same-origin",cache:"no-store"});
+  if(!response.ok)throw new Error("私有文章索引不可用：请配置 FIREFLY_GITHUB_CONTENT_READ_TOKEN。");
+  const result=await response.json() as {posts:PrivateBasePost[]};
+  if(!Array.isArray(result.posts))throw new Error("私有文章索引响应无效");
+  return result.posts;
+ }
  const paths=await readGitTree(session);
  const byPath=new Map(publicPosts.map(item=>[item.path,item]));
  const missing=paths.filter(path=>!byPath.has(path));
