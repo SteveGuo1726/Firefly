@@ -34,6 +34,7 @@ EdgeOne Pages server environment secrets:
 - `FIREFLY_OAUTH_CLIENT_SECRET` (GitHub OAuth App secret)
 - `FIREFLY_OAUTH_CALLBACK_URL` (exact HTTPS callback)
 - `FIREFLY_ADMIN_LOGIN` (explicit expected GitHub login, defaults to SteveGuo1726)
+- `FIREFLY_GITHUB_CONTENT_READ_TOKEN` (server-side GitHub Contents: read-only credential; required for OAuth private article index, never exposed to browsers)
 - `FIREFLY_GALLERY_SERVICE_SECRET` (fresh random >=32-character high-entropy secret)
 - `FIREFLY_GALLERY_API_ORIGIN` (defaults to https://gallery-api.casto.top)
 
@@ -69,3 +70,10 @@ Do not store any of these in GitHub source, GitHub Actions logs, public Astro va
 - OAuth API and gallery proxy are not yet tested in a real EdgeOne runtime. The current code is only source-stage, not a deployable production claim.
 - GitHub repo must be publicly readable for current browser-only source fallback under OAuth; private repository support needs a server-side Git reader.
 - Admin photo visual acceptance requires real browser screenshots, including large portrait/panorama assets.
+
+
+## Private content index and experimental preview
+
+The public prerendered `/api/admin-content-index.json` excludes draft and password-protected post metadata. The authenticated EdgeOne `/api/admin/private-index` verifies the OAuth session and reads the complete GitHub baseline using a server-only read credential. PAT mode reads the tree with the browser-held session token and fetches only entries missing from the public index. Both modes fail closed if the tree is truncated. Cloudflare Workers preview is a **separate runtime** and does not provide the EdgeOne OAuth routes; test the preview CMS in PAT mode, then verify OAuth on a properly configured EdgeOne preview before production.
+
+The experimental Cloudflare Workers Builds trigger targets `firefly-blog-preview` and branch `ai/preview-test`, with `pnpm verify:preview` before `pnpm exec wrangler deploy -c wrangler.preview.jsonc`. Its path include rule intentionally prevents push-triggered builds. Production `firefly-blog` is not changed.
