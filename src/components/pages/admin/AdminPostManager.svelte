@@ -1,5 +1,6 @@
 <script lang="ts">
 import { onMount } from "svelte";
+import { readDraft, writeDraft, clearDraft } from "@/utils/admin/draft-storage";
 import { siteConfig } from "@/config/siteConfig";
 import type { GitHubAdminSession } from "@/utils/admin/github-session";
 import { buildPostDocument, emptyPostFields, excerptMarkdown, parsePostDocument, type AdminPostFields } from "@/utils/admin/content-format";
@@ -85,7 +86,37 @@ async function remove(){if(!liveIndexHealthy){error="实时内容索引尚未成
 
 async function updatePreview(){try{previewHtml=await renderFireflyPreview({source:body,calloutTheme:siteConfig.post.rehypeCallouts.theme,isMdx:currentPath.endsWith(".mdx")});}catch(e){previewHtml=`<p>${e instanceof Error?e.message:"预览失败"}</p>`;}}
 function schedulePreview(){if(previewTimer)clearTimeout(previewTimer);previewTimer=setTimeout(()=>void updatePreview(),180);}
-onMount(()=>{void refresh();return()=>{if(previewTimer)clearTimeout(previewTimer);};});
+onMount(()=>{
+ void refresh();
+ const store=window.sessionStorage;
+ const local=readDraft(store,"post",session.login);
+ if(local && confirm("发现上次未保存的文章草稿，是否恢复？")){
+  try{
+   const draft=JSON.parse(local.snapshot);
+   if(typeof draft.currentPath==="string" && typeof draft.body==="string" && draft.fields && typeof draft.fields==="object"){
+    currentPath=draft.currentPath;fields=draft.fields;body=draft.body;
+    tagsText=typeof draft.tagsText==="string"?draft.tagsText:"";
+    currentId="";loadedPath="";baseGitSha="";liveRevision="";originalSource="";
+    savedEditorSnapshot="";void updatePreview();
+   }
+  }catch{/* Ignore corrupt private draft data */ }
+ }
+ const persist=()=>{
+  try{
+   const snapshot=editorSnapshot();
+   if(currentPath && snapshot!==savedEditorSnapshot)writeDraft(store,"post",session.login,snapshot);
+   else if(snapshot===savedEditorSnapshot)clearDraft(store,"post",session.login);
+  }catch{/* Unavailable or full session storage must not block editing */ }
+ };
+ const interval=window.setInterval(persist,2500);
+ window.addEventListener("pagehide",persist);
+ return()=>{
+  persist();
+  window.clearInterval(interval);
+  window.removeEventListener("pagehide",persist);
+  if(previewTimer)clearTimeout(previewTimer);
+ };
+});
 </script>
 
 <section class="manager card-base">
