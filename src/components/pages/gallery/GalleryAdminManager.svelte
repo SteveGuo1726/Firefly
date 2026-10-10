@@ -111,8 +111,8 @@ async function refreshRemoteStatePreservingManifest() {
 }
 
 async function loadState(preferredId = selectedId) {
-	const generation = ++stateLoadGeneration;
 	if (!session) {
+		++stateLoadGeneration;
 		state = null;
 		manifest = { version: 1, updatedAt: "", albums: [] };
 		selectedId = "";
@@ -123,6 +123,7 @@ async function loadState(preferredId = selectedId) {
 		return;
 	}
 	if (dirty && !confirm("相册有尚未保存的修改，刷新将丢失这些修改。确定继续吗？")) return;
+	const generation = ++stateLoadGeneration;
 	loading = true;
 	errorMessage = "";
 	try {
