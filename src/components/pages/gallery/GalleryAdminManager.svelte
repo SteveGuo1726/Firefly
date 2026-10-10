@@ -106,6 +106,7 @@ async function refreshRemoteStatePreservingManifest() {
 }
 
 async function loadState(preferredId = selectedId) {
+	if (dirty && !confirm("相册有尚未保存的修改，刷新将丢失这些修改。确定继续吗？")) return;
 	if (!session) {
 		state = null;
 		manifest = { version: 1, updatedAt: "", albums: [] };
@@ -202,6 +203,7 @@ function dropPhoto(targetKey: string) {
 }
 
 async function saveAll() {
+	if (saving || uploading || loading || !dirty) return;
 	saving = true;
 	errorMessage = "";
 	try {
@@ -218,6 +220,7 @@ async function saveAll() {
 }
 
 async function uploadFiles(event: Event) {
+	if (uploading || saving) return;
 	const input = event.currentTarget as HTMLInputElement;
 	const files = Array.from(input.files || []);
 	if (!selectedAlbum || files.length === 0) return;
@@ -371,9 +374,9 @@ onMount(() => {
 			<span>{manifest.albums.length} 个相册 · 拖动后统一保存，不触发博客构建</span>
 		</div>
 		<div class="toolbar-actions">
-			<button type="button" onclick={() => loadState()} disabled={loading || saving}>刷新</button>
+			<button type="button" onclick={() => loadState()} disabled={loading || saving || uploading}>刷新</button>
 			<button type="button" onclick={() => createAlbum()} disabled={loading || saving}>新建相册</button>
-			<button class="primary" type="button" onclick={saveAll} disabled={!dirty || loading || saving}>
+			<button class="primary" type="button" onclick={saveAll} disabled={!dirty || loading || saving || uploading}>
 				{saving ? "保存中..." : "保存更改"}
 			</button>
 		</div>
