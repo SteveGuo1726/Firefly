@@ -1,5 +1,6 @@
 <script lang="ts">
 import { onMount } from "svelte";
+import { readDraft, writeDraft, clearDraft } from "@/utils/admin/draft-storage";
 import { siteConfig } from "@/config/siteConfig";
 import type { GitHubAdminSession } from "@/utils/admin/github-session";
 import { buildDynamicDocument, excerptMarkdown, parseDynamicDocument, type AdminDynamicFields } from "@/utils/admin/content-format";
@@ -39,7 +40,37 @@ async function save(){if(!liveIndexHealthy){error="实时内容索引尚未成�
 async function remove(){if(!liveIndexHealthy){error="实时内容索引尚未成功同步，请刷新列表后重试删除。";return;}if(!currentId||!confirm(`确定隐藏 ${currentPath}？Git 归档前不会删除仓库文件。`))return;deleting=true;error="";message="";try{await deleteLiveContentItem({session,kind:"dynamic",id:currentId,path:loadedPath||currentPath,meta:baseMeta(),baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision});currentId="";currentPath="";loadedPath="";originalSource="";liveRevision="";baseGitSha="";fields={published:"",pinned:false,location:""};body="";previewHtml="";savedEditorSnapshot=editorSnapshot();await refresh();message="已写入实时删除标记；Git 仓库尚未改动。";}catch(e){error=e instanceof Error?e.message:"删除失败。";}finally{deleting=false;}}
 async function updatePreview(){try{previewHtml=await renderFireflyPreview({source:body,calloutTheme:siteConfig.post.rehypeCallouts.theme});}catch(e){previewHtml=`<p>${e instanceof Error?e.message:"预览失败"}</p>`;}}
 function schedulePreview(){if(previewTimer)clearTimeout(previewTimer);previewTimer=setTimeout(()=>void updatePreview(),180);}
-onMount(()=>{void refresh();return()=>{if(previewTimer)clearTimeout(previewTimer);};});
+onMount(()=>{
+ void refresh();
+ const store=window.sessionStorage;
+ const local=readDraft(store,"dynamic",session.login);
+ if(local && confirm("发现上次未保存的动态草稿，是否恢复？")){
+  try{
+   const draft=JSON.parse(local.snapshot);
+   if(typeof draft.currentPath==="string" && typeof draft.body==="string" && draft.fields && typeof draft.fields==="object"){
+    currentPath=draft.currentPath;fields=draft.fields;body=draft.body;
+    
+    currentId="";loadedPath="";baseGitSha="";liveRevision="";originalSource="";
+    savedEditorSnapshot="";void updatePreview();
+   }
+  }catch{/* Ignore corrupt private draft data */ }
+ }
+ const persist=()=>{
+  try{
+   const snapshot=editorSnapshot();
+   if(currentPath && snapshot!==savedEditorSnapshot)writeDraft(store,"dynamic",session.login,snapshot);
+   else if(snapshot===savedEditorSnapshot)clearDraft(store,"dynamic",session.login);
+  }catch{/* Unavailable or full session storage must not block editing */ }
+ };
+ const interval=window.setInterval(persist,2500);
+ window.addEventListener("pagehide",persist);
+ return()=>{
+  persist();
+  window.clearInterval(interval);
+  window.removeEventListener("pagehide",persist);
+  if(previewTimer)clearTimeout(previewTimer);
+ };
+});
 </script>
 
 <section class="manager card-base"><header><div><h2>动态管理</h2><p>实时写入 Blob；公开动态页不再挂载管理组件。</p></div><div class="actions"><button onclick={()=>refresh()} disabled={loading}>刷新</button><button class="primary" onclick={createNew}>新建</button></div></header><div class="layout"><aside><input class="search" type="search" bind:value={query} placeholder="搜索动态"/><div class="list">{#if loading}<p>读取中...</p>{:else}{#each filtered() as row}<button class:active={row.id===currentId} onclick={()=>open(row)}><strong>{row.excerpt||row.id}</strong><span>{row.published} · {row.live?"实时":"Git"}</span><small>{row.location}</small></button>{/each}{/if}</div></aside><div class="editor"><div class="grid"><label class="wide"><span>文件路径</span><input bind:value={currentPath}/></label><label><span>发布时间</span><input bind:value={fields.published}/></label><label><span>位置</span><input bind:value={fields.location}/></label></div><label class="check"><input type="checkbox" bind:checked={fields.pinned}/>置顶</label><label class="body"><span>正文 Markdown</span><textarea bind:value={body} oninput={schedulePreview}></textarea></label><div class="status"><div>{#if opening}<span>读取源码...</span>{/if}{#if message}<span class="ok">{message}</span>{/if}{#if error}<span class="bad">{error}</span>{/if}</div><div class="actions"><button class="danger" onclick={remove} disabled={!currentId||saving||deleting}>删除实时版本</button><button class="primary" onclick={save} disabled={saving||deleting||opening}>{saving?"保存中...":"实时保存"}</button></div></div></div><div class="preview"><strong>动态预览</strong><div class="prose prose-base max-w-none custom-md dark:prose-invert">{@html previewHtml}</div></div></div></section>
