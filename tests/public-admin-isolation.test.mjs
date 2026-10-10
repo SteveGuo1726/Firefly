@@ -254,3 +254,14 @@ test("gallery admin prevents destructive refresh and overlapping upload/save",as
  assert.match(source,/if \(uploading \|\| saving\) return/);
  assert.match(source,/disabled=\{!dirty \|\| loading \|\| saving \|\| uploading\}/);
 });
+
+test("private CMS post index restores unpublished Git baselines without exposing them in prerender",async()=>{
+ const privateIndex=await readFile("src/utils/admin/private-content-index.ts","utf8");
+ const manager=await readFile("src/components/pages/admin/AdminPostManager.svelte","utf8");
+ const publicIndex=await readFile("src/pages/api/admin-content-index.json.ts","utf8");
+ assert.match(privateIndex,/fetchPrivatePostIndex/);
+ assert.match(privateIndex,/GitHub 文件树不完整/);
+ assert.match(privateIndex,/fetchGitContentSource\(session,path\)/);
+ assert.match(manager,/await fetchPrivatePostIndex\(session,base\.posts as BasePost\[\]\)/);
+ assert.match(publicIndex,/!post\.data\.draft && !post\.data\.protected/);
+});
