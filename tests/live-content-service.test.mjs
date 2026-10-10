@@ -26,7 +26,9 @@ test("preview worker blocks static HTML when a newer live post is hidden or dele
   assert.equal(assetReads, 0, "hidden content must not read or serve the static page");
  }
  pointer = {schemaVersion:3,kind:"post",id:"secret",revision:"test",meta:{title:"Public"}};
- assert.equal((await previewWorker.fetch(url, env, {})).status, 200);
+ const publicResponse=await previewWorker.fetch(url, env, {});
+ assert.equal(publicResponse.status, 200);
+ assert.equal(publicResponse.headers.get("Cache-Control"),"no-store");
  assert.equal(assetReads, 1);
  pointer = {schemaVersion:2,kind:"post",id:"secret",revision:"test",meta:{}};
  assert.equal((await previewWorker.fetch(url, env, {})).status, 503);
