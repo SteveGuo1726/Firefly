@@ -3,7 +3,7 @@ import test from "node:test";
 import previewWorker from "../worker/blog-preview.ts";
 import { buildPreviewPrivatePostIndex } from "../src/server/preview-private-index.js";
 import {
- authorizePreviewSession,previewLogin,previewMe,previewLogout,previewMutationOriginAllowed,
+ authorizePreviewSession,previewLogin,previewMe,previewLogout,previewMutationOriginAllowed,correctPreviewRequestOrigin,
 } from "../src/server/preview-auth.js";
 
 const ORIGIN="https://firefly-blog-preview.example.workers.dev";
@@ -124,4 +124,18 @@ test("preview private index fails closed on truncated GitHub tree",async()=>{
  await assert.rejects(buildPreviewPrivatePostIndex({fetcher:async()=>Response.json({
   truncated:true,tree:[],
  })}),/incomplete/);
+});
+
+test("preview accepts privacy-browser origin omissions only with trusted fetch metadata and same-origin Referer",()=>{
+ const base=ORIGIN+"/api/preview-admin/login";
+ const good=new Request(base,{method:"POST",headers:{"Sec-Fetch-Site":"same-origin","Referer":ORIGIN+"/admin/?section=posts"}});
+ assert.equal(correctPreviewRequestOrigin(good),true);
+ const nullOrigin=new Request(base,{method:"POST",headers:{"Origin":"null","Sec-Fetch-Site":"same-origin","Referer":ORIGIN+"/admin/"}});
+ assert.equal(correctPreviewRequestOrigin(nullOrigin),true);
+ const hostile=new Request(base,{method:"POST",headers:{"Origin":"https://evil.example","Sec-Fetch-Site":"same-origin","Referer":ORIGIN+"/admin/"}});
+ assert.equal(correctPreviewRequestOrigin(hostile),false);
+ const badReferer=new Request(base,{method:"POST",headers:{"Sec-Fetch-Site":"same-origin","Referer":"https://evil.example/"}});
+ assert.equal(correctPreviewRequestOrigin(badReferer),false);
+ const noFetchSite=new Request(base,{method:"POST",headers:{"Referer":ORIGIN+"/admin/"}});
+ assert.equal(correctPreviewRequestOrigin(noFetchSite),false);
 });

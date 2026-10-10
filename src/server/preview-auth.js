@@ -19,9 +19,18 @@ function response(data, status = 200, extra = {}) {
   },
  });
 }
-function correctOrigin(request) {
- try { return request.headers.get("Origin") === new URL(request.url).origin; }
- catch {return false;}
+export function correctPreviewRequestOrigin(request) {
+ try {
+  const expected=new URL(request.url).origin;
+  const origin=request.headers.get("Origin");
+  // An explicit cross-origin Origin is never permitted.
+  if(origin && origin!=="null")return origin===expected;
+  // Some embedded browsers and privacy extensions omit Origin or send "null".
+  // Accept only when both Fetch Metadata and Referer prove same-origin.
+  if(request.headers.get("Sec-Fetch-Site")!=="same-origin")return false;
+  const referer=request.headers.get("Referer");
+  return Boolean(referer && new URL(referer).origin===expected);
+ } catch {return false;}
 }
 function cookieValue(request) {
  return (request.headers.get("Cookie") || "")
@@ -85,7 +94,7 @@ export async function authorizePreviewSession(request,env) {
 }
 export async function previewLogin(request,env) {
  if(request.method!=="POST")return response({error:"Method Not Allowed"},405,{Allow:"POST"});
- if(!correctOrigin(request))return response({error:"请求来源无效。"},403);
+ if(!correctPreviewRequestOrigin(request))return response({error:"请求来源无效。"},403);
  if(!isConfigured(env)||!(await sessionKey(env))||!env?.LIVE_CONTENT_PREVIEW) {
   return response({error:"预览管理登录未配置。"},503);
  }
@@ -117,12 +126,12 @@ export async function previewMe(request,env) {
 }
 export async function previewLogout(request) {
  if(request.method!=="POST")return response({error:"Method Not Allowed"},405,{Allow:"POST"});
- if(!correctOrigin(request))return response({error:"请求来源无效。"},403);
+ if(!correctPreviewRequestOrigin(request))return response({error:"请求来源无效。"},403);
  return response({authenticated:false},200,{
   "Set-Cookie":COOKIE+"=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Strict",
  });
 }
 export function previewMutationOriginAllowed(request) {
  const method=request.method.toUpperCase();
- return !["POST","PUT","PATCH","DELETE"].includes(method)||correctOrigin(request);
+ return !["POST","PUT","PATCH","DELETE"].includes(method)||correctPreviewRequestOrigin(request);
 }
