@@ -110,3 +110,14 @@ test("OAuth must refuse old Blob adapters that ignore conditional onlyIfNew writ
  };
  await assert.rejects(assertEdgeOneAtomicWrites(unsafeBlob),/conditional writes unavailable/);
 });
+
+test("private index parses YAML arrays and drafts without exposing bodies",async()=>{
+ const {buildPrivatePostIndex}=await import("../src/server/admin-auth/private-index.js");
+ const raw=Buffer.from('---\\ntitle: "A: quoted title"\\ndraft: true\\ntags: [one, two]\\npublished: 2026-10-10\\n---\\nSecret'.replaceAll('\\n','\n')).toString("base64");
+ const fetcher=async url=>new Response(JSON.stringify(url.includes("/git/trees/")?{tree:[{type:"blob",path:"src/content/posts/draft.md"}],truncated:false}:{content:raw}),{status:200});
+ const result=await buildPrivatePostIndex({token:"test",owner:"owner",repo:"repo",branch:"ai/preview-test",fetcher});
+ assert.equal(result.posts[0].draft,true);
+ assert.equal(result.posts[0].title,"A: quoted title");
+ assert.deepEqual(result.posts[0].tags,["one","two"]);
+ assert.equal("source" in result.posts[0],false);
+});
