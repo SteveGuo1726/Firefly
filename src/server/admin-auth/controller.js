@@ -1,10 +1,15 @@
-import {githubAuthorizationUrl,exchangeGitHubCode,adminSessionCookie,clearAdminSessionCookie} from "./oauth-core.js";
+import {githubAuthorizationUrl,exchangeGitHubCode,adminSessionCookie,clearAdminSessionCookie,constantTimeEqual} from "./oauth-core.js";
 
 const cookieName="__Host-firefly-admin";
-export function readAdminSessionId(request){
+const stateCookieName="__Host-firefly-oauth-state";
+function readCookieValue(request,name){
  const raw=request.headers.get("Cookie")||"";
- const cookie=raw.split(";").map(v=>v.trim()).find(v=>v.startsWith(cookieName+"="));
- return cookie ? cookie.slice(cookieName.length+1) : "";
+ const entry=raw.split(";").map(v=>v.trim()).find(v=>v.startsWith(name+"="));
+ return entry?entry.slice(name.length+1):"";
+}
+
+export function readAdminSessionId(request){
+ return readCookieValue(request,cookieName);
 }
 function noStore(response){
  response.headers.set("Cache-Control","no-store, private");
@@ -28,7 +33,10 @@ export function createGitHubAdminAuthController({
    const authorize=githubAuthorizationUrl({
     clientId,redirectUri:callback.toString(),state:tx.state,scope:"read:user",codeChallenge:tx.challenge
    });
-   return noStore(new Response(null,{status:302,headers:{Location:authorize}}));
+   return noStore(new Response(null,{status:302,headers:{
+    Location:authorize,
+    "Set-Cookie":`${stateCookieName}=${tx.state}; Path=/; Max-Age=300; HttpOnly; Secure; SameSite=Lax`
+   }}));
   },
   async callback(request){
    const url=new URL(request.url);
@@ -36,6 +44,7 @@ export function createGitHubAdminAuthController({
    if(url.searchParams.has("error"))return failure();
    const state=url.searchParams.get("state"),code=url.searchParams.get("code");
    if(!state || !code || code.length>1024)return failure();
+   if(!constantTimeEqual(state,readCookieValue(request,stateCookieName)))return failure();
    const tx=await sessionService.consumeTransaction(state);
    if(!tx || tx.redirectUri!==callback.toString() || !tx.verifier)return failure();
    try{
@@ -53,7 +62,9 @@ export function createGitHubAdminAuthController({
     if(String(identity?.login||"").toLowerCase()!==allowedLogin.toLowerCase() ||
        !Number.isSafeInteger(identity.id) || identity.id<=0)return failure();
     const session=await sessionService.createSession({login:identity.login,userId:identity.id});
-    return redirect("/admin/?auth=success",{"Set-Cookie":adminSessionCookie(session.token)});
+    const response=redirect("/admin/?auth=success",{"Set-Cookie":adminSessionCookie(session.token)});
+    response.headers.append("Set-Cookie",`${stateCookieName}=; Path=/; Max-Age=0; HttpOnly; Secure; SameSite=Lax`);
+    return response;
    }catch{return failure();}
   },
   async me(request){
