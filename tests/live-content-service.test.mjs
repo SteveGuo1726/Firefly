@@ -825,7 +825,7 @@ test("backup export fails closed when a pointer references a missing immutable r
  })}));
  assert.equal(saved.status,200);
  const record=await saved.json();
- await store.deleteKey("v3/items/posts/backup-corrupt/"+record.revision);
+ await store.deleteKey("v3/items/posts/backup-corrupt/"+record.revision+".json");
  const backup=await handle(request("/api/live-content/export",{headers:adminHeaders()}));
  assert.notEqual(backup.status,200);
 });
