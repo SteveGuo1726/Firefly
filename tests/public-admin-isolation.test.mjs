@@ -287,3 +287,10 @@ test("gallery partial uploads remain recoverable instead of orphaning successful
  assert.match(source,/if\(uploaded\.length\)/);
  assert.match(source,/await refreshRemoteStatePreservingManifest\(\)/);
 });
+
+
+test("admin section deep links include the posts editor", async () => {
+ const app=await readFile("src/components/pages/admin/AdminApp.svelte","utf8");
+ assert.match(app,/value==="posts"\|\|value==="dynamic"/);
+ assert.match(app,/section==="posts"/);
+});
