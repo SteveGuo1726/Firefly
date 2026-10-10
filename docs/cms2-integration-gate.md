@@ -62,3 +62,12 @@ Before OAuth can replace PAT:
 5. Refactor post/dynamic baseline GitHub readers and all authenticated live-content/gallery write endpoints to use the same session. No PAT fallback once OAuth is accepted.
 6. Test login, logout, expiry, replay, CSRF, failed GitHub responses and cross-origin requests.
 7. Do not expose partial login as production-ready or modify master.
+
+
+## 2026-10-10 — Cross-instance write safety implemented (source-stage)
+
+- EdgeOne `/api/live-content` now supplies `createDistributedContentLock(blob)` to the service for post, moment, rename, delete, restore, and Git tombstone undo mutations.
+- Mutation locks use Blob `onlyIfNew` and are validated by a runtime capability self-test before accepting writes. If the pinned SDK does not support conditional writes, mutations fail closed.
+- Lock collisions return HTTP 409 and never silently overwrite the other writer. Lock expiration is deliberately not auto-recovered: recovery must quiesce writers and clear stale keys explicitly.
+- `tests/live-content-service.test.mjs` now includes an inter-instance lock-collision regression case.
+- **Still unverified**: `pnpm` tests, Astro compilation, EdgeOne SDK runtime compatibility, and gallery browser interactions. No cloud builds triggered.
