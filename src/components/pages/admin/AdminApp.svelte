@@ -29,7 +29,7 @@ let section:Section="dashboard";
 function readSection():Section{
 	if(typeof window==="undefined")return"dashboard";
 	const value=new URLSearchParams(window.location.search).get("section");
-	return value==="dynamic"||value==="gallery"||value==="dashboard"||value==="backup"?value:"dashboard";
+	return value==="posts"||value==="dynamic"||value==="gallery"||value==="dashboard"||value==="backup"?value:"dashboard";
 }
 function choose(next:Section){
 	section=next;
