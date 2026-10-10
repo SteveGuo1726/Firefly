@@ -6,6 +6,11 @@ import { onMount } from "svelte";
 import type { PublicGalleryAlbum } from "@/types/galleryAdmin";
 import { fetchPublicGallery } from "@/utils/gallery-public-client";
 import { url } from "@/utils/url-utils";
+import {
+ GALLERY_ROUTE_EVENT, galleryGridImage, galleryFullImage, loadGalleryRoute,
+ nextGalleryImageFallback, parseGalleryRoute, saveGalleryRoute,
+ type GalleryImageRoute,
+} from "@/utils/gallery-delivery";
 
 interface Props {
 	albumId?: string;
@@ -24,6 +29,17 @@ let album = $state<PublicGalleryAlbum | null>(initialAlbum);
 let loading = $state(!initialAlbum);
 let errorMessage = $state("");
 let galleryRoot: HTMLDivElement;
+let imageRoute = $state<GalleryImageRoute>("auto");
+function changeImageRoute(event:Event){
+ imageRoute=parseGalleryRoute((event.currentTarget as HTMLSelectElement).value);
+ saveGalleryRoute(imageRoute);
+}
+function onGalleryPhotoError(event:Event,original:string){
+ const img=event.currentTarget as HTMLImageElement;
+ const next=nextGalleryImageFallback(img.src,original,imageRoute);
+ if(next)img.src=next;
+}
+
 
 function safeCaption(name: string, width?: number, height?: number, size?: number): string {
  const escape = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
@@ -99,6 +115,9 @@ async function loadAlbum(isDisposed:()=>boolean=()=>false): Promise<void> {
 }
 
 onMount(() => {
+ imageRoute=loadGalleryRoute();
+ const update=(event:Event)=>{imageRoute=parseGalleryRoute((event as CustomEvent).detail)};
+ window.addEventListener(GALLERY_ROUTE_EVENT,update);
 	const root = galleryRoot;
 	let disposed = false;
 	const lightboxPromise = import("@fancyapps/ui")
@@ -115,6 +134,7 @@ onMount(() => {
 
 	return () => {
 		disposed = true;
+  window.removeEventListener(GALLERY_ROUTE_EVENT,update);
 		void lightboxPromise.then((Fancybox) => {
 			if (Fancybox) Fancybox.unbind(root, photoSelector);
 		});
@@ -125,7 +145,7 @@ onMount(() => {
 <div class="gallery-runtime" bind:this={galleryRoot}>
 {#if album}
 	<section class="album-hero">
-		{#if album.coverUrl}<img src={album.coverUrl} alt={album.name} loading="eager" decoding="async" fetchpriority="high" />{/if}
+		{#if album.coverUrl}<img src={galleryGridImage(album.coverUrl,imageRoute)} onerror={(event)=>onGalleryPhotoError(event,album.coverUrl)} alt={album.name} loading="eager" decoding="async" fetchpriority="high" />{/if}
 		<div class="hero-shade"></div>
 		<a class="back" href={url("/gallery/")}>← 返回相册</a>
 		<div class="hero-info">
@@ -141,11 +161,20 @@ onMount(() => {
 	</section>
 
 	<section class="photo-section card-base">
+  <div class="route-control" aria-label="相册图片线路">
+   <label for="album-image-route">图片线路</label>
+   <select id="album-image-route" value={imageRoute} onchange={changeImageRoute}>
+    <option value="auto">智能：缩略图优先（推荐）</option>
+    <option value="cloudflare">Cloudflare：缓存原图（实验）</option>
+    <option value="original">原图：直接访问 ImageBed</option>
+   </select>
+   <small>列表加载缩略图，点击查看未压缩的完整原图。图片故障时自动回退。</small>
+  </div>
 		{#if album.photos.length > 0}
 			<div class="masonry" style={`--column-width: ${columnWidth}px`}>
 				{#each album.photos as photo (photo.key)}
-					<a class="photo" href={photo.url} data-fancybox={`gallery-${album.id}`} data-gallery-photo data-src={photo.url} data-caption={safeCaption(photo.name, photo.width, photo.height, photo.size)} aria-label={`查看 ${photo.name} 的大图详情`}> 
-						<img src={photo.url} alt={photo.name} loading="lazy" decoding="async" fetchpriority="low" />
+					<a class="photo" href={galleryFullImage(photo.url,imageRoute)} data-fancybox={`gallery-${album.id}`} data-gallery-photo data-src={galleryFullImage(photo.url,imageRoute)} data-caption={safeCaption(photo.name, photo.width, photo.height, photo.size)} aria-label={`查看 ${photo.name} 的大图详情`}> 
+						<img src={galleryGridImage(photo.url,imageRoute)} onerror={(event)=>onGalleryPhotoError(event,photo.url)} alt={photo.name} loading="lazy" decoding="async" fetchpriority="low" />
 					</a>
 				{/each}
 			</div>
@@ -161,6 +190,11 @@ onMount(() => {
 </div>
 
 <style>
+ .route-control{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem;margin-bottom:1rem}
+ .route-control label{font-weight:650;font-size:.84rem}
+ .route-control select{max-width:100%;border:1px solid var(--line-divider,#9995);border-radius:.6rem;padding:.4rem .6rem;background:var(--card-bg,transparent);color:inherit}
+ .route-control small{font-size:.77rem;opacity:.65}
+
 	.album-hero { position: relative; width: 100%; min-height: 13rem; max-height: 22rem; aspect-ratio: 3 / 1; overflow: hidden; border-radius: var(--radius-large); background: rgb(127 127 127 / 0.15); color: white; }
 	.album-hero > img { display: block; width: 100%; height: 100%; object-fit: cover; }
 	.hero-shade { position: absolute; inset: 0; background: linear-gradient(to top, rgb(0 0 0 / 0.76), rgb(0 0 0 / 0.08)); }

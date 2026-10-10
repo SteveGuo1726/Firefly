@@ -3,6 +3,11 @@ import { onMount } from "svelte";
 import type { PublicGalleryAlbum } from "@/types/galleryAdmin";
 import { fetchPublicGallery } from "@/utils/gallery-public-client";
 import { url } from "@/utils/url-utils";
+import {
+ GALLERY_ROUTE_EVENT, galleryGridImage, loadGalleryRoute,
+ nextGalleryImageFallback, parseGalleryRoute, saveGalleryRoute,
+ type GalleryImageRoute,
+} from "@/utils/gallery-delivery";
 
 interface Props {
 	initialAlbums: PublicGalleryAlbum[];
@@ -15,6 +20,26 @@ let albums = $state<PublicGalleryAlbum[]>(initialAlbums);
 let loading = $state(true);
 let query = $state("");
 let selectedTag = $state("all");
+let imageRoute = $state<GalleryImageRoute>("auto");
+function changeImageRoute(event:Event){
+ const target=event.currentTarget as HTMLSelectElement;
+ imageRoute=parseGalleryRoute(target.value);
+ saveGalleryRoute(imageRoute);
+}
+function onGalleryCoverError(event:Event,original:string){
+ const element=event.currentTarget as HTMLImageElement;
+ const next=nextGalleryImageFallback(element.src,original,imageRoute);
+ if(next)element.src=next;
+}
+onMount(()=>{
+ imageRoute=loadGalleryRoute();
+ const update=(event:Event)=>{
+  imageRoute=parseGalleryRoute((event as CustomEvent).detail);
+ };
+ window.addEventListener(GALLERY_ROUTE_EVENT,update);
+ return ()=>window.removeEventListener(GALLERY_ROUTE_EVENT,update);
+});
+
 
 const tags = $derived(
 	Array.from(new Set(albums.flatMap((album) => album.tags || []))).sort(),
@@ -63,7 +88,16 @@ onMount(async () => {
 </script>
 
 {#if albums.length > 0}
-	<div class="filters">
+	<div class="route-control" aria-label="图片访问线路">
+ <label for="gallery-image-route">图片线路</label>
+ <select id="gallery-image-route" value={imageRoute} onchange={changeImageRoute}>
+  <option value="auto">智能：缩略图优先（推荐）</option>
+  <option value="cloudflare">Cloudflare：缓存原图（实验）</option>
+  <option value="original">原图：直接访问 ImageBed</option>
+ </select>
+ <span>点击大图始终查看原始分辨率；切换只影响访问路径，不修改照片。</span>
+</div>
+<div class="filters">
 		<label class="search-field">
 			<span aria-hidden="true">⌕</span>
 			<input type="search" bind:value={query} placeholder="搜索相册" aria-label="搜索相册" />
@@ -85,7 +119,7 @@ onMount(async () => {
 			<a class="album-card" href={albumHref(album.id)} data-tags={(album.tags || []).join(",")}>
 				<div class="cover">
 					{#if album.coverUrl}
-						<img src={album.coverUrl} alt={album.name} loading="lazy" decoding="async" fetchpriority="low" sizes="(max-width: 560px) 95vw, (max-width: 900px) 48vw, 32vw" />
+						<img src={galleryGridImage(album.coverUrl,imageRoute)} onerror={(event)=>onGalleryCoverError(event,album.coverUrl)} alt={album.name} loading="lazy" decoding="async" fetchpriority="low" sizes="(max-width: 560px) 95vw, (max-width: 900px) 48vw, 32vw" />
 					{:else}
 						<div class="cover-empty" aria-hidden="true">▧</div>
 					{/if}
@@ -121,6 +155,11 @@ onMount(async () => {
 {/if}
 
 <style>
+ .route-control{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-bottom:.85rem;font-size:.83rem}
+ .route-control label{font-weight:650}
+ .route-control select{max-width:100%;min-width:11rem;border:1px solid var(--line-divider, #9995);border-radius:.6rem;padding:.4rem .55rem;background:var(--card-bg,transparent);color:inherit}
+ .route-control span{opacity:.65;font-size:.76rem}
+
 	.filters { margin-bottom: 1.25rem; }
 	.search-field { position: relative; display: block; margin-bottom: 0.7rem; }
 	.search-field span { position: absolute; left: 0.75rem; top: 50%; transform: translateY(-50%); font-size: 1.25rem; opacity: 0.55; }
