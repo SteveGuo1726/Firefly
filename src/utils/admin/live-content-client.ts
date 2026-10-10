@@ -47,7 +47,7 @@ export async function fetchLiveContentIndex(
 	return readJson(await fetch(endpoint("/index", { kind }), {
 		cache: "no-store",
 		headers: session
-			? { Authorization: `Bearer ${session.token}` }
+			? session.oauth ? undefined : { Authorization: `Bearer ${session.token}` }
 			: undefined,
 	}));
 }
@@ -60,7 +60,7 @@ export async function fetchLiveContentItem(
 	const response = await fetch(endpoint("/item", { kind, id }), {
 		cache: "no-store",
 		headers: session
-			? { Authorization: `Bearer ${session.token}` }
+			? session.oauth ? undefined : { Authorization: `Bearer ${session.token}` }
 			: undefined,
 	});
 	if (response.status === 404) return null;
@@ -88,7 +88,7 @@ export async function saveLiveContentItem(options: {
 	const result = await readJson(await fetch(endpoint("/item"), {
 		method: "PUT",
 		headers: {
-			Authorization: `Bearer ${options.session.token}`,
+			...(options.session.oauth ? {} : {Authorization: `Bearer ${options.session.token}`}),
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify({
@@ -124,7 +124,7 @@ export async function deleteLiveContentItem(options: {
 	const result = await readJson(await fetch(endpoint("/item", { kind: options.kind, id: options.id }), {
 		method: "DELETE",
 		headers: {
-			Authorization: `Bearer ${options.session.token}`,
+			...(options.session.oauth ? {} : {Authorization: `Bearer ${options.session.token}`}),
 			"Content-Type": "application/json",
 		},
 		body: JSON.stringify({
@@ -141,7 +141,7 @@ export async function deleteLiveContentItem(options: {
 
 export async function exportLiveContent(session: GitHubAdminSession): Promise<unknown> {
 	return readJson(await fetch(endpoint("/export"), {
-		headers: { Authorization: `Bearer ${session.token}` },
+		headers: session.oauth ? undefined : { Authorization: `Bearer ${session.token}` },
 		cache: "no-store",
 	}));
 }
@@ -155,7 +155,7 @@ export type LiveHistoryEntry = {
 
 export async function fetchLiveContentHistory(kind: LiveContentKind,id: string,session: GitHubAdminSession): Promise<LiveHistoryEntry[]> {
  const data=await readJson(await fetch(endpoint("/history",{kind,id}),{
-  cache:"no-store",headers:{Authorization:`Bearer ${session.token}`},
+  cache:"no-store",headers:{...(session.oauth ? {} : {Authorization:`Bearer ${session.token}`})},
  }));
  return Array.isArray(data.entries)?data.entries:[];
 }
@@ -169,7 +169,7 @@ export async function restoreLiveContentRevision(options: {
 }): Promise<{revision:string;updatedAt:string}> {
  const result=await readJson(await fetch(endpoint("/restore"),{
   method:"POST",
-  headers:{Authorization:`Bearer ${options.session.token}`,"Content-Type":"application/json"},
+  headers:{...(options.session.oauth ? {} : {Authorization:`Bearer ${options.session.token}`}),"Content-Type":"application/json"},
   body:JSON.stringify({kind:options.kind,id:options.id,revision:options.revision,expectedRevision:options.expectedRevision||""}),
  }));
  announceLiveMutation(options.kind);
@@ -184,7 +184,7 @@ export async function undoGitBaselineDeletion(options: {
 }): Promise<{ok:boolean;restoredGitBaseline:boolean}> {
  const result=await readJson(await fetch(endpoint("/undo-delete"),{
   method:"POST",
-  headers:{Authorization:`Bearer ${options.session.token}`,"Content-Type":"application/json"},
+  headers:{...(options.session.oauth ? {} : {Authorization:`Bearer ${options.session.token}`}),"Content-Type":"application/json"},
   body:JSON.stringify({kind:options.kind,id:options.id,expectedRevision:options.expectedRevision}),
  }));
  announceLiveMutation(options.kind);
