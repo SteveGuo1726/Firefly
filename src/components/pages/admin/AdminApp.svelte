@@ -24,7 +24,7 @@ let sectionLoading=false;
 let sectionError="";
 let loadGeneration=0;
 let session:GitHubAdminSession|null=null;
-let section:Section="posts";
+let section:Section="dashboard";
 
 function readSection():Section{
 	if(typeof window==="undefined")return"dashboard";
