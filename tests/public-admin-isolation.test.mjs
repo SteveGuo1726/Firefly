@@ -91,12 +91,11 @@ test("independent admin lazily loads editors only after verified login", async (
  assert.match(app,/import\("\.\.\/gallery\/GalleryAdminManager\.svelte"\)/);
  assert.doesNotMatch(app,/^import\s+Admin(?:Post|Dynamic)Manager\s+from/m);
 });
-test("switching admin sections preserves unsaved editor instances", async () => {
+test("switching admin sections unmounts hidden editors to avoid stale requests", async () => {
  const app=await readFile("src/components/pages/admin/AdminApp.svelte","utf8");
- assert.match(app,/hidden=\{section!=="posts"\}/);
- assert.match(app,/hidden=\{section!=="dynamic"\}/);
- assert.match(app,/hidden=\{section!=="gallery"\}/);
- assert.match(app,/section==="gallery"/);
+ assert.match(app,/PostComponent && section==="posts"/);
+ assert.match(app,/DynamicComponent && section==="dynamic"/);
+ assert.match(app,/GalleryComponent && section==="gallery"/);
 });
 test("legacy gallery manager is only a migration redirect, not a public editor", async () => {
  const legacy=await readFile("src/pages/gallery/manage.astro","utf8");
