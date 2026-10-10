@@ -92,6 +92,10 @@ function updateAlbumId(value: string) {
 	if (!selectedAlbum) return;
 	const previousId = selectedAlbum.id;
 	const nextId = slugify(value);
+	if (!nextId || (nextId !== previousId && manifest.albums.some((album) => album.id === nextId))) {
+		setMessage("相册 Slug 不能为空或与已有相册重复。", true);
+		return;
+	}
 	manifest.albums = manifest.albums.map((album) =>
 		album.id === previousId ? { ...album, id: nextId } : album,
 	);
