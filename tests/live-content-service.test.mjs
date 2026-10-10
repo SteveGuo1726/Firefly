@@ -693,3 +693,41 @@ test("invalid percent encodings and control bytes do not crash live post routing
  }
  assert.equal(livePostIdFromRequest(request("/posts/valid/child/")),"valid/child");
 });
+
+test("authenticated history and restore preserve revisions and reject stale restores",async()=>{
+ const store=makeStore(),handle=createService(store),id="history-check";
+ const put=(title,expectedRevision="")=>handle(request("/api/live-content/item",{
+  method:"PUT",headers:adminHeaders(),body:JSON.stringify({
+   kind:"post",id,path:"src/content/posts/history-check.md",
+   source:"---\ntitle: "+title+"\n---\n"+title,
+   meta:{title,html:"<p>"+title+"</p>"},expectedRevision,
+  }),
+ }));
+ const created=await (await put("Old")).json();
+ const updated=await (await put("New",created.revision)).json();
+ assert.equal((await handle(request("/api/live-content/history?kind=post&id="+id))).status,401);
+ const listResponse=await handle(request("/api/live-content/history?kind=post&id="+id,{headers:adminHeaders()}));
+ assert.equal(listResponse.status,200);
+ const list=(await listResponse.json()).entries;
+ assert.ok(list.some(x=>x.revision===created.revision));
+ assert.ok(list.some(x=>x.revision===updated.revision));
+ assert.equal(list.some(x=>"source" in x),false);
+ const restore=(expectedRevision)=>handle(request("/api/live-content/restore",{
+  method:"POST",headers:adminHeaders(),
+  body:JSON.stringify({kind:"post",id,revision:created.revision,expectedRevision}),
+ }));
+ assert.equal((await restore("bad-revision")).status,409);
+ const restored=await restore(updated.revision);
+ assert.equal(restored.status,200);
+ const restoredItem=await (await handle(request("/api/live-content/item?kind=post&id="+id,{headers:adminHeaders()}))).json();
+ assert.equal(restoredItem.source.includes("Old"),true);
+ assert.notEqual(restoredItem.revision,created.revision);
+ assert.equal((await restore(updated.revision)).status,409);
+ const del=await handle(request("/api/live-content/item?kind=post&id="+id,{
+  method:"DELETE",headers:adminHeaders(),body:JSON.stringify({expectedRevision:restoredItem.revision}),
+ }));
+ assert.equal(del.status,200);
+ const tombstone=(await del.json()).revision;
+ assert.equal((await restore(tombstone)).status,200);
+ assert.equal((await handle(request("/api/live-content/item?kind=post&id="+id))).status,200);
+});
