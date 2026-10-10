@@ -10,9 +10,15 @@ function escapeHtml(value) {
 export function livePostIdFromRequest(request) {
 	const pathname = new URL(request.url).pathname;
 	if (!pathname.startsWith("/posts/")) return null;
-	const id = decodeURIComponent(pathname.slice("/posts/".length))
-		.replace(/^\/+|\/+$/g, "");
-	if (!id || id.includes("..") || id.includes("\\")) return null;
+	let id;
+	try {
+		id = decodeURIComponent(pathname.slice("/posts/".length))
+			.replace(/^\\/+|\\/+$/g, "");
+	} catch {
+		return null;
+	}
+	if (!id || id.includes("..") || id.includes("\\\\") || /[\\u0000-\\u001f\\u007f]/.test(id)) return null;
+	if (id.split("/").some(segment => !segment || segment === ".")) return null;
 	return id;
 }
 
