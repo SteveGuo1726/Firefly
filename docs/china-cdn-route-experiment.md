@@ -67,3 +67,18 @@ Cloudflare Worker 免费额度为 100,000 次 Worker 请求/天（**整个免费
 - Cloudflare Workers Static Assets：https://developers.cloudflare.com/workers/static-assets/billing-and-limitations/
 - ESA 免费 Entrance：https://www.alibabacloud.com/help/en/edge-security-acceleration/esa/product-overview/how-to-get-esa-for-free
 - ESA 免备案仅限全球不含中国大陆：https://www.alibabacloud.com/help/en/edge-security-acceleration/esa/support/site-access-related-issues
+
+## 新增的自有域名实验入口（2026-10-10）
+
+- HTTPS：https://cnprobe.casto.top/
+- Cloudflare Custom Domain 仅新增这一条实验 DNS/证书记录，指向 `firefly-cn-route-probe-preview`。
+- 当前图床 `img.casto.top` 与博客 `blog.casto.top` 的 DNS、Worker 和原图不变。
+- 此 Worker 依旧是按量计数的**免费 Workers 动态请求**，不能当作长期无限量缩略图出口；正式分享相册要研究 Workers Static Assets。
+- 自有域名同一境外测点的 PNG 试验：首次 4.419522 秒（MISS）、第二次 0.081322 秒（HIT），大小均为 1,780,047 bytes；SHA-256 与源图一致。
+- 这只验证当前测试 POP 的缓存和文件完整性，**不代表大陆三网加速已达标**。
+- 面向电信/联通/移动的切换决策，仍需要通过此测速页面收集多个地区和时段的自愿匿名结果。
+- 如果实验停用，可在 Cloudflare 中移除仅属于 `cnprobe.casto.top` 的 Custom Domain 绑定，不影响生产域名。
+
+注意：Cloudflare 2026 年推出的 Workers Cache 前置缓存机制，即使命中缓存也按 Workers 请求计费/计入用量，因此不能以“命中缓存无需执行 Worker”推断其请求完全免费。大量图片应优先走 Static Assets 免计量的静态请求。
+
+官方定价：https://developers.cloudflare.com/workers/cache/
