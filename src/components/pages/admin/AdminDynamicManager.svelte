@@ -1,5 +1,7 @@
 <script lang="ts">
-import { onMount } from "svelte";
+import { onMount, tick } from "svelte";
+import { uploadImageBedFile } from "@/utils/admin/imagebed-client";
+import { markdownImage, insertMarkdownAt } from "@/utils/admin/editor-image";
 import { readDraft, writeDraft, clearDraft } from "@/utils/admin/draft-storage";
 import { siteConfig } from "@/config/siteConfig";
 import type { GitHubAdminSession } from "@/utils/admin/github-session";
@@ -13,6 +15,7 @@ type Base={id:string;path:string;published:string;pinned:boolean;location:string
 type Row=Base&{live:boolean;baseGitSha:string;revision:string};
 let rows:Row[]=[];let query="";let loading=false;let opening=false;let saving=false;let deleting=false;let currentId="";let currentPath="";let loadedPath="";let baseGitSha="";let liveRevision="";let originalSource="";let fields:AdminDynamicFields={published:"",pinned:false,location:""};let body="";let previewHtml="";let message="";let error="";let previewTimer:ReturnType<typeof setTimeout>|null=null;
 let savedEditorSnapshot="";
+let imageUploading=false;let editorTextarea:HTMLTextAreaElement|null=null;
 let liveIndexHealthy=false;
 let deletedRows:{id:string;path:string;revision:string;baseGitSha:string}[]=[];
 let deletedGitSha="";
@@ -65,6 +68,29 @@ async function undoGitDelete(){
   message="已撤销删除标记，原始 Git 内容重新公开。";
  }catch(e){error=e instanceof Error?e.message:"撤销删除失败。";}
  finally{deleting=false;}
+}
+async function uploadEditorImage(event:Event){
+ const input=event.currentTarget as HTMLInputElement;
+ const file=input.files?.[0];
+ input.value="";
+ if(!file)return;
+ if(!file.type.startsWith("image/")||file.size>30*1024*1024){
+  error="仅支持不超过 30 MB 的图片。";return;
+ }
+ imageUploading=true;error="";message="";
+ try{
+  const position=editorTextarea?.selectionStart??body.length;
+  const ending=editorTextarea?.selectionEnd??position;
+  const image=await uploadImageBedFile(file,"blog");
+  const result=insertMarkdownAt(body,position,ending,markdownImage(file.name,image.url));
+  body=result.value;
+  await tick();
+  editorTextarea?.focus();
+  editorTextarea?.setSelectionRange(result.caret,result.caret);
+  await updatePreview();
+  message="图片上传完成，已插入编辑器。";
+ }catch(e){error=e instanceof Error?e.message:"图片上传失败，原有正文未改动。";}
+ finally{imageUploading=false;}
 }
 async function loadHistory(){
  if(!currentId || historyLoading)return;
@@ -124,7 +150,8 @@ onMount(()=>{
 });
 </script>
 
-<section class="manager card-base"><header><div><h2>动态管理</h2><p>实时写入 Blob；公开动态页不再挂载管理组件。</p></div><div class="actions"><button onclick={()=>refresh()} disabled={loading}>刷新</button><button class="primary" onclick={createNew}>新建</button></div></header><div class="layout"><aside><input class="search" type="search" bind:value={query} placeholder="搜索动态"/><div class="list">{#if loading}<p>读取中...</p>{:else}{#each filtered() as row}<button class:active={row.id===currentId} onclick={()=>open(row)}><strong>{row.excerpt||row.id}</strong><span>{row.published} · {row.live?"实时":"Git"}</span><small>{row.location}</small></button>{/each}{/if}</div>{#if deletedRows.length}<div class="deleted-entries"><strong>已删除 ({deletedRows.length})</strong>{#each deletedRows as item}<button type="button" onclick={()=>openDeleted(item)} title="查看历史并恢复">{item.id} · 恢复</button>{/each}</div>{/if}</aside><div class="editor"><div class="grid"><label class="wide"><span>文件路径</span><input bind:value={currentPath}/></label><label><span>发布时间</span><input bind:value={fields.published}/></label><label><span>位置</span><input bind:value={fields.location}/></label></div><label class="check"><input type="checkbox" bind:checked={fields.pinned}/>置顶</label><label class="body"><span>正文 Markdown</span><textarea bind:value={body} oninput={schedulePreview}></textarea></label><div class="history-controls">
+<section class="manager card-base"><header><div><h2>动态管理</h2><p>实时写入 Blob；公开动态页不再挂载管理组件。</p></div><div class="actions"><button onclick={()=>refresh()} disabled={loading}>刷新</button><button class="primary" onclick={createNew}>新建</button></div></header><div class="layout"><aside><input class="search" type="search" bind:value={query} placeholder="搜索动态"/><div class="list">{#if loading}<p>读取中...</p>{:else}{#each filtered() as row}<button class:active={row.id===currentId} onclick={()=>open(row)}><strong>{row.excerpt||row.id}</strong><span>{row.published} · {row.live?"实时":"Git"}</span><small>{row.location}</small></button>{/each}{/if}</div>{#if deletedRows.length}<div class="deleted-entries"><strong>已删除 ({deletedRows.length})</strong>{#each deletedRows as item}<button type="button" onclick={()=>openDeleted(item)} title="查看历史并恢复">{item.id} · 恢复</button>{/each}</div>{/if}</aside><div class="editor"><div class="grid"><label class="wide"><span>文件路径</span><input bind:value={currentPath}/></label><label><span>发布时间</span><input bind:value={fields.published}/></label><label><span>位置</span><input bind:value={fields.location}/></label></div><label class="check"><input type="checkbox" bind:checked={fields.pinned}/>置顶</label><label class="image-upload"><span>插入图片</span><input type="file" accept="image/*" onchange={uploadEditorImage} disabled={imageUploading}/>{#if imageUploading}<small>上传中，请勿关闭页面...</small>{/if}</label>
+<label class="body"><span>正文 Markdown</span><textarea bind:this={editorTextarea} bind:value={body} oninput={schedulePreview}></textarea></label><div class="history-controls">
  <button type="button" onclick={loadHistory} disabled={!currentId||historyLoading}>{historyLoading?"读取历史中...":"查看历史版本"}</button>
  {#if deletedGitSha && currentId && deletedRows.some(row=>row.id===currentId)}<button type="button" onclick={undoGitDelete} disabled={saving||deleting}>撤销 Git 内容删除</button>{/if}
  {#if historyEntries.length}
@@ -138,6 +165,7 @@ onMount(()=>{
 </div>
 <div class="status"><div>{#if opening}<span>读取源码...</span>{/if}{#if message}<span class="ok">{message}</span>{/if}{#if error}<span class="bad">{error}</span>{/if}</div><div class="actions"><button class="danger" onclick={remove} disabled={!currentId||saving||deleting}>删除实时版本</button><button class="primary" onclick={save} disabled={saving||deleting||opening}>{saving?"保存中...":"实时保存"}</button></div></div></div><div class="preview"><strong>动态预览</strong><div class="prose prose-base max-w-none custom-md dark:prose-invert">{@html previewHtml}</div></div></div></section>
 <style>
+.image-upload{display:flex;align-items:center;flex-wrap:wrap;gap:.6rem;padding:.45rem 0;font-size:.78rem}.image-upload input{font-size:.76rem;max-width:100%}
 .deleted-entries{display:grid;gap:.4rem;padding:.8rem 0;border-top:1px solid var(--line-divider)}.deleted-entries strong{font-size:.8rem;color:#b55050}.deleted-entries button{text-align:left;overflow-wrap:anywhere}
 .history-controls{display:flex;flex-wrap:wrap;gap:.45rem;padding:.7rem 0;align-items:center}.history-controls select{max-width:100%;min-width:9rem;border:1px solid var(--line-divider);border-radius:.5rem;background:var(--card-bg);color:inherit;padding:.5rem}
 .manager{overflow:hidden}header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem;border-bottom:1px solid var(--line-divider)}h2{margin:0;font-size:1.05rem}header p{margin:.25rem 0 0;font-size:.76rem;opacity:.58}.actions{display:flex;gap:.45rem}button{border:1px solid var(--line-divider);border-radius:.55rem;background:transparent;color:inherit;padding:.55rem .7rem;font:inherit;font-size:.76rem;font-weight:700;cursor:pointer}button.primary{background:var(--primary);border-color:var(--primary);color:white}button.danger{color:#c43d3d;border-color:rgb(196 61 61/.3)}button:disabled{opacity:.5;cursor:not-allowed}.layout{display:grid;grid-template-columns:17rem minmax(28rem,1fr) minmax(22rem,.8fr);min-height:62vh}aside{padding:.75rem;border-right:1px solid var(--line-divider)}.search,.grid input,.body textarea{width:100%;border:1px solid var(--line-divider);border-radius:.55rem;background:transparent;color:inherit;font:inherit}.search{padding:.62rem}.list{display:grid;gap:.3rem;margin-top:.6rem;max-height:58vh;overflow:auto}.list button{display:grid;text-align:left;gap:.15rem}.list button.active{border-color:var(--primary);background:color-mix(in oklab,var(--primary) 9%,transparent)}.list span,.list small{font-size:.67rem;opacity:.55}.editor{padding:.9rem;border-right:1px solid var(--line-divider)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}.grid label,.body{display:grid;gap:.3rem;font-size:.72rem;font-weight:700}.grid .wide{grid-column:span 2}.grid input{padding:.6rem}.check{display:flex;gap:.35rem;margin:.8rem 0;font-size:.76rem}.body textarea{min-height:25rem;padding:.7rem;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.6}.status{display:flex;justify-content:space-between;gap:.7rem;align-items:center;margin-top:.7rem;font-size:.7rem}.status>div:first-child{display:grid}.ok{color:#059669}.bad{color:#c43d3d}.preview{padding:1rem;overflow:auto;max-height:62vh}.preview>strong{display:block;margin-bottom:.8rem}@media(max-width:1250px){.layout{grid-template-columns:16rem minmax(0,1fr)}.preview{grid-column:1/-1;border-top:1px solid var(--line-divider);max-height:none}}@media(max-width:800px){header{align-items:flex-start;flex-direction:column}.layout{grid-template-columns:1fr}aside,.editor{border-right:0;border-bottom:1px solid var(--line-divider)}.list{max-height:16rem}.grid{grid-template-columns:1fr}.grid .wide{grid-column:auto}.status{align-items:flex-start;flex-direction:column}}
