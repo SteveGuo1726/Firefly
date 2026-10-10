@@ -5,7 +5,7 @@ import { siteConfig } from "@/config/siteConfig";
 import type { GitHubAdminSession } from "@/utils/admin/github-session";
 import { buildPostDocument, emptyPostFields, excerptMarkdown, parsePostDocument, type AdminPostFields } from "@/utils/admin/content-format";
 import { fetchGitContentSource } from "@/utils/admin/github-content-reader";
-import { deleteLiveContentItem, fetchLiveContentIndex, fetchLiveContentItem, saveLiveContentItem, fetchLiveContentHistory, restoreLiveContentRevision, type LiveHistoryEntry } from "@/utils/admin/live-content-client";
+import { deleteLiveContentItem, fetchLiveContentIndex, fetchLiveContentItem, saveLiveContentItem, fetchLiveContentHistory, restoreLiveContentRevision, undoGitBaselineDeletion, type LiveHistoryEntry } from "@/utils/admin/live-content-client";
 import { renderFireflyPreview } from "@/utils/write/preview";
 
 export let session:GitHubAdminSession;
@@ -18,7 +18,8 @@ let fields:AdminPostFields=emptyPostFields();let body="";let tagsText="";let pre
 let previewTimer:ReturnType<typeof setTimeout>|null=null;
 let savedEditorSnapshot="";
 let liveIndexHealthy=false;
-let deletedRows:{id:string;path:string;revision:string}[]=[];
+let deletedRows:{id:string;path:string;revision:string;baseGitSha:string}[]=[];
+let deletedGitSha="";
 let historyEntries:LiveHistoryEntry[]=[];let historyRevision="";let historyLoading=false;
 function editorSnapshot(){return JSON.stringify({currentPath,fields,body,tagsText});}
 function guardUnsaved(){return !savedEditorSnapshot || editorSnapshot()===savedEditorSnapshot || confirm("当前有未保存的编辑内容。继续将丢失这些修改，确定切换吗？");}
@@ -44,7 +45,7 @@ async function refresh(){
 		try{
 			const live=await fetchLiveContentIndex("post",session);
 			for(const e of live.entries){
-				if(e.deleted){deletedRows.push({id:e.id,path:e.path||"",revision:e.revision||""});map.delete(e.id);continue;}
+				if(e.deleted){deletedRows.push({id:e.id,path:e.path||"",revision:e.revision||"",baseGitSha:e.baseGitSha||""});map.delete(e.id);continue;}
 				const old=map.get(e.id);const m=e.meta as Partial<BasePost>;
 				map.set(e.id,{id:e.id,path:e.path||old?.path||`src/content/posts/${e.id}.md`,title:String(m.title??old?.title??e.id),description:String(m.description??old?.description??""),published:String(m.published??old?.published??""),updated:String(m.updated??old?.updated??""),category:String(m.category??old?.category??""),tags:Array.isArray(m.tags)?m.tags.map(String):(old?.tags||[]),draft:Boolean(m.draft??old?.draft??false),pinned:Boolean(m.pinned??old?.pinned??false),image:String(m.image??old?.image??""),live:true,baseGitSha:e.baseGitSha||"",revision:e.revision||""});
 			}
@@ -54,7 +55,7 @@ async function refresh(){
 }
 
 async function open(row:Row){if(saving||deleting||opening||!guardUnsaved())return;
-	historyEntries=[];historyRevision="";opening=true;error="";message="";
+	historyEntries=[];historyRevision="";deletedGitSha="";opening=true;error="";message="";
 	try{
 		let source="";let sha=row.baseGitSha;
 		if(row.live){const live=await fetchLiveContentItem("post",row.id,session);if(live?.source){source=live.source;sha=live.baseGitSha||sha;liveRevision=live.revision||row.revision||"";}}else{liveRevision="";}
@@ -65,7 +66,7 @@ async function open(row:Row){if(saving||deleting||opening||!guardUnsaved())retur
 	}catch(e){error=e instanceof Error?e.message:"读取文章失败。";}finally{opening=false;}
 }
 
-function createNew(){if(saving||deleting||opening||!guardUnsaved())return;const stamp=new Date().toISOString().replace(/[-:]/g,"").slice(0,13).replace("T","-").toLowerCase();historyEntries=[];historyRevision="";currentId="";currentPath=`src/content/posts/${stamp}.md`;loadedPath="";baseGitSha="";liveRevision="";originalSource="";fields=emptyPostFields();body="# 新文章\n\n";tagsText="";message="新文章尚未写入 Blob。";error="";savedEditorSnapshot=editorSnapshot();void updatePreview();}
+function createNew(){if(saving||deleting||opening||!guardUnsaved())return;const stamp=new Date().toISOString().replace(/[-:]/g,"").slice(0,13).replace("T","-").toLowerCase();historyEntries=[];historyRevision="";deletedGitSha="";currentId="";currentPath=`src/content/posts/${stamp}.md`;loadedPath="";baseGitSha="";liveRevision="";originalSource="";fields=emptyPostFields();body="# 新文章\n\n";tagsText="";message="新文章尚未写入 Blob。";error="";savedEditorSnapshot=editorSnapshot();void updatePreview();}
 
 async function save(){if(!liveIndexHealthy){error="实时内容索引尚未成功同步，请刷新列表后重试保存。";return;}
 	if(!fields.title.trim()){error="标题不能为空。";return;}
@@ -88,15 +89,28 @@ async function remove(){if(!liveIndexHealthy){error="实时内容索引尚未成
 
 async function updatePreview(){try{previewHtml=await renderFireflyPreview({source:body,calloutTheme:siteConfig.post.rehypeCallouts.theme,isMdx:currentPath.endsWith(".mdx")});}catch(e){previewHtml=`<p>${e instanceof Error?e.message:"预览失败"}</p>`;}}
 function schedulePreview(){if(previewTimer)clearTimeout(previewTimer);previewTimer=setTimeout(()=>void updatePreview(),180);}
-async function openDeleted(item:{id:string;path:string;revision:string}){
+async function openDeleted(item:{id:string;path:string;revision:string;baseGitSha:string}){
  if(saving||deleting||opening||!guardUnsaved())return;
  currentId=item.id;currentPath=item.path;loadedPath=item.path;
- liveRevision=item.revision;baseGitSha="";originalSource="";body="";
+ liveRevision=item.revision;baseGitSha=item.baseGitSha;deletedGitSha=item.baseGitSha;originalSource="";body="";
  fields=emptyPostFields();tagsText="";
  historyEntries=[];historyRevision="";previewHtml="";
  savedEditorSnapshot=editorSnapshot();
  message="已选中删除记录。请从历史版本中选择需要恢复的内容。";error="";
  await loadHistory();
+}
+async function undoGitDelete(){
+ if(!currentId || !deletedGitSha || !liveRevision || saving || deleting || !guardUnsaved())return;
+ if(!confirm("撤销 Git 原有内容的实时删除标记？服务端将先核实 Git 文件未变化。"))return;
+ deleting=true;error="";message="";
+ try{
+  await undoGitBaselineDeletion({session,kind:"post",id:currentId,expectedRevision:liveRevision});
+  currentId="";currentPath="";loadedPath="";liveRevision="";deletedGitSha="";
+  historyEntries=[];historyRevision="";savedEditorSnapshot="";
+  await refresh();
+  message="已撤销删除标记，原始 Git 内容重新公开。";
+ }catch(e){error=e instanceof Error?e.message:"撤销删除失败。";}
+ finally{deleting=false;}
 }
 async function loadHistory(){
  if(!currentId || historyLoading)return;
@@ -182,6 +196,7 @@ onMount(()=>{
 {/if}
 <div class="history-controls">
  <button type="button" onclick={loadHistory} disabled={!currentId||historyLoading}>{historyLoading?"读取历史中...":"查看历史版本"}</button>
+ {#if deletedGitSha && currentId && deletedRows.some(row=>row.id===currentId)}<button type="button" onclick={undoGitDelete} disabled={saving||deleting}>撤销 Git 内容删除</button>{/if}
  {#if historyEntries.length}
   <select bind:value={historyRevision} aria-label="选择历史版本">
    {#each historyEntries as revision}
