@@ -150,8 +150,8 @@ export function createLiveContentService({
 	routePrefix = "/api/live-content",
 	region,
 	authorize,
-	authorizeSession,
-	distributedLock,
+	authorizeSession = null,
+	distributedLock = null,
 }) {
 	const authCache = new Map();
 	const repoWriterCache = new Map();
