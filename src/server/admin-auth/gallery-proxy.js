@@ -1,5 +1,5 @@
 import {getStore} from "@edgeone/pages-blob";
-import {edgeOneAtomicAuthStore} from "./edgeone-store.js";
+import {edgeOneAtomicAuthStore,assertEdgeOneAtomicWrites} from "./edgeone-store.js";
 import {createAdminSessionService} from "./session-service.js";
 import {readAdminSessionId} from "./controller.js";
 
@@ -25,7 +25,9 @@ export async function proxyGalleryManagement(request,{env=process.env,fetcher=fe
     !env.FIREFLY_GALLERY_SERVICE_SECRET||env.FIREFLY_GALLERY_SERVICE_SECRET.length<32){
   return new Response("OAuth gallery proxy is not configured",{status:503});
  }
- const sessionStore=edgeOneAtomicAuthStore(storeFactory());
+ const raw=storeFactory();
+ await assertEdgeOneAtomicWrites(raw);
+ const sessionStore=edgeOneAtomicAuthStore(raw);
  const service=createAdminSessionService({store:sessionStore,adminLogin:env.FIREFLY_ADMIN_LOGIN||"SteveGuo1726"});
  const identity=await service.verifySession(readAdminSessionId(request));
  if(!identity)return new Response("Unauthorized",{status:401});
