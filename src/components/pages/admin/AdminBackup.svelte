@@ -39,7 +39,7 @@ async function downloadBackup(){
 }
 </script>
 <section class="backup card-base">
- <header><h2>备份与恢复准备</h2><p>导出当前实时内容快照：文章、动态及删除标记。历史版本不包含在此文件中；不会修改 Git 仓库或触发构建。</p></header>
+ <header><h2>备份与恢复准备</h2><p>导出当前实时内容快照：文章、动态及删除标记。同时包含历史版本与删除标记；不会修改 Git 仓库或触发构建。</p></header>
  <div class="warning">导出文件包含实时内容源文件与可能未公开的草稿。不要把它放在公开网盘、Git 仓库或评论附件里。</div>
  <button type="button" class="primary" onclick={downloadBackup} disabled={busy}>{busy?"正在读取完整数据...":"下载当前实时内容 JSON 快照"}</button>
  {#if error}<p role="alert" class="error">{error}</p>{/if}
