@@ -175,6 +175,31 @@ if (navbarSource.includes("GitHubAdminLogin")) {
   errors.push("public navbar must not bundle administrator login");
 }
 
+const oauthCallbackSource = await readFile(
+  path.join(process.cwd(), "cloud-functions/api/admin/auth/[[default]].js"),
+  "utf8",
+).catch(() => "");
+const galleryProxySource = await readFile(
+  path.join(process.cwd(), "src/server/admin-auth/gallery-proxy.js"),
+  "utf8",
+).catch(() => "");
+const gallerySessionSource = await readFile(
+  path.join(process.cwd(), "src/utils/admin/github-session.ts"),
+  "utf8",
+).catch(() => "");
+if (
+  !oauthCallbackSource.includes("FIREFLY_OAUTH_CLIENT_SECRET") ||
+  !oauthCallbackSource.includes("assertEdgeOneAtomicWrites") ||
+  !galleryProxySource.includes("FIREFLY_GALLERY_SERVICE_SECRET") ||
+  !galleryProxySource.includes("sessionService") && !galleryProxySource.includes("createAdminSessionService") ||
+  !gallerySessionSource.includes("refreshOAuthAdminSession")
+) {
+  errors.push("OAuth server, same-origin gallery bridge or session guards missing");
+}
+if (!galleryWorkerSource.includes("FIREFLY_ADMIN_SERVICE_SECRET")) {
+  errors.push("gallery worker must validate a service-to-service secret before OAuth management");
+}
+
 const dynamicPageSource = await readFile(
   path.join(process.cwd(), "src/pages/dynamic/index.astro"),
   "utf8",
