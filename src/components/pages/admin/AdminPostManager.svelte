@@ -319,10 +319,10 @@ onMount(()=>{
     {#if tagsText.trim()}<div class="article-tags">{#each tagsText.split(/[,\n]/).map(tag=>tag.trim()).filter(Boolean) as tag}<span>#{tag}</span>{/each}</div>{/if}
     {#if fields.image}<img class="article-cover" src={fields.image} alt={fields.title || "文章封面"} loading="lazy"/>{/if}
    </header>
-   <div class="prose prose-base max-w-none custom-md dark:prose-invert" bind:this={previewRoot} data-preview-body>{@html previewHtml}</div>
+   <div class="prose prose-base max-w-none! custom-md dark:prose-invert mb-6 markdown-content" bind:this={previewRoot} data-preview-body>{@html previewHtml}</div>
   </article>
  {:else}
-  <div class="prose prose-base max-w-none custom-md dark:prose-invert" bind:this={previewRoot} data-preview-body>{@html previewHtml}</div>
+  <div class="prose prose-base max-w-none! custom-md dark:prose-invert mb-6 markdown-content" bind:this={previewRoot} data-preview-body>{@html previewHtml}</div>
  {/if}
  </div>
  <p class="preview-disclaimer">文章视图复用正式站点的标题字号与 Markdown 排版类；侧栏、评论、完整动画以及未保存的 MDX 动态组件效果仍应在发布后的实际预览页检查。</p>
