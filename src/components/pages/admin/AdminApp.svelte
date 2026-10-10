@@ -10,7 +10,7 @@ import {
 import GitHubAdminLogin from "@/components/features/GitHubAdminLogin.svelte";
 
 const PREVIEW_DEMO_COMPILED = import.meta.env.PUBLIC_FIREFLY_PREVIEW_DEMO === "true";
-const PREVIEW_HOST = "firefly-blog-preview.guojunyang666666.workers.dev";
+const PREVIEW_HOSTS = new Set(["firefly-blog-preview.guojunyang666666.workers.dev", "v1-preview.casto.top"]);
 const SANDBOX_PREVIEW_HOST = import.meta.env.PUBLIC_FIREFLY_SANDBOX_HOST?.trim() || "";
 const DEMO_STORAGE_KEY = "firefly:preview-admin-demo";
 type PreviewDemoType = typeof import("./PreviewDemoAdmin.svelte").default;
@@ -28,7 +28,7 @@ let previewLoginError = "";
 
 function previewOriginAllowed(): boolean {
  return typeof window !== "undefined" &&
-  (window.location.hostname === PREVIEW_HOST ||
+  (PREVIEW_HOSTS.has(window.location.hostname) ||
    (import.meta.env.DEV && (
     /^(localhost|127\\.0\\.0\\.1)$/.test(window.location.hostname) ||
     (SANDBOX_PREVIEW_HOST !== "" && window.location.hostname === SANDBOX_PREVIEW_HOST)
@@ -136,7 +136,7 @@ onMount(()=>{
  demoSupported=PREVIEW_DEMO_COMPILED && previewOriginAllowed();
  // Cloudflare preview performs server-side password authentication. The
  // ephemeral Sandbox still offers only the isolated read-only demo.
- previewPasswordLogin=demoSupported && window.location.hostname===PREVIEW_HOST;
+ previewPasswordLogin=PREVIEW_HOSTS.has(window.location.hostname);
  if(previewPasswordLogin){
   demoSupported=false;
   section=readSection();
