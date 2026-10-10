@@ -7,12 +7,48 @@ export const GITHUB_SESSION_CHANGED_EVENT =
 const STORAGE_KEY = "FIREFLY_GITHUB_ADMIN_SESSION_V2";
 const LEGACY_STORAGE_KEY = "FIREFLY_GITHUB_ADMIN_SESSION_V1";
 const DAY_MS = 24 * 60 * 60 * 1000;
+let oauthCachedSession: GitHubAdminSession | null = null;
+let oauthSupported = false;
+
+export function isOAuthSupported(): boolean { return oauthSupported; }
+
+export async function refreshOAuthAdminSession(): Promise<GitHubAdminSession | null> {
+ try {
+  const response=await fetch("/api/admin/auth/me",{cache:"no-store",credentials:"same-origin"});
+  oauthSupported=response.ok;
+  if(!response.ok){oauthCachedSession=null;return null;}
+  const data=await response.json();
+  if(!data?.authenticated || !data.user?.login){oauthCachedSession=null;return null;}
+  oauthCachedSession={
+   login:String(data.user.login),name:String(data.user.login),avatarUrl:"",
+   token:"",oauth:true,
+   owner:githubAdminConfig.owner,repo:githubAdminConfig.repo,branch:githubAdminConfig.branch,
+   expiresAt:Date.now()+8*60*60*1000,
+  };
+  notifySessionChanged();
+  return oauthCachedSession;
+ }catch{
+  oauthCachedSession=null;oauthSupported=false;return null;
+ }
+}
+
+export async function logoutOAuthAdmin(): Promise<void> {
+ const response=await fetch("/api/admin/auth/logout",{
+  method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},
+  body:"{}",
+ });
+ if(!response.ok)throw new Error("OAuth 退出失败，请重试。");
+ oauthCachedSession=null;
+ clearGitHubAdminSession();
+}
+
 
 export type GitHubAdminSession = {
 	login: string;
 	name: string;
 	avatarUrl: string;
 	token: string;
+	oauth?: boolean;
 	owner: string;
 	repo: string;
 	branch: string;
@@ -51,6 +87,7 @@ function notifySessionChanged(): void {
 }
 
 export function getGitHubAdminSession(): GitHubAdminSession | null {
+	if(oauthCachedSession && oauthCachedSession.expiresAt>Date.now())return oauthCachedSession;
 	if (!storageAvailable()) return null;
 	discardLegacyPersistentToken();
 	const raw = sessionStorage.getItem(STORAGE_KEY);
@@ -79,7 +116,7 @@ export function getGitHubAdminSession(): GitHubAdminSession | null {
 export function getGitHubRepoConfigFromSession(
 	session: GitHubAdminSession | null = getGitHubAdminSession(),
 ): GitHubRepoConfig | null {
-	if (!session) return null;
+	if (!session || session.oauth) return null;
 	return {
 		owner: session.owner,
 		repo: session.repo,
@@ -89,6 +126,7 @@ export function getGitHubRepoConfigFromSession(
 }
 
 export function clearGitHubAdminSession(notify = true): void {
+	oauthCachedSession=null;
 	if (storageAvailable()) sessionStorage.removeItem(STORAGE_KEY);
 	if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
 		localStorage.removeItem(LEGACY_STORAGE_KEY);
