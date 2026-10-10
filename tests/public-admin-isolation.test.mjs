@@ -243,7 +243,9 @@ test("backup verifies all pointer revisions and full document sources before suc
  const backup=await readFile("src/components/pages/admin/AdminBackup.svelte","utf8");
  assert.match(service,/Backup integrity failure: missing or mismatched/);
  assert.match(service,/typeof item\.source !== "string"/);
- assert.match(backup,/备份完整性校验失败/);
+ const validator=await readFile("src/utils/admin/backup-integrity.ts","utf8");
+ assert.match(backup,/validateLiveContentBackup\(data\)/);
+ assert.match(validator,/备份完整性校验失败/);
 });
 
 test("gallery admin prevents destructive refresh and overlapping upload/save",async()=>{
