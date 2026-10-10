@@ -6,7 +6,7 @@ export function draftKey(kind:string,login:string){
  return PREFIX+login.toLowerCase()+":"+kind;
 }
 export function readDraft(storage:DraftStorage,kind:string,login:string,{now=Date.now(),ttlMs=7*24*60*60*1000}={}){
- const key=draftKey(kind:string,login:string);
+ const key=draftKey(kind,login);
  try{
   const raw=storage.getItem(key);
   if(!raw)return null;
