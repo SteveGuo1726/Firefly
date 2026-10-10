@@ -53,7 +53,7 @@ async function refresh(){
 }
 
 async function open(row:Row){if(saving||deleting||opening||!guardUnsaved())return;
-	opening=true;error="";message="";
+	historyEntries=[];historyRevision="";opening=true;error="";message="";
 	try{
 		let source="";let sha=row.baseGitSha;
 		if(row.live){const live=await fetchLiveContentItem("post",row.id,session);if(live?.source){source=live.source;sha=live.baseGitSha||sha;liveRevision=live.revision||row.revision||"";}}else{liveRevision="";}
@@ -64,7 +64,7 @@ async function open(row:Row){if(saving||deleting||opening||!guardUnsaved())retur
 	}catch(e){error=e instanceof Error?e.message:"读取文章失败。";}finally{opening=false;}
 }
 
-function createNew(){if(saving||deleting||opening||!guardUnsaved())return;const stamp=new Date().toISOString().replace(/[-:]/g,"").slice(0,13).replace("T","-").toLowerCase();currentId="";currentPath=`src/content/posts/${stamp}.md`;loadedPath="";baseGitSha="";liveRevision="";originalSource="";fields=emptyPostFields();body="# 新文章\n\n";tagsText="";message="新文章尚未写入 Blob。";error="";savedEditorSnapshot=editorSnapshot();void updatePreview();}
+function createNew(){if(saving||deleting||opening||!guardUnsaved())return;const stamp=new Date().toISOString().replace(/[-:]/g,"").slice(0,13).replace("T","-").toLowerCase();historyEntries=[];historyRevision="";currentId="";currentPath=`src/content/posts/${stamp}.md`;loadedPath="";baseGitSha="";liveRevision="";originalSource="";fields=emptyPostFields();body="# 新文章\n\n";tagsText="";message="新文章尚未写入 Blob。";error="";savedEditorSnapshot=editorSnapshot();void updatePreview();}
 
 async function save(){if(!liveIndexHealthy){error="实时内容索引尚未成功同步，请刷新列表后重试保存。";return;}
 	if(!fields.title.trim()){error="标题不能为空。";return;}
@@ -105,6 +105,7 @@ async function restoreHistory(){
   historyEntries=[];historyRevision="";
   await refresh();
   const row=rows.find(item=>item.id===restoredId);
+  saving=false;
   if(row)await open(row);
   message="已恢复历史版本并生成新的实时 revision。";
  }catch(e){error=e instanceof Error?e.message:"恢复历史失败。";}
