@@ -1,7 +1,7 @@
 import {githubAuthorizationUrl,exchangeGitHubCode,adminSessionCookie,clearAdminSessionCookie} from "./oauth-core.js";
 
 const cookieName="__Host-firefly-admin";
-function readCookie(request){
+export function readAdminSessionId(request){
  const raw=request.headers.get("Cookie")||"";
  const cookie=raw.split(";").map(v=>v.trim()).find(v=>v.startsWith(cookieName+"="));
  return cookie ? cookie.slice(cookieName.length+1) : "";
@@ -57,7 +57,7 @@ export function createGitHubAdminAuthController({
    }catch{return failure();}
   },
   async me(request){
-   const user=await sessionService.verifySession(readCookie(request));
+   const user=await sessionService.verifySession(readAdminSessionId(request));
    return noStore(new Response(JSON.stringify({authenticated:Boolean(user),user:user?{login:user.login,userId:user.userId}:null}),{
     status:200,headers:{"Content-Type":"application/json; charset=utf-8"}
    }));
