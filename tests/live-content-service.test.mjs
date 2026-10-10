@@ -2,6 +2,45 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { createLiveContentService } from "../src/server/live-content/service.js";
 import { renderLivePostFallback } from "../src/server/live-content/render-live-post.js";
+import previewWorker from "../worker/blog-preview.ts";
+
+
+test("preview worker blocks static HTML when a newer live post is hidden or deleted", async () => {
+ const pointerKey = "v3/pointers/posts/secret.json";
+ let assetReads = 0;
+ let pointer = null;
+ const env = {
+  LIVE_CONTENT_PREVIEW: {
+   async get(key) { return key === pointerKey && pointer ? JSON.stringify(pointer) : null; },
+  },
+  ASSETS: {
+   async fetch() { assetReads++; return new Response("STATIC PRIVATE CONTENT", { status: 200 }); },
+  },
+ };
+ const url = request("/posts/secret/");
+ for (const state of [{deleted:true},{meta:{draft:true}},{meta:{protected:true}}]) {
+  pointer = {id:"secret",revision:"test",...state};
+  const res = await previewWorker.fetch(url, env, {});
+  assert.equal(res.status, 404);
+  assert.equal(res.headers.get("X-Robots-Tag"), "noindex");
+  assert.equal(assetReads, 0, "hidden content must not read or serve the static page");
+ }
+ pointer = {id:"secret",revision:"test",meta:{title:"Public"}};
+ assert.equal((await previewWorker.fetch(url, env, {})).status, 200);
+ assert.equal(assetReads, 1);
+ pointer = null;
+ assert.equal((await previewWorker.fetch(url, env, {})).status, 200);
+ assert.equal(assetReads, 2);
+});
+test("preview worker fails closed when live visibility storage is unavailable", async () => {
+ let assetReads = 0;
+ const env = {
+  LIVE_CONTENT_PREVIEW: {async get(){ throw new Error("KV unavailable"); }},
+  ASSETS: {async fetch(){ assetReads++; return new Response("secret"); }},
+ };
+ await assert.rejects(previewWorker.fetch(request("/posts/secret/"), env, {}), /KV unavailable/);
+ assert.equal(assetReads, 0);
+});
 
 function clone(value) {
 	return value == null ? value : structuredClone(value);
