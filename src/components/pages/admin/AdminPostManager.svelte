@@ -18,6 +18,7 @@ let fields:AdminPostFields=emptyPostFields();let body="";let tagsText="";let pre
 let previewTimer:ReturnType<typeof setTimeout>|null=null;
 let savedEditorSnapshot="";
 let liveIndexHealthy=false;
+let deletedRows:{id:string;path:string;revision:string}[]=[];
 let historyEntries:LiveHistoryEntry[]=[];let historyRevision="";let historyLoading=false;
 function editorSnapshot(){return JSON.stringify({currentPath,fields,body,tagsText});}
 function guardUnsaved(){return !savedEditorSnapshot || editorSnapshot()===savedEditorSnapshot || confirm("当前有未保存的编辑内容。继续将丢失这些修改，确定切换吗？");}
@@ -39,11 +40,11 @@ async function refresh(){
 		const baseResponse=await fetch("/api/admin-content-index.json",{cache:"no-store"});
 		if(!baseResponse.ok)throw new Error("读取构建期内容索引失败。");
 		const base=await baseResponse.json();
-		const map=new Map<string,Row>((base.posts as BasePost[]).map(p=>[p.id,{...p,live:false,baseGitSha:"",revision:""}]));
+		deletedRows=[];const map=new Map<string,Row>((base.posts as BasePost[]).map(p=>[p.id,{...p,live:false,baseGitSha:"",revision:""}]));
 		try{
 			const live=await fetchLiveContentIndex("post",session);
 			for(const e of live.entries){
-				if(e.deleted){map.delete(e.id);continue;}
+				if(e.deleted){deletedRows.push({id:e.id,path:e.path||"",revision:e.revision||""});map.delete(e.id);continue;}
 				const old=map.get(e.id);const m=e.meta as Partial<BasePost>;
 				map.set(e.id,{id:e.id,path:e.path||old?.path||`src/content/posts/${e.id}.md`,title:String(m.title??old?.title??e.id),description:String(m.description??old?.description??""),published:String(m.published??old?.published??""),updated:String(m.updated??old?.updated??""),category:String(m.category??old?.category??""),tags:Array.isArray(m.tags)?m.tags.map(String):(old?.tags||[]),draft:Boolean(m.draft??old?.draft??false),pinned:Boolean(m.pinned??old?.pinned??false),image:String(m.image??old?.image??""),live:true,baseGitSha:e.baseGitSha||"",revision:e.revision||""});
 			}
@@ -87,6 +88,16 @@ async function remove(){if(!liveIndexHealthy){error="实时内容索引尚未成
 
 async function updatePreview(){try{previewHtml=await renderFireflyPreview({source:body,calloutTheme:siteConfig.post.rehypeCallouts.theme,isMdx:currentPath.endsWith(".mdx")});}catch(e){previewHtml=`<p>${e instanceof Error?e.message:"预览失败"}</p>`;}}
 function schedulePreview(){if(previewTimer)clearTimeout(previewTimer);previewTimer=setTimeout(()=>void updatePreview(),180);}
+async function openDeleted(item:{id:string;path:string;revision:string}){
+ if(saving||deleting||opening||!guardUnsaved())return;
+ currentId=item.id;currentPath=item.path;loadedPath=item.path;
+ liveRevision=item.revision;baseGitSha="";originalSource="";body="";
+ fields=emptyPostFields();tagsText="";
+ historyEntries=[];historyRevision="";previewHtml="";
+ savedEditorSnapshot=editorSnapshot();
+ message="已选中删除记录。请从历史版本中选择需要恢复的内容。";error="";
+ await loadHistory();
+}
 async function loadHistory(){
  if(!currentId || historyLoading)return;
  historyLoading=true;error="";
@@ -148,7 +159,7 @@ onMount(()=>{
 <section class="manager card-base">
 <header><div><h2>文章管理</h2><p>列表轻量合并静态索引和 Blob 覆盖；打开单篇时才读取 Git 基线。</p></div><div class="actions"><button onclick={()=>refresh()} disabled={loading}>刷新</button><button class="primary" onclick={createNew}>新建</button></div></header>
 <div class="layout">
-<aside><input class="search" type="search" bind:value={query} placeholder="搜索文章"/><div class="list">{#if loading}<p>读取中...</p>{:else}{#each filtered() as row}<button class:active={row.id===currentId} onclick={()=>open(row)}><strong>{row.title}</strong><span>{row.category||"未分类"} · {row.live?"实时":"Git"}</span><small>{row.path}</small></button>{/each}{/if}</div></aside>
+<aside><input class="search" type="search" bind:value={query} placeholder="搜索文章"/><div class="list">{#if loading}<p>读取中...</p>{:else}{#each filtered() as row}<button class:active={row.id===currentId} onclick={()=>open(row)}><strong>{row.title}</strong><span>{row.category||"未分类"} · {row.live?"实时":"Git"}</span><small>{row.path}</small></button>{/each}{/if}</div>{#if deletedRows.length}<div class="deleted-entries"><strong>已删除 ({deletedRows.length})</strong>{#each deletedRows as item}<button type="button" onclick={()=>openDeleted(item)} title="查看历史并恢复">{item.id} · 恢复</button>{/each}</div>{/if}</aside>
 <div class="editor">
 <div class="grid">
 <label class="wide"><span>标题</span><input bind:value={fields.title}/></label>
@@ -186,6 +197,7 @@ onMount(()=>{
 </div>
 </section>
 <style>
+.deleted-entries{display:grid;gap:.4rem;padding:.8rem 0;border-top:1px solid var(--line-divider)}.deleted-entries strong{font-size:.8rem;color:#b55050}.deleted-entries button{text-align:left;overflow-wrap:anywhere}
 .history-controls{display:flex;flex-wrap:wrap;gap:.45rem;padding:.7rem 0;align-items:center}.history-controls select{max-width:100%;min-width:9rem;border:1px solid var(--line-divider);border-radius:.5rem;background:var(--card-bg);color:inherit;padding:.5rem}
 .manager{overflow:hidden}header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem;border-bottom:1px solid var(--line-divider)}h2{margin:0;font-size:1.05rem}header p{margin:.25rem 0 0;font-size:.76rem;opacity:.58}.actions{display:flex;gap:.45rem}button{border:1px solid var(--line-divider);border-radius:.55rem;background:transparent;color:inherit;padding:.55rem .7rem;font:inherit;font-size:.76rem;font-weight:700;cursor:pointer}button.primary{background:var(--primary);border-color:var(--primary);color:white}button.danger{color:#c43d3d;border-color:rgb(196 61 61/.3)}button:disabled{opacity:.5;cursor:not-allowed}.layout{display:grid;grid-template-columns:17rem minmax(28rem,1fr) minmax(22rem,.8fr);min-height:68vh}aside{padding:.75rem;border-right:1px solid var(--line-divider)}.search,.grid input,.grid textarea,.body textarea{width:100%;border:1px solid var(--line-divider);border-radius:.55rem;background:transparent;color:inherit;font:inherit}.search{padding:.62rem}.list{display:grid;gap:.3rem;margin-top:.6rem;max-height:64vh;overflow:auto}.list button{display:grid;text-align:left;gap:.15rem}.list button.active{border-color:var(--primary);background:color-mix(in oklab,var(--primary) 9%,transparent)}.list span,.list small{font-size:.67rem;opacity:.55;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.editor{padding:.9rem;border-right:1px solid var(--line-divider);min-width:0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}.grid label,.body{display:grid;gap:.3rem;font-size:.72rem;font-weight:700}.grid .wide{grid-column:span 2}.grid input,.grid textarea{padding:.6rem}.checks{display:flex;gap:1rem;margin:.8rem 0;font-size:.76rem}.checks label{display:flex;align-items:center;gap:.3rem}.body textarea{min-height:25rem;padding:.7rem;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.6}.status{display:flex;justify-content:space-between;gap:.7rem;align-items:center;margin-top:.7rem;font-size:.7rem}.status>div:first-child{display:grid}.ok{color:#059669}.bad{color:#c43d3d}.security-warning{margin-top:.7rem;padding:.7rem .8rem;border:1px solid rgb(217 119 6/.28);border-radius:.55rem;background:rgb(217 119 6/.08);color:#b45309;font-size:.72rem;line-height:1.55}.preview{padding:1rem;overflow:auto;max-height:68vh}.preview>strong{display:block;margin-bottom:.8rem}@media(max-width:1380px){.layout{grid-template-columns:16rem minmax(0,1fr)}.preview{grid-column:1/-1;border-top:1px solid var(--line-divider);max-height:none}}@media(max-width:800px){header{align-items:flex-start;flex-direction:column}.layout{grid-template-columns:1fr}aside,.editor{border-right:0;border-bottom:1px solid var(--line-divider)}.list{max-height:16rem}.grid{grid-template-columns:1fr}.grid .wide{grid-column:auto}.status{align-items:flex-start;flex-direction:column}}
 </style>
