@@ -38,6 +38,9 @@ jobs:
       - name: Live content service tests
         run: pnpm test:live-content
 
+      - name: Verify Worker and EdgeOne runtime isolation
+        run: pnpm verify:runtimes
+
       - name: Astro check
         run: pnpm astro check
 
