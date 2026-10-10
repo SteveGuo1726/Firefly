@@ -16,6 +16,10 @@ export async function refreshOAuthAdminSession(): Promise<GitHubAdminSession | n
  try {
   const response=await fetch("/api/admin/auth/me",{cache:"no-store",credentials:"same-origin"});
   oauthSupported=response.ok;
+  if(oauthSupported){
+   // OAuth takes precedence: do not revive a previously persisted PAT session.
+   try{sessionStorage.removeItem(STORAGE_KEY);}catch{}
+  }
   if(!response.ok){oauthCachedSession=null;return null;}
   const data=await response.json();
   if(!data?.authenticated || !data.user?.login){oauthCachedSession=null;return null;}
@@ -87,7 +91,7 @@ function notifySessionChanged(): void {
 }
 
 export function getGitHubAdminSession(): GitHubAdminSession | null {
-	if(oauthCachedSession && oauthCachedSession.expiresAt>Date.now())return oauthCachedSession;
+	if(oauthSupported) return oauthCachedSession && oauthCachedSession.expiresAt>Date.now()?oauthCachedSession:null;
 	if (!storageAvailable()) return null;
 	discardLegacyPersistentToken();
 	const raw = sessionStorage.getItem(STORAGE_KEY);
