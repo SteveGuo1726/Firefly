@@ -265,3 +265,18 @@ test("private CMS post index restores unpublished Git baselines without exposing
  assert.match(manager,/await fetchPrivatePostIndex\(session,base\.posts as BasePost\[\]\)/);
  assert.match(publicIndex,/!post\.data\.draft && !post\.data\.protected/);
 });
+
+test("private post index is required by editor and dashboard, and OAuth route is session guarded",async()=>{
+ const [editor,dashboard,client,route]=await Promise.all([
+  readFile("src/components/pages/admin/AdminPostManager.svelte","utf8"),
+  readFile("src/components/pages/admin/AdminDashboard.svelte","utf8"),
+  readFile("src/utils/admin/private-content-index.ts","utf8"),
+  readFile("cloud-functions/api/admin/private-index.js","utf8"),
+ ]);
+ assert.match(editor,/fetchPrivatePostIndex\(session/);
+ assert.match(dashboard,/fetchPrivatePostIndex\(session/);
+ assert.match(client,/credentials:"same-origin"/);
+ assert.match(route,/verifySession\(token\)/);
+ assert.match(route,/FIREFLY_GITHUB_CONTENT_READ_TOKEN/);
+ assert.match(route,/Cache-Control":"private, no-store"/);
+});
