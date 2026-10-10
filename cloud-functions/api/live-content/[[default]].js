@@ -1,5 +1,6 @@
 import { getStore } from "@edgeone/pages-blob";
 import { createLiveContentService } from "../../../src/server/live-content/service.js";
+import { createDistributedContentLock } from "../../../src/server/live-content/distributed-lock.js";
 import { edgeOneAtomicAuthStore, assertEdgeOneAtomicWrites } from "../../../src/server/admin-auth/edgeone-store.js";
 import { createAdminSessionService } from "../../../src/server/admin-auth/session-service.js";
 import { readAdminSessionId } from "../../../src/server/admin-auth/controller.js";
@@ -15,6 +16,7 @@ const oauthSessions = oauthConfigured ? createAdminSessionService({
 }) : null;
 
 const handle = createLiveContentService({
+	distributedLock:createDistributedContentLock(blob),
 	authorizeSession: oauthSessions ? async request => {
   await assertEdgeOneAtomicWrites(oauthRawBlob);
   const session=await oauthSessions.verifySession(readAdminSessionId(request));
