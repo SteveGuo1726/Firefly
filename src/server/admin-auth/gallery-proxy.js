@@ -11,7 +11,7 @@ const routes=new Set([
  "/api/admin/imagebed/upload",
  "/api/admin/imagebed/delete",
  "/api/admin/imagebed/rename",
- "/api/admin/imagebed/rename-album",
+ "/api/admin/gallery/rename-album",
 ]);
 const allowedMethods=new Set(["GET","POST","PUT"]);
 
@@ -42,6 +42,7 @@ export async function proxyGalleryManagement(request,{env=process.env,fetcher=fe
  const response=await fetcher(upstream.toString(),{
   method:request.method,headers,
   body:request.method==="GET"?undefined:request.body,
+  ...(request.method==="GET"?{}:{duplex:"half"}),
   redirect:"manual",
  });
  // Do not propagate redirects, Set-Cookie, CORS or provider authentication data.
