@@ -417,6 +417,24 @@ export function createLiveContentService({
 		});
 	}
 
+	async function handleUndoGitDeletion(request) {
+		const auth = await requireAdmin(request);
+		if (auth.error) return auth.error;
+		const body = await request.json().catch(() => null);
+		const kind = normalizeKind(body?.kind);
+		const id = kind ? normalizeId(kind, body?.id) : null;
+		if (!kind || !id) return json({ error: "kind 或 id 无效。" }, 400);
+		const pointer = await readPointer(kind, id);
+		if (!pointer?.deleted || !pointer.revision || !pointer.baseGitSha || !pointer.baseGitBranch) {
+			return json({ error: "仅可撤销仍有 Git 基线的删除标记。" }, 409);
+		}
+		if (!body.expectedRevision || pointer.revision !== body.expectedRevision) return conflict(pointer.revision);
+		const unchanged = await verifyGitBaseline(auth.token, pointer.baseGitBranch, pointer.path, pointer.baseGitSha);
+		if (!unchanged) return json({ error: "Git 基线已变化，请重新核对源码。" }, 409);
+		await store.deleteKey(pointerKey(kind, id));
+		return json({ ok: true, kind, id, restoredGitBaseline: true });
+	}
+
 	async function handleHistory(request, url) {
 		const auth = await requireAdmin(request);
 		if (auth.error) return auth.error;
@@ -769,6 +787,12 @@ export function createLiveContentService({
 			if (path === "/index" && request.method === "GET") return await handleGetIndex(request, url);
 			if (path === "/item" && request.method === "GET") return await handleGetItem(request, url);
 
+			if (path === "/undo-delete" && request.method === "POST") {
+				const payload = await request.clone().json().catch(() => ({}));
+				const kind = normalizeKind(payload?.kind);
+				const id = kind ? normalizeId(kind, payload?.id) : null;
+				return await withMutationLocks([id ? kind + ":" + id : "invalid-undo"], () => handleUndoGitDeletion(request));
+			}
 			if (path === "/history" && request.method === "GET") return await handleHistory(request, url);
 			if (path === "/restore" && request.method === "POST") {
 				const payload = await request.clone().json().catch(() => ({}));
