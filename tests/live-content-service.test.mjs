@@ -783,3 +783,35 @@ test("verified OAuth cookie can edit while anonymous users cannot obtain source"
  const adminIndex=await (await handle(request("/api/live-content/index?kind=post",{headers:cookie}))).json();
  assert.equal(adminIndex.entries[0].path,payload.path);
 });
+
+test("distributed mutation locks prevent writes when another instance owns the document",async()=>{
+ const store=makeStore();
+ const calls=[];
+ let held=false;
+ const handle=createLiveContentService({
+  store,provider:"test",storeName:"test-store",
+  authorize:async()=>({ok:true}),
+  distributedLock:{
+   async acquire(keys){
+    calls.push([...keys]);
+    if(held){
+     const error=new Error("other region owns lock");
+     error.code="CONTENT_LOCK_BUSY";
+     throw error;
+    }
+    held=true;
+    return async()=>{held=false;};
+   },
+  },
+ });
+ const payload={kind:"post",id:"concurrent",path:"src/content/posts/concurrent.md",source:"---\ntitle: Concurrent\n---\ntext",meta:{title:"Concurrent"}};
+ const first=await handle(request("/api/live-content/item",{method:"PUT",headers:adminHeaders(),body:JSON.stringify(payload)}));
+ assert.equal(first.status,200);
+ assert.deepEqual(calls[0],["post:concurrent"]);
+ held=true;
+ const conflict=await handle(request("/api/live-content/item",{method:"PUT",headers:adminHeaders(),body:JSON.stringify({...payload,source:"should not overwrite"})}));
+ assert.equal(conflict.status,409);
+ assert.match((await conflict.json()).error,/其他节点/);
+ const saved=await handle(request("/api/live-content/item?kind=post&id=concurrent"));
+ assert.equal((await saved.json()).meta.title,"Concurrent");
+});
