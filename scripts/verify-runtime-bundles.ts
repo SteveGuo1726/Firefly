@@ -12,6 +12,26 @@ const entries = [
 		external: ["@edgeone/pages-blob"],
 	},
 	{
+		name: "EdgeOne OAuth callback",
+		entry: "cloud-functions/api/admin/auth/[[default]].js",
+		external: ["@edgeone/pages-blob"],
+	},
+	{
+		name: "EdgeOne gallery management proxy",
+		entry: "cloud-functions/api/admin/gallery/[[default]].js",
+		external: ["@edgeone/pages-blob"],
+	},
+	{
+		name: "EdgeOne image management proxy",
+		entry: "cloud-functions/api/admin/imagebed/[[default]].js",
+		external: ["@edgeone/pages-blob"],
+	},
+	{
+		name: "Cloudflare gallery worker",
+		entry: "worker/index.ts",
+		external: [],
+	},
+	{
 		name: "Cloudflare preview worker",
 		entry: "worker/blog-preview.ts",
 		external: [],
