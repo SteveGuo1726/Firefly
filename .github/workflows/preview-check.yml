@@ -19,6 +19,9 @@ jobs:
   check-and-build:
     runs-on: ubuntu-latest
     steps:
+      - name: Enforce experimental branch boundary
+        run: test "$GITHUB_REF_NAME" = "ai/preview-test"
+
       - name: Checkout
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
 
