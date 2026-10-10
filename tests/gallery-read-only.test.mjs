@@ -42,3 +42,43 @@ test("gallery admin state reads never rewrite manifests after a transient empty 
   globalThis.fetch=originalFetch;
  }
 });
+
+
+test("gallery admin refuses directory deletes and non-image renames", async () => {
+ const secret="S".repeat(40);
+ const env={FIREFLY_ADMIN_SERVICE_SECRET:secret};
+ for (const [path,body] of [
+  ["/api/admin/imagebed/delete",{key:"photos"}],
+  ["/api/admin/imagebed/delete",{key:"blog"}],
+  ["/api/admin/imagebed/delete",{key:"photos/.firefly-gallery/backup.json"}],
+  ["/api/admin/imagebed/rename",{key:"photos/album/picture.jpg",newKey:"photos/album/picture.json"}],
+  ["/api/admin/gallery/rename-album",{sourceDir:"photos/album",newSourceDir:"photos/album"}],
+ ]) {
+  const response=await galleryWorker.fetch(new Request("https://gallery-api.example"+path,{
+   method:"POST",headers:{"X-Firefly-Service-Key":secret,"Content-Type":"application/json"},
+   body:JSON.stringify(body),
+  }),env);
+  assert.equal(response.status,400,path);
+ }
+});
+
+test("gallery rename refuses to overwrite a non-empty target directory", async () => {
+ const secret="S".repeat(40);
+ const env={FIREFLY_ADMIN_SERVICE_SECRET:secret,IMAGEBED_TOKEN:"test",IMAGEBED_BASE_URL:"https://imagebed.example"};
+ const originalFetch=globalThis.fetch;
+ const calls=[];
+ globalThis.fetch=async (input)=>{
+  calls.push(String(input));
+  return Response.json({files:[{name:"photos/target/existing.jpg"}]});
+ };
+ try{
+  const response=await galleryWorker.fetch(new Request("https://gallery-api.example/api/admin/gallery/rename-album",{
+   method:"POST",headers:{"X-Firefly-Service-Key":secret,"Content-Type":"application/json"},
+   body:JSON.stringify({sourceDir:"photos/source",newSourceDir:"photos/target"}),
+  }),env);
+  assert.equal(response.status,409);
+  assert.equal(calls.length,1,"should check only destination without moving any file");
+ }finally{
+  globalThis.fetch=originalFetch;
+ }
+});
