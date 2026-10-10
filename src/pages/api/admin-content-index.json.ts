@@ -25,7 +25,6 @@ export const GET: APIRoute = async () => {
 			updated:post.data.updated?.toISOString()||"",
 			category:post.data.category||"",
 			tags:post.data.tags,
-			draft:post.data.draft,
 			pinned:post.data.pinned,
 			image:post.data.image,
 		};
