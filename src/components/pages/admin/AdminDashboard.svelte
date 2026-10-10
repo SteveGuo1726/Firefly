@@ -2,6 +2,7 @@
 import {onMount} from "svelte";
 import type {GitHubAdminSession} from "@/utils/admin/github-session";
 import {fetchLiveContentIndex} from "@/utils/admin/live-content-client";
+import {fetchPrivatePostIndex} from "@/utils/admin/private-content-index";
 export let session:GitHubAdminSession;
 let loading=false;
 let error="";
@@ -17,7 +18,8 @@ async function refresh(){
    fetchLiveContentIndex("post",session),
    fetchLiveContentIndex("dynamic",session)
   ]);
-  basePosts=Array.isArray(base.posts)?base.posts.length:0;
+  const privatePosts=await fetchPrivatePostIndex(session,Array.isArray(base.posts)?base.posts:[]);
+  basePosts=privatePosts.length;
   baseMoments=Array.isArray(base.dynamics)?base.dynamics.length:0;
   livePosts=posts.entries.filter(e=>!e.deleted).length;
   liveMoments=moments.entries.filter(e=>!e.deleted).length;
