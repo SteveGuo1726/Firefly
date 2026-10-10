@@ -24,8 +24,6 @@ let album = $state<PublicGalleryAlbum | null>(initialAlbum);
 let loading = $state(!initialAlbum);
 let errorMessage = $state("");
 let galleryRoot: HTMLDivElement;
-let lightboxPromise: Promise<typeof import("@fancyapps/ui").Fancybox> | null =
-	null;
 
 const photoSelector = "a[data-gallery-photo]";
 const lightboxOptions: Partial<FancyboxOptions> = {
@@ -91,15 +89,23 @@ async function loadAlbum(): Promise<void> {
 
 onMount(() => {
 	const root = galleryRoot;
-	lightboxPromise = import("@fancyapps/ui").then(({ Fancybox }) => {
-		Fancybox.bind(root, photoSelector, lightboxOptions);
-		return Fancybox;
-	});
+	let disposed = false;
+	const lightboxPromise = import("@fancyapps/ui")
+		.then(({ Fancybox }) => {
+			// Swup can unmount the album before the dynamic import resolves.
+			if (!disposed) Fancybox.bind(root, photoSelector, lightboxOptions);
+			return Fancybox;
+		})
+		.catch((error) => {
+			console.warn("Gallery lightbox unavailable", error);
+			return null;
+		});
 	void loadAlbum();
 
 	return () => {
-		void lightboxPromise?.then((Fancybox) => {
-			Fancybox.unbind(root, photoSelector);
+		disposed = true;
+		void lightboxPromise.then((Fancybox) => {
+			if (Fancybox) Fancybox.unbind(root, photoSelector);
 		});
 	};
 });
