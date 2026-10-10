@@ -4,6 +4,7 @@ import {
 	GITHUB_SESSION_CHANGED_EVENT,
 	type GitHubAdminSession,
 	getGitHubAdminSession,
+	refreshOAuthAdminSession,
 } from "@/utils/admin/github-session";
 import GitHubAdminLogin from "@/components/features/GitHubAdminLogin.svelte";
 
@@ -50,6 +51,7 @@ async function ensureSectionLoaded(){
 onMount(()=>{
 	section=readSection();
 	syncSession();
+	void refreshOAuthAdminSession().then(syncSession);
 	window.addEventListener(GITHUB_SESSION_CHANGED_EVENT,syncSession);
 	return()=>window.removeEventListener(GITHUB_SESSION_CHANGED_EVENT,syncSession);
 });
@@ -62,7 +64,7 @@ onMount(()=>{
 			<GitHubAdminLogin />
 	</header>
 	{#if !session}
-		<section class="login-hint card-base"><h2>需要 GitHub 管理身份</h2><p>请使用上方 GitHub 管理登录。当前仍为过渡性 PAT 认证；独立 OAuth 会话尚未接入，勿使用长期或超范围 Token。</p></section>
+		<section class="login-hint card-base"><h2>需要 GitHub 管理身份</h2><p>请使用上方 GitHub 登录。在配置 OAuth 的站点上使用服务端安全会话；未配置的预览环境暂时保留 PAT 登录。</p></section>
 	{:else}
 		<nav class="admin-tabs card-base" aria-label="内容管理">
 			<button class:active={section==="posts"} onclick={()=>choose("posts")}>文章</button>
