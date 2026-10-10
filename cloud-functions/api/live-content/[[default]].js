@@ -16,7 +16,12 @@ const oauthSessions = oauthConfigured ? createAdminSessionService({
 }) : null;
 
 const handle = createLiveContentService({
-	distributedLock:createDistributedContentLock(blob),
+	distributedLock:{
+  async acquire(keys){
+   await assertEdgeOneAtomicWrites(blob);
+   return createDistributedContentLock(blob).acquire(keys);
+  },
+ },
 	authorizeSession: oauthSessions ? async request => {
   await assertEdgeOneAtomicWrites(oauthRawBlob);
   const session=await oauthSessions.verifySession(readAdminSessionId(request));
