@@ -1,4 +1,4 @@
-/* Fancybox v6: do not use removed v4/v5 .fancybox__button/.fancybox__thumb selectors.
+/* Fancybox v6: avoid obsolete legacy button and thumbnail selectors.
    Preserve Fancybox's own transform/zoom calculations for the image. */
 .fancybox__container {
   z-index: 100000;
