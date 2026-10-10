@@ -139,3 +139,19 @@ test("lazy Fancybox import never binds after album unmount",async()=>{
  assert.match(source,/disposed = true/);
  assert.match(source,/Fancybox\.unbind\(root, photoSelector\)/);
 });
+
+test("private editors restore drafts and clear drafts only on successful mutations",async()=>{
+ for(const [file,kind] of [
+  ["src/components/pages/admin/AdminPostManager.svelte","post"],
+  ["src/components/pages/admin/AdminDynamicManager.svelte","dynamic"],
+ ]){
+  const content=await readFile(file,"utf8");
+  assert.match(content,/readDraft\(store,/);
+  assert.match(content,/writeDraft\(store,/);
+  assert.match(content,/clearDraft\(window.sessionStorage,/);
+  assert.match(content,/window\.addEventListener\("pagehide",persist\)/);
+  assert.match(content,/window\.removeEventListener\("pagehide",persist\)/);
+  assert.doesNotMatch(content,/localStorage\.setItem\(/);
+  assert.ok(content.includes('"'+kind+'"'));
+ }
+});
