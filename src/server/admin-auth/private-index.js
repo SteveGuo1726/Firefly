@@ -4,8 +4,7 @@ import matter from "gray-matter";
  * is authenticated and never exposes article bodies.
  */
 export async function buildPrivatePostIndex({token,owner,repo,branch,fetcher=fetch}){
- if(!token)throw new Error("Private GitHub content token not configured");
- const headers={Accept:"application/vnd.github+json",Authorization:"Bearer "+token,"X-GitHub-Api-Version":"2022-11-28","User-Agent":"Firefly-Admin-Index"};
+ const headers={Accept:"application/vnd.github+json",...(token?{Authorization:"Bearer "+token}:{}),"X-GitHub-Api-Version":"2022-11-28","User-Agent":"Firefly-Admin-Index"};
  const root="https://api.github.com/repos/"+encodeURIComponent(owner)+"/"+encodeURIComponent(repo);
  const treeResponse=await fetcher(root+"/git/trees/"+encodeURIComponent(branch)+"?recursive=1",{headers});
  if(!treeResponse.ok)throw new Error("GitHub content tree unavailable");
