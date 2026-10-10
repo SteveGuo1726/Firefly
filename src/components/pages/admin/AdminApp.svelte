@@ -9,10 +9,14 @@ import {
 import GitHubAdminLogin from "@/components/features/GitHubAdminLogin.svelte";
 
 
-type Section="posts"|"dynamic"|"gallery";
+type Section="dashboard"|"posts"|"dynamic"|"gallery"|"backup";
+type DashboardComponentType=typeof import("./AdminDashboard.svelte").default;
+type BackupComponentType=typeof import("./AdminBackup.svelte").default;
 type PostComponentType=typeof import("./AdminPostManager.svelte").default;
 type DynamicComponentType=typeof import("./AdminDynamicManager.svelte").default;
 type GalleryComponentType=typeof import("../gallery/GalleryAdminManager.svelte").default;
+let DashboardComponent:DashboardComponentType|null=null;
+let BackupComponent:BackupComponentType|null=null;
 let PostComponent:PostComponentType|null=null;
 let DynamicComponent:DynamicComponentType|null=null;
 let GalleryComponent:GalleryComponentType|null=null;
@@ -25,7 +29,7 @@ let section:Section="posts";
 function readSection():Section{
 	if(typeof window==="undefined")return"posts";
 	const value=new URLSearchParams(window.location.search).get("section");
-	return value==="dynamic"||value==="gallery"?value:"posts";
+	return value==="dynamic"||value==="gallery"||value==="dashboard"||value==="backup"?value:"posts";
 }
 function choose(next:Section){
 	section=next;
@@ -39,12 +43,14 @@ async function ensureSectionLoaded(){
  const generation=++loadGeneration;
  if(!session){sectionLoading=false;sectionError="";return;}
  sectionError="";
- if((section==="posts"&&PostComponent)||(section==="dynamic"&&DynamicComponent)||(section==="gallery"&&GalleryComponent)){sectionLoading=false;return;}
+ if((section==="posts"&&PostComponent)||(section==="dynamic"&&DynamicComponent)||(section==="gallery"&&GalleryComponent)||(section==="dashboard"&&DashboardComponent)||(section==="backup"&&BackupComponent)){sectionLoading=false;return;}
  sectionLoading=true;sectionError="";
  try{
   if(section==="posts"){const module=await import("./AdminPostManager.svelte");if(generation===loadGeneration)PostComponent=module.default;}
   else if(section==="dynamic"){const module=await import("./AdminDynamicManager.svelte");if(generation===loadGeneration)DynamicComponent=module.default;}
-  else{const module=await import("../gallery/GalleryAdminManager.svelte");if(generation===loadGeneration)GalleryComponent=module.default;}
+  else if(section==="gallery"){const module=await import("../gallery/GalleryAdminManager.svelte");if(generation===loadGeneration)GalleryComponent=module.default;}
+  else if(section==="dashboard"){const module=await import("./AdminDashboard.svelte");if(generation===loadGeneration)DashboardComponent=module.default;}
+  else{const module=await import("./AdminBackup.svelte");if(generation===loadGeneration)BackupComponent=module.default;}
  }catch(e){if(generation===loadGeneration)sectionError=e instanceof Error?e.message:"后台模块加载失败";}
  finally{if(generation===loadGeneration)sectionLoading=false;}
 }
@@ -67,13 +73,17 @@ onMount(()=>{
 		<section class="login-hint card-base"><h2>需要 GitHub 管理身份</h2><p>请使用上方 GitHub 登录。在配置 OAuth 的站点上使用服务端安全会话；未配置的预览环境暂时保留 PAT 登录。</p></section>
 	{:else}
 		<nav class="admin-tabs card-base" aria-label="内容管理">
+			<button class:active={section==="dashboard"} onclick={()=>choose("dashboard")}>仪表盘</button>
 			<button class:active={section==="posts"} onclick={()=>choose("posts")}>文章</button>
 			<button class:active={section==="dynamic"} onclick={()=>choose("dynamic")}>动态</button>
 			<button class:active={section==="gallery"} onclick={()=>choose("gallery")}>相册</button>
+			<button class:active={section==="backup"} onclick={()=>choose("backup")}>备份</button>
 		</nav>
 		{#if sectionLoading}<section class="login-hint card-base" role="status">正在加载管理模块...</section>
 		{:else if sectionError}<section class="login-hint card-base" role="alert">{sectionError}<button onclick={()=>ensureSectionLoaded()}>重试</button></section>
 		{/if}
+		{#if DashboardComponent}<div hidden={section!=="dashboard"}><DashboardComponent {session}/></div>{/if}
+		{#if BackupComponent}<div hidden={section!=="backup"}><BackupComponent {session}/></div>{/if}
 		{#if PostComponent}<div hidden={section!=="posts"}><PostComponent {session}/></div>{/if}
 		{#if DynamicComponent}<div hidden={section!=="dynamic"}><DynamicComponent {session}/></div>{/if}
 		{#if GalleryComponent}<div hidden={section!=="gallery"}><GalleryComponent/></div>{/if}
