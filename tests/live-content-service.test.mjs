@@ -19,15 +19,18 @@ test("preview worker blocks static HTML when a newer live post is hidden or dele
  };
  const url = request("/posts/secret/");
  for (const state of [{deleted:true},{meta:{draft:true}},{meta:{protected:true}}]) {
-  pointer = {id:"secret",revision:"test",...state};
+  pointer = {schemaVersion:3,kind:"post",id:"secret",revision:"test",meta:{},...state};
   const res = await previewWorker.fetch(url, env, {});
   assert.equal(res.status, 404);
   assert.equal(res.headers.get("X-Robots-Tag"), "noindex");
   assert.equal(assetReads, 0, "hidden content must not read or serve the static page");
  }
- pointer = {id:"secret",revision:"test",meta:{title:"Public"}};
+ pointer = {schemaVersion:3,kind:"post",id:"secret",revision:"test",meta:{title:"Public"}};
  assert.equal((await previewWorker.fetch(url, env, {})).status, 200);
  assert.equal(assetReads, 1);
+ pointer = {schemaVersion:2,kind:"post",id:"secret",revision:"test",meta:{}};
+ assert.equal((await previewWorker.fetch(url, env, {})).status, 503);
+ assert.equal(assetReads, 1, "malformed state must fail closed");
  pointer = null;
  assert.equal((await previewWorker.fetch(url, env, {})).status, 200);
  assert.equal(assetReads, 2);
