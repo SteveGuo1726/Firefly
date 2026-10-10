@@ -35,3 +35,26 @@ export function edgeOneAtomicAuthStore(blob){
   },
  };
 }
+
+
+/** Fail closed when an older SDK silently ignores the onlyIfNew option. */
+let verifiedStores=new WeakMap();
+export async function assertEdgeOneAtomicWrites(blob){
+ if(verifiedStores.has(blob))return verifiedStores.get(blob);
+ const check=(async()=>{
+  const key="oauth-selftest/"+crypto.randomUUID();
+  const first={nonce:crypto.randomUUID()},second={nonce:crypto.randomUUID()};
+  try{
+   await blob.setJSON(key,first,{onlyIfNew:true});
+   try{await blob.setJSON(key,second,{onlyIfNew:true});}catch{}
+   const result=await blob.get(key,{type:"json",consistency:"strong"});
+   if(result?.nonce!==first.nonce)throw new Error("EdgeOne Blob conditional writes unavailable; OAuth disabled");
+   return true;
+  }finally{
+   await blob.delete(key);
+  }
+ })();
+ verifiedStores.set(blob,check);
+ try{return await check;}
+ catch(error){verifiedStores.delete(blob);throw error;}
+}
