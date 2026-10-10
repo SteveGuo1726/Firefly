@@ -731,3 +731,25 @@ test("authenticated history and restore preserve revisions and reject stale rest
  assert.equal((await restore(tombstone)).status,200);
  assert.equal((await handle(request("/api/live-content/item?kind=post&id="+id))).status,200);
 });
+
+test("Git-only tombstone undo requires current revision and unchanged source baseline",async()=>{
+ const store=makeStore(),handle=createService(store),id="git-only-restore";
+ const key="v3/pointers/posts/"+id+".json";
+ store.data.set(key,{schemaVersion:3,kind:"post",id,path:"src/content/posts/git-only-restore.md",
+  meta:{title:"Git post"},baseGitSha:"expected-git-sha",baseGitBranch:"ai/preview-test",
+  revision:"00000000-0000-4000-8000-000000000001",deleted:true,updatedAt:new Date().toISOString()});
+ const undo=expectedRevision=>handle(request("/api/live-content/undo-delete",{
+  method:"POST",headers:adminHeaders(),body:JSON.stringify({kind:"post",id,expectedRevision}),
+ }));
+ assert.equal((await undo("stale")).status,409);
+ const originalFetch=globalThis.fetch;
+ try{
+  globalThis.fetch=async()=>new Response(JSON.stringify({sha:"different-sha"}),{status:200});
+  assert.equal((await undo("00000000-0000-4000-8000-000000000001")).status,409);
+  globalThis.fetch=async()=>new Response(JSON.stringify({sha:"expected-git-sha"}),{status:200});
+  const response=await undo("00000000-0000-4000-8000-000000000001");
+  assert.equal(response.status,200);
+  assert.equal((await response.json()).restoredGitBaseline,true);
+  assert.equal(store.data.has(key),false);
+ }finally{globalThis.fetch=originalFetch;}
+});
