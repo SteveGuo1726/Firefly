@@ -183,7 +183,7 @@ onMount(()=>{tab=normalizeTab();void refresh();});
 
 <div class="demo">
  <header class="card-base demo-header">
-  <div><span class="eyebrow">FIREFLY / PREVIEW ONLY</span><h1>后台体验与检查</h1><p>测试入口 admin · 只读演示 · 真实修改需 GitHub 管理员授权</p></div>
+  <div><span class="eyebrow">FIREFLY / PREVIEW ONLY</span><h1>后台体验与检查</h1><p>只读演示 · 不使用任何真实管理凭证</p></div>
   <button type="button" class="outline" onclick={onLogout}>退出演示</button>
  </header>
  <aside class="caution" role="status">公开实验站使用容易猜到的演示口令。此入口不是管理员身份验证：不会读取草稿、私有正文、备份，也不能提交、上传、删除或重命名远端数据。</aside>

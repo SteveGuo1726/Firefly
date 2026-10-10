@@ -12,7 +12,7 @@ Firefly continues using Astro, Svelte, pnpm and the ai/preview-test GitHub branc
 - Exposed port: 4321
 - Compute: 2 vCPU, 4 GiB RAM, Hobby session timeout 15 minutes
 - Persistent snapshot: keeps only the latest snapshot for up to seven days
-- Test admin password: admin, read-only demonstration and not a real login
+- Sandbox public demo requires no password and has no write authority; Cloudflare preview editing password is server-side only
 
 ## ChatGPT resume procedure
 

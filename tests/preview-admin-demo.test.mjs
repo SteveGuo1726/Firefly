@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import {readFile} from "node:fs/promises";
 import test from "node:test";
 
-test("temporary admin password is gated by preview build flag and exact origin", async () => {
+test("preview authentication UI is scoped to preview build and exact host", async () => {
  const source=await readFile("src/components/pages/admin/AdminApp.svelte","utf8");
  assert.match(source,/PUBLIC_FIREFLY_PREVIEW_DEMO === "true"/);
  assert.match(source,/firefly-blog-preview\.guojunyang666666\.workers\.dev/);
- assert.match(source,/demoPassword !== "admin"/);
+ assert.doesNotMatch(source,/demoPassword !== "admin"/);
+ assert.match(source,/previewPasswordLogin/);
+ assert.match(source,/enterPreviewAdmin/);
  assert.match(source,/demoSupported=PREVIEW_DEMO_COMPILED && previewOriginAllowed\(\)/);
  assert.match(source,/sessionStorage\.setItem\(DEMO_STORAGE_KEY,"1"\)/);
  assert.match(source,/sessionStorage\.removeItem\(DEMO_STORAGE_KEY\)/);

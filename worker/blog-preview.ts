@@ -3,6 +3,11 @@ import {
 	loadLiveContentItem,
 } from "../src/server/live-content/service.js";
 import { livePostIdFromRequest, renderLivePostFallback } from "../src/server/live-content/render-live-post.js";
+import {
+ authorizePreviewSession, previewLogin, previewMe, previewLogout, previewMutationOriginAllowed
+} from "../src/server/preview-auth.js";
+import { buildPrivatePostIndex } from "../src/server/admin-auth/private-index.js";
+
 
 let cachedService;
 
@@ -37,6 +42,7 @@ function getService(env) {
 			region() {
 				return "cloudflare-preview";
 			},
+            authorizeSession: request => authorizePreviewSession(request,env),
 		});
 	}
 	return cachedService;
@@ -45,6 +51,31 @@ function getService(env) {
 export default {
 	async fetch(request, env, ctx) {
 		const url = new URL(request.url);
+        const path=url.pathname;
+        // Login and private CMS routes exist on the preview Worker only.
+        if(path==="/api/preview-admin/login")
+          return previewLogin(request,env);
+        if(path==="/api/admin/auth/me")
+          return previewMe(request,env);
+        if(path==="/api/admin/auth/logout")
+          return previewLogout(request);
+        if(!previewMutationOriginAllowed(request) &&
+           (path.startsWith("/api/live-content/") || path.startsWith("/api/admin/")))
+          return new Response('{"error":"Origin mismatch"}',{status:403,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
+        if(path==="/api/admin/private-index"){
+          if(request.method!=="GET")return new Response("Method Not Allowed",{status:405});
+          const auth=await authorizePreviewSession(request,env);
+          if(!auth.ok)return new Response('{"error":"Unauthorized"}',{status:401,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
+          try {
+            const index=await buildPrivatePostIndex({
+              token:env.FIREFLY_GITHUB_CONTENT_READ_TOKEN||"",
+              owner:"SteveGuo1726",repo:"Firefly",branch:"ai/preview-test",
+            });
+            return new Response(JSON.stringify(index),{headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"private, no-store","X-Robots-Tag":"noindex"}});
+          } catch {
+            return new Response('{"error":"Private index unavailable"}',{status:503,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
+          }
+        }
 		if (url.pathname.startsWith("/api/live-content/")) {
 			return getService(env)(request, { env, ctx });
 		}

@@ -17,7 +17,7 @@ type Row=BasePost&{live:boolean;baseGitSha:string;revision:string};
 
 let rows:Row[]=[];let query="";let loading=false;let opening=false;let saving=false;let deleting=false;
 let currentId="";let currentPath="";let loadedPath="";let baseGitSha="";let liveRevision="";let originalSource="";
-let fields:AdminPostFields=emptyPostFields();let body="";let tagsText="";let previewHtml="";let message="";let error="";
+let fields:AdminPostFields=emptyPostFields();let body="";let tagsText="";let previewHtml="";let message="";let error="";\nlet previewPresentation:"article"|"body"="article";
 let previewTimer:ReturnType<typeof setTimeout>|null=null;
 let savedEditorSnapshot="";
 let imageUploading=false;let editorTextarea:HTMLTextAreaElement|null=null;
@@ -243,10 +243,57 @@ onMount(()=>{
 </div>
 <div class="status"><div>{#if opening}<span>读取源码...</span>{/if}{#if message}<span class="ok">{message}</span>{/if}{#if error}<span class="bad">{error}</span>{/if}</div><div class="actions"><button class="danger" onclick={remove} disabled={!currentId||saving||deleting}>删除实时版本</button><button class="primary" onclick={save} disabled={saving||deleting||opening}>{saving?"保存中...":"实时保存"}</button></div></div>
 </div>
-<div class="preview"><strong>正文预览</strong><div class="prose prose-base max-w-none custom-md dark:prose-invert">{@html previewHtml}</div></div>
+<div class="preview">
+ <div class="preview-heading">
+  <strong>实时排版预览</strong>
+  <div class="preview-switch" role="group" aria-label="写作预览样式">
+   <button type="button" class:active={previewPresentation==="article"} onclick={()=>previewPresentation="article"}>正式文章版式</button>
+   <button type="button" class:active={previewPresentation==="body"} onclick={()=>previewPresentation="body"}>只看正文</button>
+  </div>
+ </div>
+ {#if previewPresentation==="article"}
+  <article class="article-preview" aria-label="文章正式版式预览">
+   <header class="article-preview-header">
+    <h1 class="transition w-full block font-bold mb-3 text-3xl md:text-[2.25rem]/[2.75rem] text-black/90 dark:text-white/90">{fields.title || "未命名文章"}</h1>
+    {#if fields.description}<p class="article-excerpt">{fields.description}</p>{/if}
+    <div class="article-meta">
+     <span>{fields.published || "尚未选择发布时间"}</span>
+     {#if fields.category}<span>· {fields.category}</span>{/if}
+     {#if fields.updated}<span>· 更新于 {fields.updated}</span>{/if}
+     {#if fields.draft}<span class="draft-label">草稿</span>{/if}
+     {#if fields.password}<span class="draft-label">受保护</span>{/if}
+    </div>
+    {#if tagsText.trim()}<div class="article-tags">{#each tagsText.split(/[,\n]/).map(tag=>tag.trim()).filter(Boolean) as tag}<span>#{tag}</span>{/each}</div>{/if}
+    {#if fields.image}<img class="article-cover" src={fields.image} alt={fields.title || "文章封面"} loading="lazy"/>{/if}
+   </header>
+   <div class="prose prose-base max-w-none custom-md dark:prose-invert" data-preview-body>{@html previewHtml}</div>
+  </article>
+ {:else}
+  <div class="prose prose-base max-w-none custom-md dark:prose-invert" data-preview-body>{@html previewHtml}</div>
+ {/if}
+ <p class="preview-disclaimer">文章视图复用正式站点的标题字号与 Markdown 排版类；侧栏、评论、完整动画以及未保存的 MDX 动态组件效果仍应在发布后的实际预览页检查。</p>
+ {#if currentId && !fields.draft && !fields.password}
+  <a class="preview-open" href={"/posts/"+currentId+"/"} target="_blank" rel="noopener noreferrer">打开已保存的实际文章页 ↗</a>
+ {/if}
+</div>
 </div>
 </section>
 <style>
+.preview-heading{display:flex;justify-content:space-between;gap:.5rem;align-items:center;flex-wrap:wrap}
+.preview-switch{display:flex;gap:.35rem;flex-wrap:wrap}
+.preview-switch button{border:1px solid var(--line-divider);border-radius:.5rem;padding:.35rem .6rem;background:transparent;font-size:.72rem;cursor:pointer}
+.preview-switch button.active{border-color:var(--primary);color:var(--primary)}
+.article-preview{border:1px solid var(--line-divider);background:var(--card-bg);border-radius:1rem;padding:clamp(1rem,3vw,2rem);margin-top:.8rem;min-width:0}
+.article-preview-header{margin-bottom:1.4rem}
+.article-preview-header h1{overflow-wrap:anywhere;line-height:1.4}
+.article-excerpt{font-size:.86rem;opacity:.7;line-height:1.65;margin:.1rem 0 .7rem}
+.article-meta{display:flex;gap:.35rem;flex-wrap:wrap;font-size:.76rem;opacity:.7}
+.article-tags{display:flex;flex-wrap:wrap;gap:.5rem;font-size:.76rem;color:var(--primary);margin-top:.5rem}
+.article-cover{width:100%;max-height:22rem;object-fit:cover;border-radius:.9rem;margin-top:1rem}
+.draft-label{border:1px solid currentColor;padding:0 .4rem;border-radius:.3rem}
+.preview-disclaimer{font-size:.73rem;opacity:.65;line-height:1.5;margin-top:1rem}
+.preview-open{display:inline-block;margin-top:.35rem;font-size:.78rem;color:var(--primary);text-decoration:underline}
+
 .image-upload{display:flex;align-items:center;flex-wrap:wrap;gap:.6rem;padding:.45rem 0;font-size:.78rem}.image-upload input{font-size:.76rem;max-width:100%}
 .deleted-entries{display:grid;gap:.4rem;padding:.8rem 0;border-top:1px solid var(--line-divider)}.deleted-entries strong{font-size:.8rem;color:#b55050}.deleted-entries button{text-align:left;overflow-wrap:anywhere}
 .history-controls{display:flex;flex-wrap:wrap;gap:.45rem;padding:.7rem 0;align-items:center}.history-controls select{max-width:100%;min-width:9rem;border:1px solid var(--line-divider);border-radius:.5rem;background:var(--card-bg);color:inherit;padding:.5rem}

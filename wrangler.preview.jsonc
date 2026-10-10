@@ -7,7 +7,7 @@
 	"assets": {
 		"directory": "./dist",
 		"binding": "ASSETS",
-		"run_worker_first": ["/api/live-content/*", "/posts/*"]
+		"run_worker_first": ["/api/live-content/*", "/api/preview-admin/*", "/api/admin/auth/*", "/api/admin/private-index", "/posts/*"]
 	},
 	"kv_namespaces": [
 		{

@@ -4,7 +4,7 @@ import {
 	GITHUB_SESSION_CHANGED_EVENT,
 	type GitHubAdminSession,
 	getGitHubAdminSession,
-	refreshOAuthAdminSession,
+	refreshOAuthAdminSession,\n    logoutOAuthAdmin,
 } from "@/utils/admin/github-session";
 import GitHubAdminLogin from "@/components/features/GitHubAdminLogin.svelte";
 
@@ -18,6 +18,12 @@ let demoSupported = false;
 let demoUnlocked = false;
 let demoPassword = "";
 let demoError = "";
+let previewPasswordLogin = false;
+let previewAuthenticated = false;
+let previewLoginBusy = false;
+let previewPasswordValue = "";
+let previewLoginError = "";
+
 
 function previewOriginAllowed(): boolean {
  return typeof window !== "undefined" &&
@@ -34,15 +40,46 @@ async function loadDemoView(){
 }
 function enterDemo(){
  if(!demoSupported) return;
- if(demoPassword !== "admin"){demoError="测试密码错误。";demoPassword="";return;}
- demoPassword="";
  demoError="";
  demoUnlocked=true;
  try{sessionStorage.setItem(DEMO_STORAGE_KEY,"1");}catch{}
  void loadDemoView();
 }
+async function enterPreviewAdmin() {
+ if(!previewPasswordLogin || previewLoginBusy) return;
+ previewLoginBusy=true;previewLoginError="";
+ try {
+  const result=await fetch("/api/preview-admin/login",{
+   method:"POST",credentials:"same-origin",
+   headers:{"Content-Type":"application/json"},
+   body:JSON.stringify({password:previewPasswordValue}),
+  });
+  const payload=await result.json().catch(()=>({}));
+  if(!result.ok)throw new Error(payload.error||"预览后台登录失败。");
+  const authenticated=await refreshOAuthAdminSession();
+  if(!authenticated)throw new Error("预览会话建立失败，请刷新页面重试。");
+  previewAuthenticated=true;
+  section=readSection();
+  syncSession();
+ } catch(error) {
+  previewLoginError=error instanceof Error?error.message:"预览后台登录失败。";
+ } finally {
+  previewPasswordValue="";
+  previewLoginBusy=false;
+ }
+}
+async function exitPreviewAdmin(){
+ try {await logoutOAuthAdmin();}
+ catch(error) {
+  previewLoginError=error instanceof Error?error.message:"退出失败，请刷新页面。";
+  return;
+ }
+ previewAuthenticated=false;
+ session=null;
+ demoUnlocked=false;
+}
 function exitDemo(){
- demoUnlocked=false;demoPassword="";demoError="";
+ demoUnlocked=false;demoError="";
  try{sessionStorage.removeItem(DEMO_STORAGE_KEY);}catch{}
 }
 
@@ -87,6 +124,7 @@ async function ensureSectionLoaded(){
  try{
   if(section==="posts"){const module=await import("./AdminPostManager.svelte");if(generation===loadGeneration)PostComponent=module.default;}
   else if(section==="dynamic"){const module=await import("./AdminDynamicManager.svelte");if(generation===loadGeneration)DynamicComponent=module.default;}
+  else if(section==="gallery"&&previewPasswordLogin){sectionLoading=false;}
   else if(section==="gallery"){const module=await import("../gallery/GalleryAdminManager.svelte");if(generation===loadGeneration)GalleryComponent=module.default;}
   else if(section==="dashboard"){const module=await import("./AdminDashboard.svelte");if(generation===loadGeneration)DashboardComponent=module.default;}
   else{const module=await import("./AdminBackup.svelte");if(generation===loadGeneration)BackupComponent=module.default;}
@@ -95,16 +133,29 @@ async function ensureSectionLoaded(){
 }
 onMount(()=>{
  demoSupported=PREVIEW_DEMO_COMPILED && previewOriginAllowed();
+ // Cloudflare preview performs server-side password authentication. The
+ // ephemeral Sandbox still offers only the isolated read-only demo.
+ previewPasswordLogin=demoSupported && window.location.hostname===PREVIEW_HOST;
+ if(previewPasswordLogin){
+  demoSupported=false;
+  section=readSection();
+  void refreshOAuthAdminSession().then(current=>{
+   previewAuthenticated=Boolean(current);
+   syncSession();
+  });
+  window.addEventListener(GITHUB_SESSION_CHANGED_EVENT,syncSession);
+  return()=>window.removeEventListener(GITHUB_SESSION_CHANGED_EVENT,syncSession);
+ }
  if(demoSupported){
   try {demoUnlocked=sessionStorage.getItem(DEMO_STORAGE_KEY)==="1";} catch {demoUnlocked=false;}
   if(demoUnlocked) void loadDemoView();
   return;
  }
-	section=readSection();
-	syncSession();
-	void refreshOAuthAdminSession().then(syncSession);
-	window.addEventListener(GITHUB_SESSION_CHANGED_EVENT,syncSession);
-	return()=>window.removeEventListener(GITHUB_SESSION_CHANGED_EVENT,syncSession);
+ section=readSection();
+ syncSession();
+ void refreshOAuthAdminSession().then(syncSession);
+ window.addEventListener(GITHUB_SESSION_CHANGED_EVENT,syncSession);
+ return()=>window.removeEventListener(GITHUB_SESSION_CHANGED_EVENT,syncSession);
 });
 </script>
 
@@ -119,21 +170,33 @@ onMount(()=>{
   <section class="demo-entry card-base">
    <span class="eyebrow">FIREFLY · PREVIEW ONLY</span>
    <h1>内容后台测试入口</h1>
-   <p>实验站临时密码为 admin。仅进入只读演示，浏览器内的编辑不会保存到服务器，也不能访问草稿、私有备份或操作图床。</p>
-   <form onsubmit={(event)=>{event.preventDefault();enterDemo();}}>
-    <label for="preview-admin-password">测试密码</label>
-    <input id="preview-admin-password" type="password" autocomplete="off" bind:value={demoPassword} placeholder="输入 admin"/>
-    <button type="submit">进入预览后台</button>
-   </form>
+   <p>本 Sandbox 入口仅提供公开数据的只读体验，不需要密码；正式编辑与保存请使用 Cloudflare 实验站的服务端密码登录。</p>
+   <button type="button" onclick={enterDemo}>进入公开只读演示</button>
    {#if demoError}<p role="alert" class="demo-error">{demoError}</p>{/if}
   </section>
  {/if}
+{:else if previewPasswordLogin && !previewAuthenticated}
+ <section class="demo-entry card-base">
+  <span class="eyebrow">FIREFLY · CLOUDFLARE PREVIEW</span>
+  <h1>实验内容后台登录</h1>
+  <p>此密码仅开启预览 KV 中的文章和动态真实编辑，不授予 GitHub 提交权限。由于相册仍使用正式图床，照片上传、移动和删除在此模式下不开放。</p>
+  <form onsubmit={(event)=>{event.preventDefault();void enterPreviewAdmin();}}>
+   <label for="preview-real-password">预览管理密码</label>
+   <input id="preview-real-password" type="password" autocomplete="off" bind:value={previewPasswordValue} placeholder="输入实验密码" disabled={previewLoginBusy}/>
+   <button type="submit" disabled={previewLoginBusy}>{previewLoginBusy?"验证中...":"进入真实内容编辑器"}</button>
+  </form>
+  {#if previewLoginError}<p role="alert" class="demo-error">{previewLoginError}</p>{/if}
+ </section>
 {:else}
 <div class="admin-shell">
 	<header class="admin-heading card-base">
-		<div><span class="eyebrow">FIREFLY ADMIN</span><h1>内容后台</h1><p>实时保存到 EdgeOne Blob；GitHub 只作为源码基线和后续定时归档。</p></div>
+		<div><span class="eyebrow">FIREFLY ADMIN</span><h1>内容后台</h1><p>{previewPasswordLogin?"实验模式：文章与动态保存到 Cloudflare 预览 KV；未修改 GitHub、生产 Blob 或正式图床。":"正式模式：实时内容存储独立于 GitHub 源码归档。"}</p></div>
 		{#if session}<div class="identity"><strong>{session.login}</strong><span>{session.owner}/{session.repo} · {session.branch}</span></div>{/if}
-			<GitHubAdminLogin />
+			{#if previewPasswordLogin}
+            <button type="button" onclick={()=>{void exitPreviewAdmin();}}>退出实验管理</button>
+          {:else}
+            <GitHubAdminLogin />
+          {/if}
 	</header>
 	{#if !session}
 		<section class="login-hint card-base"><h2>需要 GitHub 管理身份</h2><p>请使用上方 GitHub 登录。在配置 OAuth 的站点上使用服务端安全会话；未配置的预览环境暂时保留 PAT 登录。</p></section>
@@ -152,7 +215,9 @@ onMount(()=>{
 		{#if BackupComponent}<div hidden={section!=="backup"}><BackupComponent {session}/></div>{/if}
 		{#if PostComponent}<div hidden={section!=="posts"}><PostComponent {session}/></div>{/if}
 		{#if DynamicComponent}<div hidden={section!=="dynamic"}><DynamicComponent {session}/></div>{/if}
-		{#if GalleryComponent}<div hidden={section!=="gallery"}><GalleryComponent/></div>{/if}
+        {#if previewPasswordLogin && section==="gallery"}
+         <section class="login-hint card-base"><h2>相册仍使用正式图床</h2><p>为了防止实验密码删除或移动正式图片，暂不提供这里的图床写操作。相册公开页与清单检查可以继续预览；图片存储位置仍为 img.casto.top。</p><a href="/gallery/">查看公开相册</a></section>
+        {:else if GalleryComponent}<div hidden={section!=="gallery"}><GalleryComponent/></div>{/if}
 	{/if}
 </div>
 {/if}

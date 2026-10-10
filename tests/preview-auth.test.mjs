@@ -1,0 +1,97 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import previewWorker from "../worker/blog-preview.ts";
+import {
+ authorizePreviewSession,previewLogin,previewMe,previewLogout,previewMutationOriginAllowed,
+} from "../src/server/preview-auth.js";
+
+const ORIGIN="https://firefly-blog-preview.example.workers.dev";
+function store(){
+ const data=new Map();
+ return {
+  data,
+  async get(key){return data.get(key)||null},
+  async put(key,value){data.set(key,value)},
+  async delete(key){data.delete(key)},
+ };
+}
+function env(){
+ return {
+  FIREFLY_PREVIEW_ADMIN_PASSWORD:"test-case-only-password-ABC123",
+  FIREFLY_PREVIEW_SESSION_KEY:"test-key-long-enough-for-hmac-without-real-credentials-123456789",
+  LIVE_CONTENT_PREVIEW:store(),
+ };
+}
+function request(path="/api/preview-admin/login",method="POST",password="",headers={}){
+ return new Request(ORIGIN+path,{
+  method,headers:{"Origin":ORIGIN,"Content-Type":"application/json",...headers},
+  ...(method==="POST"?{body:JSON.stringify({password})}:{}),
+ });
+}
+test("preview login creates HttpOnly, Secure, same-site scoped session",async()=>{
+ const secret=env();
+ const invalid=await previewLogin(request(undefined,"POST","wrong"),secret);
+ assert.equal(invalid.status,401);
+ assert.equal(invalid.headers.get("Set-Cookie"),null);
+ const successful=await previewLogin(request(undefined,"POST",secret.FIREFLY_PREVIEW_ADMIN_PASSWORD),secret);
+ assert.equal(successful.status,200);
+ const cookie=successful.headers.get("Set-Cookie");
+ assert.match(cookie,/__Host-firefly-admin=v1\./);
+ assert.match(cookie,/HttpOnly/);
+ assert.match(cookie,/Secure/);
+ assert.match(cookie,/SameSite=Strict/);
+ const sessionRequest=new Request(ORIGIN+"/api/admin/auth/me",{headers:{Cookie:cookie.split(";")[0]}});
+ assert.equal((await authorizePreviewSession(sessionRequest,secret)).ok,true);
+ assert.deepEqual((await previewMe(sessionRequest,secret)).status,200);
+ assert.equal((await (await previewMe(sessionRequest,secret)).json()).authenticated,true);
+});
+test("preview session rejects forged cookie and missing configuration",async()=>{
+ const secret=env();
+ const good=await previewLogin(request(undefined,"POST",secret.FIREFLY_PREVIEW_ADMIN_PASSWORD),secret);
+ const raw=good.headers.get("Set-Cookie").split(";")[0];
+ const forged=raw.slice(0,-1)+(raw.endsWith("X")?"Y":"X");
+ assert.equal((await authorizePreviewSession(new Request(ORIGIN,{headers:{Cookie:forged}}),secret)).ok,false);
+ assert.equal((await authorizePreviewSession(new Request(ORIGIN,{headers:{Cookie:raw}}),{})).ok,false);
+ const absent=await previewLogin(request(),{});
+ assert.equal(absent.status,503);
+});
+test("preview login rejects cross-origin posts and throttles repeated errors",async()=>{
+ const secret=env();
+ const cross=await previewLogin(request(undefined,"POST","guess",{Origin:"https://malicious.example"}),secret);
+ assert.equal(cross.status,403);
+ for(let i=0;i<6;i++)assert.equal((await previewLogin(request(undefined,"POST","wrong"),secret)).status,401);
+ const denied=await previewLogin(request(undefined,"POST",secret.FIREFLY_PREVIEW_ADMIN_PASSWORD),secret);
+ assert.equal(denied.status,429);
+ assert.equal(denied.headers.get("Retry-After"),"900");
+});
+test("preview logout clears browser session and requires Origin",async()=>{
+ const res=await previewLogout(new Request(ORIGIN+"/api/admin/auth/logout",{method:"POST",headers:{Origin:ORIGIN}}));
+ assert.equal(res.status,200);
+ assert.match(res.headers.get("Set-Cookie"),/Max-Age=0/);
+ assert.equal((await previewLogout(new Request(ORIGIN+"/api/admin/auth/logout",{
+  method:"POST",headers:{Origin:"https://malicious.example"},
+ }))).status,403);
+ assert.equal(previewMutationOriginAllowed(new Request(ORIGIN+"/api/live-content/item",{method:"POST"})),false);
+ assert.equal(previewMutationOriginAllowed(new Request(ORIGIN+"/api/live-content/item",{method:"GET"})),true);
+});
+
+
+test("preview Worker connects a valid signed session to real KV backup access", async () => {
+ const db=store();
+ db.list=async()=>({keys:[],list_complete:true});
+ const variables={...env(),LIVE_CONTENT_PREVIEW:db};
+ const login=await previewWorker.fetch(request(undefined,"POST",variables.FIREFLY_PREVIEW_ADMIN_PASSWORD),variables,{});
+ assert.equal(login.status,200);
+ const cookie=login.headers.get("Set-Cookie").split(";")[0];
+ const protectedUrl=ORIGIN+"/api/live-content/export";
+ const anonymous=await previewWorker.fetch(new Request(protectedUrl),variables,{});
+ assert.equal(anonymous.status,401);
+ const authorized=await previewWorker.fetch(new Request(protectedUrl,{headers:{Cookie:cookie}}),variables,{});
+ assert.equal(authorized.status,200);
+ const backup=await authorized.json();
+ assert.deepEqual(backup.posts,[]);
+ assert.deepEqual(backup.dynamics,[]);
+ assert.deepEqual(backup.history,[]);
+ const privateIndex=await previewWorker.fetch(new Request(ORIGIN+"/api/admin/private-index"),variables,{});
+ assert.equal(privateIndex.status,401);
+});
