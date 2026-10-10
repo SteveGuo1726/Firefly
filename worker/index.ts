@@ -360,11 +360,6 @@ async function loadManifest(env: Env, force = false): Promise<GalleryManifest> {
 			if (!response.ok) continue;
 			try {
 				const manifest = normalizeManifest(await response.json());
-				if (env.GALLERY_MANIFEST)
-					await env.GALLERY_MANIFEST.put(
-						MANIFEST_KV_KEY,
-						JSON.stringify(manifest),
-					).catch(() => {});
 				manifestCache = { expiresAt: Date.now() + GALLERY_CACHE_MS, manifest };
 				return manifest;
 			} catch {
@@ -538,15 +533,17 @@ async function saveLegacyManifest(
 		.map((file) => cleanPath(file.name))
 		.filter(
 			(key) => key.startsWith(MANIFEST_DIR + "/") && key.endsWith(".json"),
-		);
+		).sort((left, right) => right.localeCompare(left));
 	const file = new File(
 		[JSON.stringify(manifest)],
 		String(Date.now()) + ".json",
 		{ type: "application/json" },
 	);
 	await uploadRemoteFile(env, file, MANIFEST_DIR);
+	// Keep four earlier manifests in addition to the new one. A broken
+	// latest upload can then be recovered without relying solely on KV.
 	await Promise.allSettled(
-		previousKeys.map((key) => deleteRemoteKey(env, key)),
+		previousKeys.slice(4).map((key) => deleteRemoteKey(env, key)),
 	);
 }
 async function saveManifest(
@@ -669,8 +666,9 @@ async function handleAdminApi(request: Request, env: Env): Promise<Response> {
 		) {
 			const body = (await request.json()) as { key?: string };
 			const key = cleanPath(body.key);
-			if (!isSafePath(key) || key.startsWith(`${MANIFEST_DIR}/`)) {
-				return errorResponse("文件路径无效。", 400);
+			if (!isSafePath(key) || !IMAGE_EXTENSIONS.test(key) ||
+				key.startsWith(`${MANIFEST_DIR}/`)) {
+				return errorResponse("只能删除明确的图片文件，不能删除目录或相册清单。", 400);
 			}
 			await deleteRemoteKey(env, key);
 			clearGalleryCache();
@@ -687,6 +685,8 @@ async function handleAdminApi(request: Request, env: Env): Promise<Response> {
 			if (
 				!isSafePath(key) ||
 				!isSafePath(newKey) ||
+				!IMAGE_EXTENSIONS.test(key) ||
+				!IMAGE_EXTENSIONS.test(newKey) ||
 				key.startsWith(`${MANIFEST_DIR}/`) ||
 				newKey.startsWith(`${MANIFEST_DIR}/`)
 			) {
@@ -730,8 +730,14 @@ async function handleAdminApi(request: Request, env: Env): Promise<Response> {
 			};
 			const sourceDir = cleanPath(body.sourceDir);
 			const newSourceDir = cleanPath(body.newSourceDir);
-			if (!isUserAlbumDir(sourceDir) || !isUserAlbumDir(newSourceDir)) {
-				return errorResponse("相册目录无效。", 400);
+			if (!isUserAlbumDir(sourceDir) || !isUserAlbumDir(newSourceDir) ||
+				sourceDir === newSourceDir) {
+				return errorResponse("相册目录无效或未更改。", 400);
+			}
+			const destination = await listRemoteFiles(env, newSourceDir, true);
+			if ((destination.files || []).some(file =>
+				cleanPath(file.name).startsWith(`${newSourceDir}/`))) {
+				return errorResponse("目标相册目录已有文件，已取消重命名以防覆盖。", 409);
 			}
 			const list = await listRemoteFiles(env, sourceDir, true);
 			const keys = (list.files || [])
