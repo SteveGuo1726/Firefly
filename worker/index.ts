@@ -20,6 +20,7 @@ type Env = {
 	IMAGE_PUBLIC_BASE_URL?: string;
 	GITHUB_ADMIN_LOGIN?: string;
 	GITHUB_REPO?: string;
+	FIREFLY_ADMIN_SERVICE_SECRET?: string;
 	ALLOWED_ORIGIN?: string;
 };
 
@@ -131,10 +132,22 @@ async function tokenHash(token: string): Promise<string> {
 	).join("");
 }
 
+async function trustedAdminService(request:Request,env:Env):Promise<boolean>{
+ const supplied=request.headers.get("X-Firefly-Service-Key")||"";
+ const configured=env.FIREFLY_ADMIN_SERVICE_SECRET||"";
+ if(!configured||configured.length<32||!supplied)return false;
+ const hash=async(value:string)=>new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value)));
+ const [left,right]=await Promise.all([hash(supplied),hash(configured)]);
+ let diff=0;
+ for(let i=0;i<left.length;i++)diff|=left[i]^right[i];
+ return diff===0;
+}
+
 async function requireGitHubAdmin(
 	request: Request,
 	env: Env,
 ): Promise<Response | null> {
+	if(await trustedAdminService(request,env))return null;
 	const authorization = request.headers.get("Authorization") || "";
 	const token = authorization.startsWith("Bearer ")
 		? authorization.slice(7).trim()
