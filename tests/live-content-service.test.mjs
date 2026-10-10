@@ -37,6 +37,25 @@ test("preview worker blocks static HTML when a newer live post is hidden or dele
  assert.equal((await previewWorker.fetch(url, env, {})).status, 200);
  assert.equal(assetReads, 2);
 });
+test("preview worker applies hidden post checks to direct index.html asset URLs", async () => {
+ let assetReads = 0;
+ const env={
+  LIVE_CONTENT_PREVIEW:{
+   async get(key){
+    assert.equal(key,"v3/pointers/posts/secret.json");
+    return JSON.stringify({schemaVersion:3,kind:"post",id:"secret",revision:"r1",
+     deleted:true,meta:{}});
+   },
+  },
+  ASSETS:{async fetch(){assetReads++;return new Response("EXPOSED STATIC BODY");}},
+ };
+ for(const path of ["/posts/secret/","/posts/secret/index.html"]) {
+  const response=await previewWorker.fetch(request(path),env,{});
+  assert.equal(response.status,404,path);
+ }
+ assert.equal(assetReads,0);
+});
+
 test("preview worker fails closed when live visibility storage is unavailable", async () => {
  let assetReads = 0;
  const env = {
