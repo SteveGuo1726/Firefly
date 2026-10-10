@@ -82,3 +82,20 @@ test("gallery rename refuses to overwrite a non-empty target directory", async (
   globalThis.fetch=originalFetch;
  }
 });
+
+
+test("gallery rejects stale-tab manifest writes without touching stored data", async () => {
+ const secret="S".repeat(40);
+ let writes=0;
+ const current={version:1,updatedAt:"2026-10-10T09:00:00.000Z",albums:[]};
+ const env={FIREFLY_ADMIN_SERVICE_SECRET:secret,
+  GALLERY_MANIFEST:{async get(){return current;},async put(){writes++;}},
+ };
+ const outdated={version:1,updatedAt:"2026-10-09T09:00:00.000Z",albums:[]};
+ const response=await galleryWorker.fetch(new Request("https://gallery-api.example/api/admin/gallery/manifest",{
+  method:"PUT",headers:{"X-Firefly-Service-Key":secret,"Content-Type":"application/json"},
+  body:JSON.stringify(outdated),
+ }),env);
+ assert.equal(response.status,409);
+ assert.equal(writes,0);
+});
