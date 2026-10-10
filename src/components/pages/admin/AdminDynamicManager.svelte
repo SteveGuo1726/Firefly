@@ -20,7 +20,7 @@ let liveIndexHealthy=false;
 let deletedRows:{id:string;path:string;revision:string;baseGitSha:string}[]=[];
 let deletedGitSha="";
 let historyEntries:LiveHistoryEntry[]=[];let historyRevision="";let historyLoading=false;
-function editorSnapshot(){return JSON.stringify({currentPath,fields,body});}
+function editorSnapshot(){return JSON.stringify({currentId,currentPath,loadedPath,baseGitSha,liveRevision,originalSource,fields,body});}
 function guardUnsaved(){return !savedEditorSnapshot || editorSnapshot()===savedEditorSnapshot || confirm("当前有未保存的编辑内容。继续将丢失这些修改，确定切换吗？");}
 
 function filtered(){const n=query.trim().toLowerCase();return !n?rows:rows.filter(r=>[r.excerpt,r.location,r.published,r.path].join(" ").toLowerCase().includes(n));}
@@ -129,7 +129,11 @@ onMount(()=>{
    if(typeof draft.currentPath==="string" && typeof draft.body==="string" && draft.fields && typeof draft.fields==="object"){
     currentPath=draft.currentPath;fields=draft.fields;body=draft.body;
     
-    currentId="";loadedPath="";baseGitSha="";liveRevision="";originalSource="";
+    currentId=typeof draft.currentId==="string"?draft.currentId:"";
+    loadedPath=typeof draft.loadedPath==="string"?draft.loadedPath:"";
+    baseGitSha=typeof draft.baseGitSha==="string"?draft.baseGitSha:"";
+    liveRevision=typeof draft.liveRevision==="string"?draft.liveRevision:"";
+    originalSource=typeof draft.originalSource==="string"?draft.originalSource:"";
     savedEditorSnapshot="";void updatePreview();
    }
   }catch{/* Ignore corrupt private draft data */ }
