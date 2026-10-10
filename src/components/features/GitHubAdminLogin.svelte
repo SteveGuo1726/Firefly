@@ -7,6 +7,9 @@ import {
 	type GitHubAdminSession,
 	getGitHubAdminSession,
 	loginWithGitHubToken,
+	refreshOAuthAdminSession,
+	isOAuthSupported,
+	logoutOAuthAdmin,
 } from "@/utils/admin/github-session";
 import { url } from "@/utils/url-utils";
 
@@ -16,6 +19,7 @@ let modalOpen = false;
 let menuOpen = false;
 let submitting = false;
 let errorMessage = "";
+let oauthAvailable=false;
 
 function syncSession() {
 	session = getGitHubAdminSession();
@@ -23,6 +27,7 @@ function syncSession() {
 }
 
 function openLogin() {
+	if(oauthAvailable){window.location.assign("/api/admin/auth/start");return;}
 	errorMessage = "";
 	modalOpen = true;
 	menuOpen = false;
@@ -49,14 +54,21 @@ async function submitLogin() {
 	}
 }
 
-function logout() {
-	clearGitHubAdminSession();
-	session = null;
-	menuOpen = false;
+async function logout() {
+ if(session?.oauth){
+  try{await logoutOAuthAdmin();}
+  catch(error){errorMessage=error instanceof Error?error.message:"退出失败";return;}
+ }else{
+  clearGitHubAdminSession();
+ }
+ session=null;
+ menuOpen=false;
 }
+
 
 onMount(() => {
 	syncSession();
+	void refreshOAuthAdminSession().then(()=>{oauthAvailable=isOAuthSupported();syncSession();});
 	window.addEventListener(GITHUB_SESSION_CHANGED_EVENT, syncSession);
 	return () =>
 		window.removeEventListener(GITHUB_SESSION_CHANGED_EVENT, syncSession);
@@ -101,7 +113,7 @@ onMount(() => {
 			title="GitHub 登录"
 		>
 			<span class="github-mark">GH</span>
-			<span>GitHub 登录</span>
+			<span>{oauthAvailable?"GitHub OAuth 登录":"GitHub 登录"}</span>
 		</button>
 	{/if}
 </div>
