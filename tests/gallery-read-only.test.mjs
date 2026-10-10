@@ -99,3 +99,39 @@ test("gallery rejects stale-tab manifest writes without touching stored data", a
  assert.equal(response.status,409);
  assert.equal(writes,0);
 });
+
+
+test("gallery directory rename rolls back earlier files after a later rename fails", async () => {
+ const secret="S".repeat(40);
+ const env={FIREFLY_ADMIN_SERVICE_SECRET:secret,IMAGEBED_TOKEN:"test",IMAGEBED_BASE_URL:"https://imagebed.example"};
+ const originalFetch=globalThis.fetch;
+ const renameCalls=[];
+ globalThis.fetch=async (input,init)=>{
+  const url=String(input);
+  if(url.includes("/api/manage/list?")) {
+   const dir=new URL(url).searchParams.get("dir");
+   return Response.json(dir==="photos/target"?{files:[]}:
+    {files:[{name:"photos/source/a.jpg"},{name:"photos/source/b.jpg"}]});
+  }
+  if(url.includes("/api/manage/rename/")) {
+   const key=decodeURIComponent(url.split("/api/manage/rename/")[1]);
+   const destination=JSON.parse(init.body).newFileId;
+   renameCalls.push([key,destination]);
+   if(key==="photos/source/b.jpg") return Response.json({message:"simulated failure"},{status:500});
+   return Response.json({newFileId:destination});
+  }
+  throw new Error("unexpected "+url);
+ };
+ try{
+  const response=await galleryWorker.fetch(new Request("https://gallery-api.example/api/admin/gallery/rename-album",{
+   method:"POST",headers:{"X-Firefly-Service-Key":secret,"Content-Type":"application/json"},
+   body:JSON.stringify({sourceDir:"photos/source",newSourceDir:"photos/target"}),
+  }),env);
+  assert.equal(response.status,502);
+  assert.deepEqual(renameCalls,[
+   ["photos/source/a.jpg","photos/target/a.jpg"],
+   ["photos/source/b.jpg","photos/target/b.jpg"],
+   ["photos/target/a.jpg","photos/source/a.jpg"],
+  ]);
+ }finally{globalThis.fetch=originalFetch;}
+});
