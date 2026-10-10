@@ -190,3 +190,29 @@ test("deleted post and moment records are recoverable from the admin UI",async()
   assert.match(source,/restoreLiveContentRevision/);
  }
 });
+
+test("authenticated CMS has lazy overview and private backup without public editor bundles",async()=>{
+ const app=await readFile("src/components/pages/admin/AdminApp.svelte","utf8");
+ const overview=await readFile("src/components/pages/admin/AdminDashboard.svelte","utf8");
+ const backup=await readFile("src/components/pages/admin/AdminBackup.svelte","utf8");
+ assert.match(app,/import\("\.\/AdminDashboard\.svelte"\)/);
+ assert.match(app,/import\("\.\/AdminBackup\.svelte"\)/);
+ assert.match(app,/section==="backup"/);
+ assert.match(overview,/fetchLiveContentIndex\("post",session\)/);
+ assert.match(overview,/fetchLiveContentIndex\("dynamic",session\)/);
+ assert.match(backup,/exportLiveContent\(session\)/);
+ assert.match(backup,/URL\.createObjectURL/);
+ assert.doesNotMatch(backup,/GitHub.*commit|fetch\("https:\/\/api\.github\.com/);
+});
+test("OAuth admin UI keeps bearer tokens out of browser sessions and uses same-origin APIs",async()=>{
+ const sessions=await readFile("src/utils/admin/github-session.ts","utf8");
+ const manager=await readFile("src/components/pages/admin/AdminApp.svelte","utf8");
+ const galleryClient=await readFile("src/utils/admin/imagebed-client.ts","utf8");
+ const contentClient=await readFile("src/utils/admin/live-content-client.ts","utf8");
+ assert.match(sessions,/oauthSupported/);
+ assert.match(sessions,/refreshOAuthAdminSession/);
+ assert.match(sessions,/if\(oauthSupported\) return/);
+ assert.match(manager,/refreshOAuthAdminSession\(\)/);
+ assert.match(galleryClient,/session\?\.oauth/);
+ assert.match(contentClient,/options\.session\.oauth/);
+});
