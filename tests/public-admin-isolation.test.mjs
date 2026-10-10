@@ -121,3 +121,14 @@ test("all transitional GitHub administrator entry points fail closed on unknown 
  assert.match(login,/repository\.permissions\?\.push !== true/);
  assert.match(service,/repository\?\.permissions\?\.push !== true/);
 });
+
+test("gallery lightbox uses a single delegated Fancybox v6 opener",async()=>{
+ const gallery=await readFile("src/components/pages/gallery/GalleryAlbumRuntime.svelte","utf8");
+ const styles=await readFile("src/styles/fancybox-custom.css","utf8");
+ assert.match(gallery,/Fancybox\.bind\(root, photoSelector, lightboxOptions\)/);
+ assert.match(gallery,/Fancybox\.unbind\(root, photoSelector\)/);
+ assert.doesNotMatch(gallery,/fromTriggerEl|onclick=\{openPhoto\}/);
+ assert.match(styles,/\.fancybox__container \.f-button/);
+ assert.doesNotMatch(styles,/\.fancybox__button/);
+ assert.doesNotMatch(styles,/\.fancybox__container \.fancybox__image/);
+});
