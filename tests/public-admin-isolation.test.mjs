@@ -246,3 +246,11 @@ test("backup verifies all pointer revisions and full document sources before suc
  assert.match(service,/typeof item\.source !== "string"/);
  assert.match(backup,/备份完整性校验失败/);
 });
+
+test("gallery admin prevents destructive refresh and overlapping upload/save",async()=>{
+ const source=await readFile("src/components/pages/gallery/GalleryAdminManager.svelte","utf8");
+ assert.match(source,/dirty && !confirm\("相册有尚未保存的修改/);
+ assert.match(source,/if \(saving \|\| uploading \|\| loading \|\| !dirty\) return/);
+ assert.match(source,/if \(uploading \|\| saving\) return/);
+ assert.match(source,/disabled=\{!dirty \|\| loading \|\| saving \|\| uploading\}/);
+});
