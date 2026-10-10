@@ -279,3 +279,11 @@ test("private post index is required by editor and dashboard, and OAuth route is
  assert.match(route,/FIREFLY_GITHUB_CONTENT_READ_TOKEN/);
  assert.match(route,/Cache-Control":"private, no-store"/);
 });
+
+test("gallery partial uploads remain recoverable instead of orphaning successful files",async()=>{
+ const source=await readFile("src/components/pages/gallery/GalleryAdminManager.svelte","utf8");
+ assert.match(source,/const uploaded:ManagedGalleryPhoto\[\]=\[\]/);
+ assert.match(source,/已上传 \$\{uploaded\.length\}\/\$\{files\.length\}/);
+ assert.match(source,/if\(uploaded\.length\)/);
+ assert.match(source,/await refreshRemoteStatePreservingManifest\(\)/);
+});
