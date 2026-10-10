@@ -76,7 +76,7 @@ export function createGitHubAdminAuthController({
   async logout(request){
    if(request.method!=="POST")return new Response("Method Not Allowed",{status:405});
    if(request.headers.get("Origin")!==origin)return new Response("Forbidden",{status:403});
-   await sessionService.revokeSession(readCookie(request));
+   await sessionService.revokeSession(readAdminSessionId(request));
    return redirect("/admin/?auth=logged-out",{"Set-Cookie":clearAdminSessionCookie()});
   },
  };
