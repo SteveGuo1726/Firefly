@@ -18,7 +18,6 @@ export default async function onRequest(context){
   const repo=process.env.FIREFLY_GITHUB_REPO||"Firefly";
   const branch=process.env.FIREFLY_GITHUB_BRANCH||"ai/preview-test";
   const githubToken=process.env.FIREFLY_GITHUB_CONTENT_READ_TOKEN||"";
-  if(!githubToken)return new Response(JSON.stringify({error:"Private index server token is not configured"}),{status:503,headers:{"Cache-Control":"no-store","Content-Type":"application/json"}});
   const result=await buildPrivatePostIndex({token:githubToken,owner,repo,branch});
   return new Response(JSON.stringify(result),{headers:{"Cache-Control":"private, no-store","Content-Type":"application/json","Vary":"Cookie"}});
  }catch(error){
