@@ -39,10 +39,9 @@ test("gallery proxy never forwards browser authorization, cookies, or arbitrary 
  // with the same algorithm used by the live session service.
  const {sha256Base64Url}=await import("../src/server/admin-auth/oauth-core.js");
  const token="A".repeat(64);
- blob.setJSON("oauth-session:"+await sha256Base64Url(token),{
-  login:"SteveGuo1726",userId:1,expiresAt:Date.now()+100000
- });
+
  let seen;
+ await blob.setJSON("oauth-session:"+await sha256Base64Url(token),{login:"SteveGuo1726",userId:1,expiresAt:Date.now()+100000});
  const response=await proxyGalleryManagement(new Request(base+"?dir=blog",{
   headers:{Cookie:"__Host-firefly-admin="+token,Authorization:"Bearer leaked-browser-token"},
  }),{
