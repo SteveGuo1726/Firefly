@@ -19,6 +19,9 @@ test("password demo cannot load private admin editors or write data", async () =
  const demo=await readFile("src/components/pages/admin/PreviewDemoAdmin.svelte","utf8");
  assert.match(demo,/只读演示/);
  assert.match(demo,/fetchPublicGallery\("",true\)/);
+ assert.match(demo,/createGalleryManifestBackup/);
+ assert.match(demo,/inspectGalleryManifest/);
+ assert.match(demo,/下载公开清单 JSON/);
  assert.match(demo,/\/api\/admin-content-index\.json/);
  assert.match(demo,/\/api\/live-content\/index\?kind/);
  assert.match(demo,/不提供远端保存/);

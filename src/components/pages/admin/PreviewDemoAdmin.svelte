@@ -1,7 +1,8 @@
 <script lang="ts">
 import { onMount } from "svelte";
 import { fetchPublicGallery } from "@/utils/gallery-public-client";
-import type { PublicGalleryAlbum } from "@/types/galleryAdmin";
+import { createGalleryManifestBackup, inspectGalleryManifest } from "@/utils/admin/gallery-manifest-backup";
+import type { GalleryManifest, PublicGalleryAlbum } from "@/types/galleryAdmin";
 
 export let onLogout: () => void;
 
@@ -112,6 +113,36 @@ function resetScratch() {
  selectedPost="";selectedMoment="";selectedAlbum="";
  scratchTitle="";scratchBody="";scratchAlbumName="";notice="";
 }
+function publicGalleryManifest(): GalleryManifest {
+ return {
+  version:1,updatedAt:"",
+  albums: albums.map((album) => ({
+   id:album.id,sourceDir:album.sourceDir,name:album.name,
+   description:album.description,category:album.category,date:album.date,
+   location:album.location,tags:[...(album.tags || [])],
+   cover:album.cover,photoOrder:[...(album.photoOrder || [])],
+  })),
+ };
+}
+function publicGalleryHealth() {
+ return inspectGalleryManifest(publicGalleryManifest());
+}
+async function downloadPublicGalleryBackup() {
+ if (!albums.length) return;
+ try {
+  const {json,sha256,report}=await createGalleryManifestBackup(publicGalleryManifest());
+  const url=URL.createObjectURL(new Blob([json],{type:"application/json;charset=utf-8"}));
+  const link=document.createElement("a");
+  link.href=url;
+  link.download="firefly-public-gallery-demo-"+new Date().toISOString().slice(0,10)+".json";
+  document.body.appendChild(link);
+  link.click();link.remove();
+  setTimeout(()=>URL.revokeObjectURL(url),30000);
+  notice="仅包含公开相册元数据（不含照片文件）。SHA-256："+sha256+"；"+report.errorCount+" 项错误。";
+ } catch(error) {
+  issue=error instanceof Error?error.message:"公开相册备份失败。";
+ }
+}
 function localOnly() {
  notice="已检查本地演示状态。只读演示不提供远端保存，未修改任何文章、图片或相册。";
 }
@@ -203,6 +234,18 @@ onMount(()=>{tab=normalizeTab();void refresh();});
  {:else if tab==="gallery"}
   <section class="card-base panel">
    <h2>公开相册检查</h2>
+   {#if albums.length}
+    <div class="check">
+     <span class:ok={publicGalleryHealth().errorCount===0}>
+      {publicGalleryHealth().errorCount===0?"结构正常":"发现错误"}
+     </span>
+     <strong>{publicGalleryHealth().albumCount} 个相册 · {publicGalleryHealth().listedPhotoCount} 条排序记录 · {publicGalleryHealth().warningCount} 项提醒</strong>
+     <button type="button" class="outline" onclick={downloadPublicGalleryBackup}>下载公开清单 JSON</button>
+    </div>
+    {#each publicGalleryHealth().issues as health,i (i)}
+     <p class="issue">{health.albumId}：{health.message}</p>
+    {/each}
+   {/if}
    <div class="album-grid">
     {#each albums as album (album.id)}
      <button type="button" class="album" class:chosen={selectedAlbum===album.id} onclick={()=>openAlbum(album)}>
