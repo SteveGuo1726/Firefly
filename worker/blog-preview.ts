@@ -56,6 +56,15 @@ export default {
 			const rawPointer = await env.LIVE_CONTENT_PREVIEW.get(`v3/pointers/posts/${id}.json`);
 			if (rawPointer) {
 				const pointer = JSON.parse(rawPointer);
+				if (!pointer || pointer.schemaVersion !== 3 || pointer.kind !== "post" ||
+					pointer.id !== id || typeof pointer.revision !== "string" ||
+					(!pointer.deleted && (!pointer.meta || typeof pointer.meta !== "object"))) {
+					// An unreadable overlay is not permission to serve an older page.
+					return new Response("Live post state unavailable", {
+						status: 503,
+						headers: { "Cache-Control": "no-store", "X-Robots-Tag": "noindex" },
+					});
+				}
 				if (pointer.deleted || pointer.meta?.draft || pointer.meta?.protected) {
 					return new Response("Not Found", {
 						status: 404,
