@@ -65,7 +65,7 @@ test("OAuth controller performs PKCE login, session profile and CSRF-protected l
   method:"POST",headers:{Cookie:cookie,Origin:"https://blog.example.com"}
  }));
  assert.equal(logout.status,303);
- assert.match(logout.headers.get("Set-Cookie"),/__Host-firefly-admin=; Path=\/; Max-Age=0/);
+ assert.ok(logout.headers.get("Set-Cookie").includes("__Host-firefly-admin=; Path=/; Max-Age=0"));
  const after=await auth.me(new Request("https://blog.example.com/api/admin/auth/me",{headers:{Cookie:cookie}}));
  assert.equal((await after.json()).authenticated,false);
 });
