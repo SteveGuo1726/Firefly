@@ -754,9 +754,25 @@ async function handleAdminApi(request: Request, env: Env): Promise<Response> {
 				.map((file) => cleanPath(file.name))
 				.filter((key) => key.startsWith(`${sourceDir}/`));
 			const moved: Record<string, string> = {};
-			for (const key of keys) {
-				const target = `${newSourceDir}/${key.slice(sourceDir.length + 1)}`;
-				moved[key] = await renameRemoteKey(env, key, target);
+			try {
+				for (const key of keys) {
+					const target = `${newSourceDir}/${key.slice(sourceDir.length + 1)}`;
+					moved[key] = await renameRemoteKey(env, key, target);
+				}
+			} catch (error) {
+				const failedRollbacks: string[] = [];
+				for (const [original, renamed] of Object.entries(moved).reverse()) {
+					try {
+						await renameRemoteKey(env, renamed, original);
+					} catch {
+						failedRollbacks.push(original);
+					}
+				}
+				clearGalleryCache();
+				if (failedRollbacks.length) {
+					return errorResponse("目录重命名失败，且部分图片回滚失败；请立即核对图床并避免覆盖原相册清单。", 502);
+				}
+				return errorResponse("目录重命名失败，已回滚已移动的图片。", 502);
 			}
 			clearGalleryCache();
 			return json({ moved });
