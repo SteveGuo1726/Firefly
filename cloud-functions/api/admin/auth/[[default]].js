@@ -1,5 +1,5 @@
 import {getStore} from "@edgeone/pages-blob";
-import {edgeOneAtomicAuthStore} from "../../../../src/server/admin-auth/edgeone-store.js";
+import {edgeOneAtomicAuthStore,assertEdgeOneAtomicWrites} from "../../../../src/server/admin-auth/edgeone-store.js";
 import {createAdminSessionService} from "../../../../src/server/admin-auth/session-service.js";
 import {createGitHubAdminAuthController} from "../../../../src/server/admin-auth/controller.js";
 
@@ -18,7 +18,9 @@ export default async function onRequest(context){
   });
  }
  try{
-  const store=edgeOneAtomicAuthStore(getStore({name:"firefly-auth-live",consistency:"strong"}));
+  const raw=getStore({name:"firefly-auth-live",consistency:"strong"});
+  await assertEdgeOneAtomicWrites(raw);
+  const store=edgeOneAtomicAuthStore(raw);
   const sessions=createAdminSessionService({store,adminLogin:process.env.FIREFLY_ADMIN_LOGIN||"SteveGuo1726"});
   const auth=createGitHubAdminAuthController({clientId,clientSecret,callbackUrl,sessionService:sessions});
   const pathname=new URL(request.url).pathname;
