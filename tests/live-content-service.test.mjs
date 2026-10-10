@@ -829,3 +829,24 @@ test("backup export fails closed when a pointer references a missing immutable r
  const backup=await handle(request("/api/live-content/export",{headers:adminHeaders()}));
  assert.notEqual(backup.status,200);
 });
+
+test("backup contains previous immutable versions and current pointer without omitting history",async()=>{
+ const store=makeStore(),handle=createService(store);
+ const create=await handle(request("/api/live-content/item",{method:"PUT",headers:adminHeaders(),body:JSON.stringify({
+  kind:"post",id:"history-export",path:"src/content/posts/history-export.md",
+  source:"---\ntitle: First\n---\nFirst",meta:{title:"First"}
+ })}));
+ assert.equal(create.status,200);
+ const first=await create.json();
+ const update=await handle(request("/api/live-content/item",{method:"PUT",headers:adminHeaders(),body:JSON.stringify({
+  kind:"post",id:"history-export",path:"src/content/posts/history-export.md",
+  source:"---\ntitle: Second\n---\nSecond",meta:{title:"Second"},expectedRevision:first.revision
+ })}));
+ assert.equal(update.status,200);
+ const exported=await handle(request("/api/live-content/export",{headers:adminHeaders()}));
+ assert.equal(exported.status,200);
+ const backup=await exported.json();
+ assert.equal(backup.posts.length,1);
+ assert.equal(backup.history.filter(x=>x.id==="history-export").length,2);
+ assert.ok(backup.history.some(x=>x.revision===first.revision&&x.source.includes("First")));
+});
