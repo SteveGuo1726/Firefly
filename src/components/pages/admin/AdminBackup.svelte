@@ -1,6 +1,7 @@
 <script lang="ts">
 import type {GitHubAdminSession} from "@/utils/admin/github-session";
 import {exportLiveContent} from "@/utils/admin/live-content-client";
+import {validateLiveContentBackup} from "@/utils/admin/backup-integrity";
 export let session:GitHubAdminSession;
 let busy=false;
 let error="";
@@ -10,17 +11,10 @@ async function downloadBackup(){
  busy=true;error="";success="";
  try{
   const data=await exportLiveContent(session);
-  if(!data || typeof data!=="object" || !Array.isArray((data as any).posts) || !Array.isArray((data as any).dynamics))throw new Error("备份格式异常：缺少文章或动态列表。");
-  if(!Array.isArray((data as any).history))throw new Error("备份格式异常：缺少历史版本列表。");
-  const history=(data as any).history as any[];
-  const documents=[...(data as any).posts,...(data as any).dynamics,...history];
-  for(const item of documents){
-   if(!item || typeof item.id!=="string" || typeof item.revision!=="string" || (item.deleted!==true && typeof item.source!=="string")){
-    throw new Error("备份完整性校验失败：内容缺少 ID、版本或正文。");
-   }
-  }
+  const summary=validateLiveContentBackup(data);
   const text=JSON.stringify(data,null,2);
   if(!text || text==="null" || text==="{}")throw new Error("备份内容为空，已取消导出。");
+  const checksum=Array.from(new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(text))),b=>b.toString(16).padStart(2,"0")).join("");
   const file=new Blob([text],{type:"application/json;charset=utf-8"});
   const address=URL.createObjectURL(file);
   try{
@@ -32,14 +26,14 @@ async function downloadBackup(){
   }finally{
    window.setTimeout(()=>URL.revokeObjectURL(address),5000);
   }
-  success=`已校验并导出 ${(data as any).posts.length+(data as any).dynamics.length} 条当前内容及 ${history.length} 条历史版本。文件可能包含未公开正文，请妥善保存。`;
+  success=`已校验并导出 ${summary.currentCount} 条当前记录（含 ${summary.deletedCount} 条删除标记）及 ${summary.historyCount} 条历史版本。SHA-256：${checksum}。文件可能包含未公开正文，请妥善保存。`;
  }catch(e){
   error=e instanceof Error?e.message:"备份下载失败。";
  }finally{busy=false;}
 }
 </script>
 <section class="backup card-base">
- <header><h2>备份与恢复准备</h2><p>导出当前实时内容快照：文章、动态及删除标记。同时包含历史版本与删除标记；不会修改 Git 仓库或触发构建。</p></header>
+ <header><h2>备份与恢复准备</h2><p>导出实时文章、动态、删除标记及保留的历史版本，并验证当前版本对应的历史内容。不会修改 Git 仓库或触发构建。</p></header>
  <div class="warning">导出文件包含实时内容源文件与可能未公开的草稿。不要把它放在公开网盘、Git 仓库或评论附件里。</div>
  <button type="button" class="primary" onclick={downloadBackup} disabled={busy}>{busy?"正在读取完整数据...":"下载当前实时内容 JSON 快照"}</button>
  {#if error}<p role="alert" class="error">{error}</p>{/if}
