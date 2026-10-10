@@ -18,7 +18,7 @@ export async function fetchGitContentSource(
 		`https://api.github.com/repos/${encodeURIComponent(session.owner)}/${encodeURIComponent(session.repo)}/contents/${encodePath(path)}?ref=${encodeURIComponent(session.branch)}`,
 		{headers:{
 			Accept:"application/vnd.github+json",
-			Authorization:`Bearer ${session.token}`,
+			...(session.oauth ? {} : {Authorization:`Bearer ${session.token}`}),
 			"X-GitHub-Api-Version":"2022-11-28",
 		}},
 	);
