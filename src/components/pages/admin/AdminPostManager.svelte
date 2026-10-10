@@ -9,7 +9,7 @@ import { buildPostDocument, emptyPostFields, excerptMarkdown, parsePostDocument,
 import { fetchGitContentSource } from "@/utils/admin/github-content-reader";
 import { fetchPrivatePostIndex } from "@/utils/admin/private-content-index";
 import { deleteLiveContentItem, fetchLiveContentIndex, fetchLiveContentItem, saveLiveContentItem, fetchLiveContentHistory, restoreLiveContentRevision, undoGitBaselineDeletion, type LiveHistoryEntry } from "@/utils/admin/live-content-client";
-import { renderFireflyPreview } from "@/utils/write/preview";
+import { createPreviewController } from "@/utils/admin/preview-controller";
 
 export let session:GitHubAdminSession;
 type BasePost={id:string;path:string;title:string;description:string;published:string;updated:string;category:string;tags:string[];draft:boolean;pinned:boolean;image:string};
@@ -19,7 +19,8 @@ let rows:Row[]=[];let query="";let loading=false;let opening=false;let saving=fa
 let currentId="";let currentPath="";let loadedPath="";let baseGitSha="";let liveRevision="";let originalSource="";
 let fields:AdminPostFields=emptyPostFields();let body="";let tagsText="";let previewHtml="";let message="";let error="";
 let previewPresentation:"article"|"body"="article";
-let previewTimer:ReturnType<typeof setTimeout>|null=null;
+let previewViewport:"desktop"|"mobile"="desktop";
+let previewLoading=false;let previewFailure="";
 let savedEditorSnapshot="";
 let imageUploading=false;let editorTextarea:HTMLTextAreaElement|null=null;
 let liveIndexHealthy=false;
@@ -37,7 +38,7 @@ function normalizePath(value:string){const relative=value.trim().replace(/^src\/
 function baseMeta(){return{title:fields.title.trim(),description:fields.description.trim(),published:fields.published,updated:fields.updated,category:fields.category.trim(),tags:tagsText.split(/[,\n]/).map(v=>v.trim()).filter(Boolean),draft:fields.draft,pinned:fields.pinned,image:fields.image.trim(),protected:Boolean(fields.password),comment:fields.comment};}
 function needsStaticSecurityRebuild(){return Boolean(baseGitSha&&(fields.draft||fields.password.trim()));}
 async function liveMeta(){
-	const html=await renderFireflyPreview({source:body,calloutTheme:siteConfig.post.rehypeCallouts.theme,isMdx:currentPath.endsWith(".mdx")});
+	const html=await previewController.renderNow({source:body,isMdx:currentPath.endsWith(".mdx")});
 	return{...baseMeta(),html,searchText:excerptMarkdown(body,4000)};
 }
 
@@ -63,14 +64,14 @@ async function refresh(){
 }
 
 async function open(row:Row){if(saving||deleting||opening||!guardUnsaved())return;
-	historyEntries=[];historyRevision="";deletedGitSha="";opening=true;error="";message="";
+	historyEntries=[];historyRevision="";deletedGitSha="";opening=true;error="";message="";previewController.cancel();previewHtml="";previewLoading=false;previewFailure="";
 	try{
 		let source="";let sha=row.baseGitSha;
 		if(row.live){const live=await fetchLiveContentItem("post",row.id,session);if(live?.source){source=live.source;sha=live.baseGitSha||sha;liveRevision=live.revision||row.revision||"";}}else{liveRevision="";}
 		if(!source){const git=await fetchGitContentSource(session,row.path);source=git.source;sha=git.sha;}
 		const parsed=parsePostDocument(source);
 		currentId=row.id;currentPath=row.path;loadedPath=row.path;baseGitSha=sha;originalSource=source;fields=parsed.fields;body=parsed.body;tagsText=fields.tags.join(", ");
-		savedEditorSnapshot=editorSnapshot();await updatePreview();
+		savedEditorSnapshot=editorSnapshot();updatePreview();
 	}catch(e){error=e instanceof Error?e.message:"读取文章失败。";}finally{opening=false;}
 }
 
@@ -91,18 +92,33 @@ async function save(){if(imageUploading){error="请等待图片上传完成后�
 async function remove(){if(!liveIndexHealthy){error="实时内容索引尚未成功同步，请刷新列表后重试删除。";return;}
 	if(!currentId||!confirm(`确定将 ${currentPath} 从实时内容中删除？Git 归档前不会删除仓库文件。`))return;
 	deleting=true;error="";message="";
-	try{await deleteLiveContentItem({session,kind:"post",id:currentId,path:loadedPath||currentPath,meta:baseMeta(),baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision});currentId="";currentPath="";loadedPath="";originalSource="";liveRevision="";baseGitSha="";fields=emptyPostFields();body="";tagsText="";previewHtml="";savedEditorSnapshot=editorSnapshot();try{clearDraft(window.sessionStorage,"post",session.login);}catch{}await refresh();message="已写入实时删除标记；Git 仓库尚未改动。";}
+	try{await deleteLiveContentItem({session,kind:"post",id:currentId,path:loadedPath||currentPath,meta:baseMeta(),baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision});currentId="";currentPath="";loadedPath="";originalSource="";liveRevision="";baseGitSha="";fields=emptyPostFields();body="";tagsText="";previewController.cancel();previewHtml="";previewLoading=false;previewFailure="";savedEditorSnapshot=editorSnapshot();try{clearDraft(window.sessionStorage,"post",session.login);}catch{}await refresh();message="已写入实时删除标记；Git 仓库尚未改动。";}
 	catch(e){error=e instanceof Error?e.message:"删除失败。";}finally{deleting=false;}
 }
 
-async function updatePreview(){try{previewHtml=await renderFireflyPreview({source:body,calloutTheme:siteConfig.post.rehypeCallouts.theme,isMdx:currentPath.endsWith(".mdx")});}catch(e){previewHtml=`<p>${e instanceof Error?e.message:"预览失败"}</p>`;}}
-function schedulePreview(){if(previewTimer)clearTimeout(previewTimer);previewTimer=setTimeout(()=>void updatePreview(),180);}
+// Lazily load the expensive Markdown/MDX renderer; never display stale results.
+const previewController=createPreviewController(
+ async document=>{
+  const {renderFireflyPreview}=await import("@/utils/write/preview");
+  return renderFireflyPreview({
+   source:document.source,calloutTheme:siteConfig.post.rehypeCallouts.theme,
+   ...(document.isMdx?{isMdx:true}:{})
+  });
+ },
+ {
+  onReady:html=>{previewHtml=html;previewLoading=false;previewFailure="";},
+  onBusy:()=>{previewLoading=true;previewFailure="";previewHtml="";},
+  onFailure:message=>{previewHtml="";previewLoading=false;previewFailure=message;},
+ },
+);
+function updatePreview(){previewController.schedule({source:body,isMdx:currentPath.endsWith(".mdx")},true);}
+function schedulePreview(){previewController.schedule({source:body,isMdx:currentPath.endsWith(".mdx")});}
 async function openDeleted(item:{id:string;path:string;revision:string;baseGitSha:string}){
  if(saving||deleting||opening||!guardUnsaved())return;
  currentId=item.id;currentPath=item.path;loadedPath=item.path;
  liveRevision=item.revision;baseGitSha=item.baseGitSha;deletedGitSha=item.baseGitSha;originalSource="";body="";
  fields=emptyPostFields();tagsText="";
- historyEntries=[];historyRevision="";previewHtml="";
+ historyEntries=[];historyRevision="";previewController.cancel();previewHtml="";previewLoading=false;previewFailure="";
  savedEditorSnapshot=editorSnapshot();
  message="已选中删除记录。请从历史版本中选择需要恢复的内容。";error="";
  await loadHistory();
@@ -202,7 +218,7 @@ onMount(()=>{
   persist();
   window.clearInterval(interval);
   window.removeEventListener("pagehide",persist);
-  if(previewTimer)clearTimeout(previewTimer);
+  previewController.clear();
  };
 });
 </script>
@@ -216,15 +232,21 @@ onMount(()=>{
 <label class="wide"><span>标题</span><input bind:value={fields.title}/></label>
 <label class="wide"><span>文件路径</span><input bind:value={currentPath}/></label>
 <label><span>发布时间</span><input bind:value={fields.published}/></label><label><span>更新时间</span><input bind:value={fields.updated}/></label>
-<label><span>slug（不控制文件名）</span><input bind:value={fields.slug}/></label><label><span>分类</span><input bind:value={fields.category}/></label>
+<label><span>分类</span><input bind:value={fields.category}/></label>
 <label class="wide"><span>标签</span><input bind:value={tagsText}/></label>
 <label class="wide"><span>描述</span><textarea rows="3" bind:value={fields.description}></textarea></label>
 <label class="wide"><span>封面</span><input bind:value={fields.image}/></label>
-<label><span>系列</span><input bind:value={fields.series}/></label><label><span>系列顺序</span><input type="number" bind:value={fields.seriesOrder}/></label>
-<label><span>语言</span><input bind:value={fields.lang}/></label><label><span>作者</span><input bind:value={fields.author}/></label>
-<label class="wide"><span>来源链接</span><input bind:value={fields.sourceLink}/></label>
-<label><span>许可证</span><input bind:value={fields.licenseName}/></label><label><span>许可证链接</span><input bind:value={fields.licenseUrl}/></label>
-<label><span>密码</span><input bind:value={fields.password}/></label><label><span>密码提示</span><input bind:value={fields.passwordHint}/></label>
+<details class="advanced-fields wide">
+ <summary>更多文章设置 <span>slug · 系列 · 作者 · 版权 · 访问保护</span></summary>
+ <div class="grid">
+ <label><span>slug（不控制文件名）</span><input bind:value={fields.slug}/></label>
+ <label><span>系列</span><input bind:value={fields.series}/></label><label><span>系列顺序</span><input type="number" bind:value={fields.seriesOrder}/></label>
+ <label><span>语言</span><input bind:value={fields.lang}/></label><label><span>作者</span><input bind:value={fields.author}/></label>
+ <label class="wide"><span>来源链接</span><input bind:value={fields.sourceLink}/></label>
+ <label><span>许可证</span><input bind:value={fields.licenseName}/></label><label><span>许可证链接</span><input bind:value={fields.licenseUrl}/></label>
+ <label><span>密码</span><input bind:value={fields.password}/></label><label><span>密码提示</span><input bind:value={fields.passwordHint}/></label>
+ </div>
+</details>
 </div>
 <div class="checks"><label><input type="checkbox" bind:checked={fields.draft}/>草稿</label><label><input type="checkbox" bind:checked={fields.pinned}/>置顶</label><label><input type="checkbox" bind:checked={fields.comment}/>评论</label></div>
 <label class="image-upload"><span>插入图片</span><input type="file" accept="image/*" onchange={uploadEditorImage} disabled={imageUploading}/>{#if imageUploading}<small>上传中，请勿关闭页面...</small>{/if}</label>
@@ -248,13 +270,20 @@ onMount(()=>{
 <div class="status"><div>{#if opening}<span>读取源码...</span>{/if}{#if message}<span class="ok">{message}</span>{/if}{#if error}<span class="bad">{error}</span>{/if}</div><div class="actions"><button class="danger" onclick={remove} disabled={!currentId||saving||deleting}>删除实时版本</button><button class="primary" onclick={save} disabled={saving||deleting||opening}>{saving?"保存中...":"实时保存"}</button></div></div>
 </div>
 <div class="preview">
+ {#if previewLoading}<p role="status" class="preview-disclaimer">正在生成排版预览，可以继续编辑或切换文章...</p>{/if}
+ {#if previewFailure}<p role="alert" class="security-warning">预览失败：{previewFailure}</p>{/if}
  <div class="preview-heading">
   <strong>实时排版预览</strong>
   <div class="preview-switch" role="group" aria-label="写作预览样式">
    <button type="button" class:active={previewPresentation==="article"} onclick={()=>previewPresentation="article"}>正式文章版式</button>
    <button type="button" class:active={previewPresentation==="body"} onclick={()=>previewPresentation="body"}>只看正文</button>
   </div>
+  <div class="preview-switch" role="group" aria-label="预览设备">
+   <button type="button" class:active={previewViewport==="desktop"} onclick={()=>previewViewport="desktop"}>电脑</button>
+   <button type="button" class:active={previewViewport==="mobile"} onclick={()=>previewViewport="mobile"}>手机</button>
+  </div>
  </div>
+ <div class="preview-viewport" class:mobile-preview={previewViewport==="mobile"}>
  {#if previewPresentation==="article"}
   <article class="article-preview" aria-label="文章正式版式预览">
    <header class="article-preview-header">
@@ -275,6 +304,7 @@ onMount(()=>{
  {:else}
   <div class="prose prose-base max-w-none custom-md dark:prose-invert" data-preview-body>{@html previewHtml}</div>
  {/if}
+ </div>
  <p class="preview-disclaimer">文章视图复用正式站点的标题字号与 Markdown 排版类；侧栏、评论、完整动画以及未保存的 MDX 动态组件效果仍应在发布后的实际预览页检查。</p>
  {#if currentId && !fields.draft && !fields.password}
   <a class="preview-open" href={"/posts/"+currentId+"/"} target="_blank" rel="noopener noreferrer">打开已保存的实际文章页 ↗</a>
@@ -283,6 +313,15 @@ onMount(()=>{
 </div>
 </section>
 <style>
+ .advanced-fields{margin:.2rem 0 .6rem;border:1px solid var(--line-divider,#9994);border-radius:12px;padding:.55rem .75rem;background:var(--card-bg,transparent)}
+ .advanced-fields summary{cursor:pointer;font-weight:650;display:flex;justify-content:space-between;flex-wrap:wrap;gap:.3rem}
+ .advanced-fields summary span{font-weight:400;opacity:.55;font-size:.75rem}
+ .advanced-fields[open] .grid{margin-top:.85rem;padding-top:.7rem;border-top:1px solid #9993}
+ .preview-viewport{max-width:100%;margin:0 auto;transition:max-width .18s ease}
+ .preview-viewport.mobile-preview{max-width:390px;border:1px solid #9995;border-radius:15px;overflow:hidden;padding:12px;background:var(--card-bg,transparent);box-shadow:0 4px 22px #0001}
+ .preview-viewport.mobile-preview .article-preview{padding:8px}
+ .preview-viewport.mobile-preview h1{font-size:1.55rem;line-height:1.36}
+
 .preview-heading{display:flex;justify-content:space-between;gap:.5rem;align-items:center;flex-wrap:wrap}
 .preview-switch{display:flex;gap:.35rem;flex-wrap:wrap}
 .preview-switch button{border:1px solid var(--line-divider);border-radius:.5rem;padding:.35rem .6rem;background:transparent;font-size:.72rem;cursor:pointer}
