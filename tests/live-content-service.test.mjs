@@ -815,3 +815,17 @@ test("distributed mutation locks prevent writes when another instance owns the d
  const saved=await handle(request("/api/live-content/item?kind=post&id=concurrent"));
  assert.equal((await saved.json()).meta.title,"Concurrent");
 });
+
+test("backup export fails closed when a pointer references a missing immutable revision",async()=>{
+ const store=makeStore();
+ const handle=createLiveContentService({store,provider:"test",storeName:"test-store",authorize:async()=>({ok:true})});
+ const saved=await handle(request("/api/live-content/item",{method:"PUT",headers:adminHeaders(),body:JSON.stringify({
+  kind:"post",id:"backup-corrupt",path:"src/content/posts/backup-corrupt.md",
+  source:"---\ntitle: Backup\n---\nBody",meta:{title:"Backup"}
+ })}));
+ assert.equal(saved.status,200);
+ const record=await saved.json();
+ await store.deleteKey("v3/items/posts/backup-corrupt/"+record.revision);
+ const backup=await handle(request("/api/live-content/export",{headers:adminHeaders()}));
+ assert.notEqual(backup.status,200);
+});
