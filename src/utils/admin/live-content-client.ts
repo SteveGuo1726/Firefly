@@ -145,3 +145,33 @@ export async function exportLiveContent(session: GitHubAdminSession): Promise<un
 		cache: "no-store",
 	}));
 }
+
+export type LiveHistoryEntry = {
+ revision: string;
+ updatedAt: string;
+ path: string;
+ meta: Record<string, unknown>;
+};
+
+export async function fetchLiveContentHistory(kind: LiveContentKind,id: string,session: GitHubAdminSession): Promise<LiveHistoryEntry[]> {
+ const data=await readJson(await fetch(endpoint("/history",{kind,id}),{
+  cache:"no-store",headers:{Authorization:`Bearer ${session.token}`},
+ }));
+ return Array.isArray(data.entries)?data.entries:[];
+}
+
+export async function restoreLiveContentRevision(options: {
+ session: GitHubAdminSession;
+ kind: LiveContentKind;
+ id: string;
+ revision: string;
+ expectedRevision?: string;
+}): Promise<{revision:string;updatedAt:string}> {
+ const result=await readJson(await fetch(endpoint("/restore"),{
+  method:"POST",
+  headers:{Authorization:`Bearer ${options.session.token}`,"Content-Type":"application/json"},
+  body:JSON.stringify({kind:options.kind,id:options.id,revision:options.revision,expectedRevision:options.expectedRevision||""}),
+ }));
+ announceLiveMutation(options.kind);
+ return result;
+}
