@@ -417,6 +417,48 @@ export function createLiveContentService({
 		});
 	}
 
+	async function handleHistory(request, url) {
+		const auth = await requireAdmin(request);
+		if (auth.error) return auth.error;
+		const kind = normalizeKind(url.searchParams.get("kind"));
+		const id = kind ? normalizeId(kind, url.searchParams.get("id")) : null;
+		if (!kind || !id) return json({ error: "kind 或 id 无效。" }, 400);
+		const prefix = `v3/items/${kindBucket(kind)}/${id}/`;
+		const keys = await store.listKeys(prefix);
+		const docs = await Promise.all(keys.slice(0, 300).map(key => store.getJSON(key)));
+		const entries = docs.filter(item => item && item.id === id && item.kind === kind && item.revision && !item.deleted)
+			.map(item => ({ revision: item.revision, updatedAt: item.updatedAt, meta: pointerMeta(kind, item.meta), path: item.path }))
+			.sort((a, b) => String(b.updatedAt).localeCompare(String(a.updatedAt)));
+		return json({ kind, id, entries: entries.slice(0, 100) });
+	}
+
+	async function handleRestore(request) {
+		const auth = await requireAdmin(request);
+		if (auth.error) return auth.error;
+		const body = await request.json().catch(() => null);
+		const kind = normalizeKind(body?.kind);
+		const id = kind ? normalizeId(kind, body?.id) : null;
+		const revision = typeof body?.revision === "string" && /^[a-f0-9-]{36}$/i.test(body.revision) ? body.revision : null;
+		if (!kind || !id || !revision) return json({ error: "无效的历史版本。" }, 400);
+		const current = await readPointer(kind, id);
+		const expectedRevision = String(body.expectedRevision || "");
+		if (current && (!expectedRevision || current.revision !== expectedRevision)) return conflict(current.revision);
+		if (!current && expectedRevision) return conflict("");
+		const historical = await store.getJSON(itemKey(kind, id, revision));
+		if (!historical || historical.deleted || historical.kind !== kind || historical.id !== id || !historical.source) {
+			return json({ error: "历史版本不存在或已被清理。" }, 404);
+		}
+		const updatedAt = new Date().toISOString();
+		const newRevision = crypto.randomUUID();
+		const restored = { ...historical, revision: newRevision, updatedAt, updatedBy: ALLOWED_LOGIN, deleted: false };
+		await store.setJSON(itemKey(kind, id, newRevision), restored);
+		await writePointer(kind, {
+			id, path: restored.path, meta: restored.meta, baseGitSha: restored.baseGitSha,
+			baseGitBranch: restored.baseGitBranch, revision: newRevision, deleted: false, updatedAt
+		});
+		return json({ ok: true, kind, id, revision: newRevision, restoredFrom: revision, updatedAt });
+	}
+
 	async function handlePutItem(request) {
 		const auth = await requireAdmin(request);
 		if (auth.error) return auth.error;
@@ -727,6 +769,13 @@ export function createLiveContentService({
 			if (path === "/index" && request.method === "GET") return await handleGetIndex(request, url);
 			if (path === "/item" && request.method === "GET") return await handleGetItem(request, url);
 
+			if (path === "/history" && request.method === "GET") return await handleHistory(request, url);
+			if (path === "/restore" && request.method === "POST") {
+				const payload = await request.clone().json().catch(() => ({}));
+				const kind = normalizeKind(payload?.kind);
+				const id = kind ? normalizeId(kind, payload?.id) : null;
+				return await withMutationLocks([id ? kind + ":" + id : "invalid-restore"], () => handleRestore(request));
+			}
 			if (path === "/item" && request.method === "PUT") {
 				const payload = await request.clone().json().catch(() => ({}));
 				const kind = normalizeKind(payload?.kind);
