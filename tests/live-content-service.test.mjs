@@ -753,3 +753,33 @@ test("Git-only tombstone undo requires current revision and unchanged source bas
   assert.equal(store.data.has(key),false);
  }finally{globalThis.fetch=originalFetch;}
 });
+
+test("verified OAuth cookie can edit while anonymous users cannot obtain source",async()=>{
+ const store=makeStore();
+ const handle=createLiveContentService({
+  store,provider:"test",storeName:"test-store",
+  authorizeSession:async request=>({
+   ok:request.headers.get("Cookie")==="__Host-firefly-admin=valid-session",
+   login:"SteveGuo1726",
+  }),
+ });
+ const cookie={Cookie:"__Host-firefly-admin=valid-session","Content-Type":"application/json"};
+ const payload={
+  kind:"post",id:"oauth-only",path:"src/content/posts/oauth-only.md",
+  source:"---\ntitle: OAuth only\n---\nprivate draft",meta:{title:"OAuth only",html:"<p>Hello</p>"},
+ };
+ const unauthorized=await handle(request("/api/live-content/item",{
+  method:"PUT",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload),
+ }));
+ assert.equal(unauthorized.status,401);
+ const created=await handle(request("/api/live-content/item",{
+  method:"PUT",headers:cookie,body:JSON.stringify(payload),
+ }));
+ assert.equal(created.status,200);
+ const publicItem=await (await handle(request("/api/live-content/item?kind=post&id=oauth-only"))).json();
+ assert.equal("source" in publicItem,false);
+ const adminItem=await (await handle(request("/api/live-content/item?kind=post&id=oauth-only",{headers:cookie}))).json();
+ assert.equal(adminItem.source,payload.source);
+ const adminIndex=await (await handle(request("/api/live-content/index?kind=post",{headers:cookie}))).json();
+ assert.equal(adminIndex.entries[0].path,payload.path);
+});
