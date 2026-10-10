@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import previewWorker from "../worker/blog-preview.ts";
+import { buildPreviewPrivatePostIndex } from "../src/server/preview-private-index.js";
 import {
  authorizePreviewSession,previewLogin,previewMe,previewLogout,previewMutationOriginAllowed,
 } from "../src/server/preview-auth.js";
@@ -49,7 +50,8 @@ test("preview session rejects forged cookie and missing configuration",async()=>
  const secret=env();
  const good=await previewLogin(request(undefined,"POST",secret.FIREFLY_PREVIEW_ADMIN_PASSWORD),secret);
  const raw=good.headers.get("Set-Cookie").split(";")[0];
- const forged=raw.slice(0,-1)+(raw.endsWith("X")?"Y":"X");
+ const changeAt=raw.lastIndexOf(".")+5;
+ const forged=raw.slice(0,changeAt)+(raw[changeAt]==="X"?"Y":"X")+raw.slice(changeAt+1);
  assert.equal((await authorizePreviewSession(new Request(ORIGIN,{headers:{Cookie:forged}}),secret)).ok,false);
  assert.equal((await authorizePreviewSession(new Request(ORIGIN,{headers:{Cookie:raw}}),{})).ok,false);
  const absent=await previewLogin(request(),{});
@@ -94,4 +96,32 @@ test("preview Worker connects a valid signed session to real KV backup access", 
  assert.deepEqual(backup.history,[]);
  const privateIndex=await previewWorker.fetch(new Request(ORIGIN+"/api/admin/private-index"),variables,{});
  assert.equal(privateIndex.status,401);
+});
+
+
+test("browser-safe private index parses GitHub frontmatter without Node fs",async()=>{
+ const content=["---","title: Test title","description: Describes the article","published: 2026-10-10","draft: true","pinned: false","tags: [one, two]","category: engineering","---","hello"].join("\n");
+ const urls=[];
+ const fetcher=async url=>{
+  urls.push(url);
+  if(url.includes("/git/trees/"))return Response.json({truncated:false,tree:[
+   {path:"src/content/posts/example.md",type:"blob"},
+   {path:"src/content/posts/../bad.md",type:"blob"},
+  ]});
+  if(url.includes("/contents/"))return Response.json({
+   content:Buffer.from(content,"utf8").toString("base64"),
+  });
+  throw new Error("unexpected request");
+ };
+ const result=await buildPreviewPrivatePostIndex({fetcher});
+ assert.equal(result.posts.length,1);
+ assert.equal(result.posts[0].title,"Test title");
+ assert.equal(result.posts[0].draft,true);
+ assert.deepEqual(result.posts[0].tags,["one","two"]);
+ assert.equal(urls.length,2);
+});
+test("preview private index fails closed on truncated GitHub tree",async()=>{
+ await assert.rejects(buildPreviewPrivatePostIndex({fetcher:async()=>Response.json({
+  truncated:true,tree:[],
+ })}),/incomplete/);
 });

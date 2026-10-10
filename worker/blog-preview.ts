@@ -6,7 +6,7 @@ import { livePostIdFromRequest, renderLivePostFallback } from "../src/server/liv
 import {
  authorizePreviewSession, previewLogin, previewMe, previewLogout, previewMutationOriginAllowed
 } from "../src/server/preview-auth.js";
-import { buildPrivatePostIndex } from "../src/server/admin-auth/private-index.js";
+import { buildPreviewPrivatePostIndex } from "../src/server/preview-private-index.js";
 
 
 let cachedService;
@@ -67,9 +67,8 @@ export default {
           const auth=await authorizePreviewSession(request,env);
           if(!auth.ok)return new Response('{"error":"Unauthorized"}',{status:401,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
           try {
-            const index=await buildPrivatePostIndex({
+            const index=await buildPreviewPrivatePostIndex({
               token:env.FIREFLY_GITHUB_CONTENT_READ_TOKEN||"",
-              owner:"SteveGuo1726",repo:"Firefly",branch:"ai/preview-test",
             });
             return new Response(JSON.stringify(index),{headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"private, no-store","X-Robots-Tag":"noindex"}});
           } catch {
