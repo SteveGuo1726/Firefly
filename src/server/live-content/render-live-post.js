@@ -13,7 +13,8 @@ export function livePostIdFromRequest(request) {
 	let id;
 	try {
 		id = decodeURIComponent(pathname.slice("/posts/".length))
-			.replace(/^\/+|\/+$/g, "");
+			.replace(/^\/+|\/+$/g, "")
+			.replace(/\/index\.html$/i, "");
 	} catch {
 		return null;
 	}
