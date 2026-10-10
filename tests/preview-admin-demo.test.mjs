@@ -1,0 +1,36 @@
+import assert from "node:assert/strict";
+import {readFile} from "node:fs/promises";
+import test from "node:test";
+
+test("temporary admin password is gated by preview build flag and exact origin", async () => {
+ const source=await readFile("src/components/pages/admin/AdminApp.svelte","utf8");
+ assert.match(source,/PUBLIC_FIREFLY_PREVIEW_DEMO === "true"/);
+ assert.match(source,/firefly-blog-preview\.guojunyang666666\.workers\.dev/);
+ assert.match(source,/demoPassword !== "admin"/);
+ assert.match(source,/demoSupported=PREVIEW_DEMO_COMPILED && previewOriginAllowed\(\)/);
+ assert.match(source,/sessionStorage\.setItem\(DEMO_STORAGE_KEY,"1"\)/);
+ assert.match(source,/sessionStorage\.removeItem\(DEMO_STORAGE_KEY\)/);
+ assert.match(source,/if\(demoSupported\)\{/);
+ assert.match(source,/refreshOAuthAdminSession/);
+ assert.match(source,/GitHubAdminLogin/);
+});
+
+test("password demo cannot load private admin editors or write data", async () => {
+ const demo=await readFile("src/components/pages/admin/PreviewDemoAdmin.svelte","utf8");
+ assert.match(demo,/只读演示/);
+ assert.match(demo,/fetchPublicGallery\("",true\)/);
+ assert.match(demo,/\/api\/admin-content-index\.json/);
+ assert.match(demo,/\/api\/live-content\/index\?kind/);
+ assert.match(demo,/不提供远端保存/);
+ assert.doesNotMatch(demo,/(?:fetch|axios)\s*\(\s*["'`][^"'`]*(?:\/api\/admin\/|\/api\/live-content\/(?:item|export|history|restore)|\/api\/gallery\/manifest)/);
+ assert.doesNotMatch(demo,/(?:method\s*:\s*["'](?:POST|PUT|PATCH|DELETE)["'])/i);
+ assert.doesNotMatch(demo,/github-session|utils\/admin\/imagebed-client|fetchPrivatePostIndex|AdminPostManager|AdminDynamicManager|GalleryAdminManager|Authorization|Bearer/i);
+});
+
+test("public demo does not appear in production builds without explicit preview flag", async () => {
+ const workflow=await readFile(".github/workflows/preview-check.yml","utf8");
+ const source=await readFile("src/components/pages/admin/AdminApp.svelte","utf8");
+ assert.match(source,/PREVIEW_DEMO_COMPILED/);
+ assert.match(source,/previewOriginAllowed/);
+ assert.doesNotMatch(workflow,/github\.ref.*master/);
+});
