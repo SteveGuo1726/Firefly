@@ -49,3 +49,28 @@ export async function buildPreviewPrivatePostIndex({fetcher=fetch,token=""}={}){
  }
  return {posts,source:"preview-github-index"};
 }
+
+
+/**
+ * Safe, intentionally incomplete fallback for preview Worker GitHub outages.
+ * The static index has already been filtered at build time, and we filter
+ * it again so malformed or future index formats cannot expose drafts.
+ */
+export function publicPreviewIndexFallback(index) {
+ const rows=Array.isArray(index?.posts)?index.posts:[];
+ const posts=rows.filter(item=>
+  item && typeof item==="object" &&
+  typeof item.id==="string" && typeof item.path==="string" &&
+  item.path.startsWith("src/content/posts/") &&
+  /\.(?:md|mdx)$/i.test(item.path) &&
+  !item.path.includes("..") && !item.path.includes("\\") &&
+  item.draft!==true && item.protected!==true && !item.password
+ ).slice(0,MAX_POSTS).map(item=>({
+  id:item.id,path:item.path,title:String(item.title||item.id).slice(0,300),
+  description:String(item.description||"").slice(0,1200),
+  published:String(item.published||""),updated:String(item.updated||""),
+  category:String(item.category||""),tags:Array.isArray(item.tags)?item.tags.slice(0,50).map(String):[],
+  draft:false,pinned:Boolean(item.pinned),image:String(item.image||""),
+ }));
+ return {posts,source:"preview-public-index-fallback",limited:true};
+}

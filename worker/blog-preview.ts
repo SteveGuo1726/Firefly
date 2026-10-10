@@ -6,7 +6,7 @@ import { livePostIdFromRequest, renderLivePostFallback } from "../src/server/liv
 import {
  authorizePreviewSession, previewLogin, previewMe, previewLogout, previewMutationOriginAllowed
 } from "../src/server/preview-auth.js";
-import { buildPreviewPrivatePostIndex } from "../src/server/preview-private-index.js";
+import { buildPreviewPrivatePostIndex, publicPreviewIndexFallback } from "../src/server/preview-private-index.js";
 
 
 let cachedService;
@@ -71,8 +71,22 @@ export default {
               token:env.FIREFLY_GITHUB_CONTENT_READ_TOKEN||"",
             });
             return new Response(JSON.stringify(index),{headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"private, no-store","X-Robots-Tag":"noindex"}});
-          } catch {
-            return new Response('{"error":"Private index unavailable"}',{status:503,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
+          } catch(error) {
+            // GitHub API may rate-limit shared Cloudflare egress IPs. A preview
+            // editor should remain readable for PUBLIC posts without exposing
+            // draft names or pretending the complete private index is healthy.
+            console.warn("[Firefly preview] private GitHub index unavailable", error instanceof Error?error.message:"unknown");
+            try {
+              const resource=new URL("/api/admin-content-index.json",request.url);
+              const publicResponse=await env.ASSETS.fetch(new Request(resource));
+              if(!publicResponse.ok)throw new Error("public index missing");
+              const published=await publicResponse.json();
+              if(!Array.isArray(published?.posts))throw new Error("public index invalid");
+              const safe=publicPreviewIndexFallback(published);
+              return new Response(JSON.stringify(safe),{headers:{"Content-Type":"application/json; charset=utf-8","Cache-Control":"private, no-store","X-Robots-Tag":"noindex"}});
+            } catch {
+              return new Response('{"error":"Private and public indexes unavailable"}',{status:503,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
+            }
           }
         }
 		if (url.pathname.startsWith("/api/live-content/")) {

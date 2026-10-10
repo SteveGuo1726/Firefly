@@ -26,7 +26,8 @@ export function correctPreviewRequestOrigin(request) {
   // An explicit cross-origin Origin is never permitted.
   if(origin && origin!=="null")return origin===expected;
   // Some embedded browsers and privacy extensions omit Origin or send "null".
-  // Accept only when both Fetch Metadata and Referer prove same-origin.
+  // Permit them only when BOTH Fetch Metadata and the referrer prove this
+  // request was initiated from the exact same-origin document.
   if(request.headers.get("Sec-Fetch-Site")!=="same-origin")return false;
   const referer=request.headers.get("Referer");
   return Boolean(referer && new URL(referer).origin===expected);

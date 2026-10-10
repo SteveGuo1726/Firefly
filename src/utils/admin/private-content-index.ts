@@ -37,10 +37,12 @@ function asPost(path:string,source:string):PrivateBasePost {
 export async function fetchPrivatePostIndex(session:GitHubAdminSession,publicPosts:PrivateBasePost[]):Promise<PrivateBasePost[]>{
  if(session.oauth){
   const response=await fetch("/api/admin/private-index",{credentials:"same-origin",cache:"no-store"});
-  if(!response.ok)throw new Error("私有文章索引不可用：请配置 FIREFLY_GITHUB_CONTENT_READ_TOKEN。");
+  if(!response.ok)throw new Error("文章索引 API 暂时不可用，请稍后刷新重试。");
   const result=await response.json() as {posts:PrivateBasePost[]};
   if(!Array.isArray(result.posts))throw new Error("私有文章索引响应无效");
-  return result.posts;
+  const posts=result.posts as PrivateBasePost[] & {limited?:boolean};
+  if((result as {limited?:boolean}).limited)posts.limited=true;
+  return posts;
  }
  const paths=await readGitTree(session);
  const byPath=new Map(publicPosts.map(item=>[item.path,item]));

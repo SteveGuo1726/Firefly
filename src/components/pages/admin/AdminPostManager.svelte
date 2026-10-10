@@ -23,6 +23,7 @@ let previewTimer:ReturnType<typeof setTimeout>|null=null;
 let savedEditorSnapshot="";
 let imageUploading=false;let editorTextarea:HTMLTextAreaElement|null=null;
 let liveIndexHealthy=false;
+let limitedGitIndex=false;
 let deletedRows:{id:string;path:string;revision:string;baseGitSha:string}[]=[];
 let deletedGitSha="";
 let historyEntries:LiveHistoryEntry[]=[];let historyRevision="";let historyLoading=false;
@@ -47,6 +48,7 @@ async function refresh(){
 		if(!baseResponse.ok)throw new Error("读取构建期内容索引失败。");
 		const base=await baseResponse.json();
 		const privatePosts=await fetchPrivatePostIndex(session,base.posts as BasePost[]);
+        limitedGitIndex=Boolean((privatePosts as unknown as {limited?:boolean}).limited);
 		deletedRows=[];const map=new Map<string,Row>(privatePosts.map(p=>[p.id,{...p,live:false,baseGitSha:"",revision:""}]));
 		try{
 			const live=await fetchLiveContentIndex("post",session);
@@ -230,6 +232,7 @@ onMount(()=>{
 {#if needsStaticSecurityRebuild()}
 <div class="security-warning">这篇文章已经存在于当前静态构建中。实时层可以立刻把它从索引隐藏并让正常浏览跳转 404，但旧 HTML 仍可能被直接缓存或读取；密码保护/真正下线需要后续 Git 归档并重新构建后才彻底生效。</div>
 {/if}
+{#if limitedGitIndex}<p role="status" class="security-warning">GitHub 私有索引暂时不可用，当前仅列出已公开文章；未发布草稿不会显示。请勿在恢复索引前覆盖不确定的旧文章路径。</p>{/if}
 <div class="history-controls">
  <button type="button" onclick={loadHistory} disabled={!currentId||historyLoading}>{historyLoading?"读取历史中...":"查看历史版本"}</button>
  {#if deletedGitSha && currentId && deletedRows.some(row=>row.id===currentId)}<button type="button" onclick={undoGitDelete} disabled={saving||deleting}>撤销 Git 内容删除</button>{/if}

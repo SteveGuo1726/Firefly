@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import previewWorker from "../worker/blog-preview.ts";
-import { buildPreviewPrivatePostIndex } from "../src/server/preview-private-index.js";
+import { buildPreviewPrivatePostIndex,publicPreviewIndexFallback } from "../src/server/preview-private-index.js";
 import {
  authorizePreviewSession,previewLogin,previewMe,previewLogout,previewMutationOriginAllowed,correctPreviewRequestOrigin,
 } from "../src/server/preview-auth.js";
@@ -126,6 +126,7 @@ test("preview private index fails closed on truncated GitHub tree",async()=>{
  })}),/incomplete/);
 });
 
+
 test("preview accepts privacy-browser origin omissions only with trusted fetch metadata and same-origin Referer",()=>{
  const base=ORIGIN+"/api/preview-admin/login";
  const good=new Request(base,{method:"POST",headers:{"Sec-Fetch-Site":"same-origin","Referer":ORIGIN+"/admin/?section=posts"}});
@@ -138,4 +139,37 @@ test("preview accepts privacy-browser origin omissions only with trusted fetch m
  assert.equal(correctPreviewRequestOrigin(badReferer),false);
  const noFetchSite=new Request(base,{method:"POST",headers:{"Referer":ORIGIN+"/admin/"}});
  assert.equal(correctPreviewRequestOrigin(noFetchSite),false);
+});
+
+
+test("preview public fallback excludes draft and protected entries and marks incomplete index",()=>{
+ const result=publicPreviewIndexFallback({posts:[
+  {id:"safe",path:"src/content/posts/safe.md",title:"Safe",draft:false,protected:false},
+  {id:"draft",path:"src/content/posts/draft.md",draft:true},
+  {id:"secret",path:"src/content/posts/secret.md",protected:true},
+  {id:"password",path:"src/content/posts/pw.md",password:"sensitive"},
+  {id:"escape",path:"src/content/posts/../secret.md"},
+ ]});
+ assert.equal(result.limited,true);
+ assert.equal(result.source,"preview-public-index-fallback");
+ assert.deepEqual(result.posts.map(x=>x.id),["safe"]);
+});
+test("preview worker falls back to public ASSETS index when GitHub is unavailable",async()=>{
+ const config=env();
+ const login=await previewWorker.fetch(request(undefined,"POST",config.FIREFLY_PREVIEW_ADMIN_PASSWORD),config,{});
+ assert.equal(login.status,200);
+ const cookie=login.headers.get("Set-Cookie").split(";")[0];
+ config.ASSETS={fetch:async()=>Response.json({posts:[
+  {id:"visible",path:"src/content/posts/visible.md",title:"Visible"},
+  {id:"hidden",path:"src/content/posts/hidden.md",draft:true},
+ ]})};
+ const oldFetch=globalThis.fetch;
+ globalThis.fetch=async()=>new Response("rate-limited",{status:403});
+ try{
+  const response=await previewWorker.fetch(new Request(ORIGIN+"/api/admin/private-index",{headers:{Cookie:cookie}}),config,{});
+  assert.equal(response.status,200);
+  const data=await response.json();
+  assert.equal(data.limited,true);
+  assert.deepEqual(data.posts.map(x=>x.id),["visible"]);
+ }finally{globalThis.fetch=oldFetch;}
 });
