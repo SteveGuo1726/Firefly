@@ -840,7 +840,7 @@ export function createLiveContentService({
 			if (error?.code === "CONTENT_LOCK_BUSY") return json({error:"内容正在其他节点保存，请稍后重试。"},409);
 			console.error("[Firefly live content]", error);
 			return json({
-				error: error instanceof Error ? error.message : "Live content service failed.",
+				error: "实时内容服务暂时不可用，请稍后重试。",
 			}, 500);
 		}
 	};
