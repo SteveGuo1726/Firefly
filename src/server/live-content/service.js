@@ -744,9 +744,18 @@ export function createLiveContentService({
 			exportedAt: new Date().toISOString(),
 			posts: [],
 			dynamics: [],
+			history: [],
 		};
 		for (const kind of ["post", "dynamic"]) {
 			const pointers = await readPointers(kind);
+			const revisionKeys = await store.listKeys(`v3/items/${kindBucket(kind)}/`);
+			for (const key of revisionKeys) {
+				const snapshot = await store.getJSON(key);
+				if (!snapshot || snapshot.kind !== kind || !snapshot.id || !snapshot.revision || typeof snapshot.source !== "string") {
+					throw new Error(`Backup integrity failure: corrupt historical revision at ${key}`);
+				}
+				result.history.push(snapshot);
+			}
 			for (const entry of pointers) {
 				const item = entry.deleted
 					? {
