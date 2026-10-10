@@ -25,14 +25,18 @@ function apiUrl(path: string): URL {
 }
 
 function adminApiUrl(path: string): URL {
-	return new URL(path, GALLERY_ADMIN_API_ORIGIN);
+ const session=getGitHubAdminSession();
+ if(session?.oauth && typeof window!=="undefined"){
+  return new URL(path,window.location.origin);
+ }
+ return new URL(path, GALLERY_ADMIN_API_ORIGIN);
 }
 
 function adminHeaders(contentType?: string): HeadersInit {
 	const session = getGitHubAdminSession();
 	if (!session) throw new Error("GitHub 登录已失效，请重新登录。");
 	return {
-		Authorization: `Bearer ${session.token}`,
+		...(session.oauth ? {} : {Authorization: `Bearer ${session.token}`}),
 		...(contentType ? { "Content-Type": contentType } : {}),
 	};
 }
