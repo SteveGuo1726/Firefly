@@ -10,7 +10,7 @@ export const GET: APIRoute = async () => {
 		getCollection("dynamic"),
 	]);
 
-	const postItems=posts.map((post)=>{
+	const postItems=posts.filter((post)=>!post.data.draft && !post.data.protected).map((post)=>{
 		const filePath = post.filePath?.replace(/\\/g, "/") || "";
 		const marker = "src/content/posts/";
 		const relative = filePath.includes(marker)
