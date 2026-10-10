@@ -262,7 +262,7 @@ test("private CMS post index restores unpublished Git baselines without exposing
  assert.match(privateIndex,/GitHub 文件树不完整/);
  assert.match(privateIndex,/fetchGitContentSource\(session,path\)/);
  assert.match(manager,/await fetchPrivatePostIndex\(session,base\.posts as BasePost\[\]\)/);
- assert.match(publicIndex,/!post\.data\.draft && !post\.data\.protected/);
+ assert.match(publicIndex,/!post\.data\.draft && !post\.data\.password/);
 });
 
 test("private post index is required by editor and dashboard, and OAuth route is session guarded",async()=>{
