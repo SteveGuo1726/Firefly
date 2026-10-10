@@ -59,7 +59,7 @@ const lightboxOptions: Partial<FancyboxOptions> = {
 	caption: true,
 };
 
-async function loadAlbum(): Promise<void> {
+async function loadAlbum(isDisposed:()=>boolean=()=>false): Promise<void> {
 	const id =
 		albumId || new URLSearchParams(window.location.search).get("album") || "";
 	if (!id) {
@@ -84,15 +84,17 @@ async function loadAlbum(): Promise<void> {
 			await new Promise((resolve) => window.setTimeout(resolve, 600));
 			payload = await fetchPublicGallery(id, false, 3500);
 		}
+		if(isDisposed())return;
 		const refreshedAlbum = payload.albums[0] || null;
 		if (refreshedAlbum) album = refreshedAlbum;
 		else if (!album) errorMessage = "相册不存在或尚未发布。";
 	} catch (error) {
+		if(isDisposed())return;
 		album = fallbackAlbum;
 		if (!album)
 			errorMessage = error instanceof Error ? error.message : "相册读取失败。";
 	} finally {
-		loading = false;
+		if(!isDisposed())loading = false;
 	}
 }
 
@@ -109,7 +111,7 @@ onMount(() => {
 			console.warn("Gallery lightbox unavailable", error);
 			return null;
 		});
-	void loadAlbum();
+	void loadAlbum(()=>disposed);
 
 	return () => {
 		disposed = true;
