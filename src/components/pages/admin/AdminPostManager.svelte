@@ -21,6 +21,26 @@ let fields:AdminPostFields=emptyPostFields();let body="";let tagsText="";let pre
 let previewPresentation:"article"|"body"="article";
 let previewViewport:"desktop"|"mobile"="desktop";
 let previewLoading=false;let previewFailure="";
+let previewRoot:HTMLElement|null=null;
+let previewEnhancementVersion=0;
+async function enhanceArticlePreview(){
+ const version=++previewEnhancementVersion;
+ await tick();
+ const root=previewRoot;
+ if(!root || version!==previewEnhancementVersion || !previewHtml)return;
+ try{
+  const {enhanceFireflyPreview}=await import("@/utils/write/preview");
+  if(version!==previewEnhancementVersion || root!==previewRoot)return;
+  await enhanceFireflyPreview({
+   container:root,
+   repoConfig:{owner:"SteveGuo1726",repo:"Firefly",branch:session.branch||"master"},
+   postFilePath:currentPath||"src/content/posts/new.md",
+  });
+ }catch(err){
+  if(version===previewEnhancementVersion)previewFailure="部分图片或富内容预览增强失败，请检查资源地址。";
+ }
+}
+
 let savedEditorSnapshot="";
 let imageUploading=false;let editorTextarea:HTMLTextAreaElement|null=null;
 let liveIndexHealthy=false;
@@ -106,8 +126,8 @@ const previewController=createPreviewController(
   });
  },
  {
-  onReady:html=>{previewHtml=html;previewLoading=false;previewFailure="";},
-  onBusy:()=>{previewLoading=true;previewFailure="";previewHtml="";},
+  onReady:html=>{previewHtml=html;previewLoading=false;previewFailure="";void enhanceArticlePreview();},
+  onBusy:()=>{++previewEnhancementVersion;previewLoading=true;previewFailure="";previewHtml="";},
   onFailure:message=>{previewHtml="";previewLoading=false;previewFailure=message;},
  },
 );
@@ -299,10 +319,10 @@ onMount(()=>{
     {#if tagsText.trim()}<div class="article-tags">{#each tagsText.split(/[,\n]/).map(tag=>tag.trim()).filter(Boolean) as tag}<span>#{tag}</span>{/each}</div>{/if}
     {#if fields.image}<img class="article-cover" src={fields.image} alt={fields.title || "文章封面"} loading="lazy"/>{/if}
    </header>
-   <div class="prose prose-base max-w-none custom-md dark:prose-invert" data-preview-body>{@html previewHtml}</div>
+   <div class="prose prose-base max-w-none custom-md dark:prose-invert" bind:this={previewRoot} data-preview-body>{@html previewHtml}</div>
   </article>
  {:else}
-  <div class="prose prose-base max-w-none custom-md dark:prose-invert" data-preview-body>{@html previewHtml}</div>
+  <div class="prose prose-base max-w-none custom-md dark:prose-invert" bind:this={previewRoot} data-preview-body>{@html previewHtml}</div>
  {/if}
  </div>
  <p class="preview-disclaimer">文章视图复用正式站点的标题字号与 Markdown 排版类；侧栏、评论、完整动画以及未保存的 MDX 动态组件效果仍应在发布后的实际预览页检查。</p>
