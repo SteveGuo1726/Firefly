@@ -16,7 +16,7 @@ test("editor insertion respects selection and returns a valid caret",()=>{
  const value="Before after";
  const res=insertMarkdownAt(value,7,12,"![photo](<https://img.example.com/1.png>)");
  assert.ok(res.value.includes("![photo]"));
- assert.equal(res.value.slice(res.caret)," after");
+ assert.equal(res.caret,res.value.length);
  const beginning=insertMarkdownAt("example",0,0,"![](x)");
  assert.equal(beginning.value,"![](x)\nexample");
 });
