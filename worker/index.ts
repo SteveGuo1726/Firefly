@@ -618,7 +618,17 @@ async function handleAdminApi(request: Request, env: Env): Promise<Response> {
 			url.pathname === "/api/admin/gallery/manifest" &&
 			request.method === "PUT"
 		) {
-			return json({ manifest: await saveManifest(env, await request.json()) });
+			const submitted = await request.json() as Partial<GalleryManifest>;
+			if (!submitted || typeof submitted.updatedAt !== "string") {
+				return errorResponse("相册清单缺少版本时间，请先刷新。", 400);
+			}
+			// Best-effort stale-tab protection. KV itself has no cross-region CAS:
+			// never promise this prevents simultaneous writes in different isolates.
+			const current = await loadManifest(env, true);
+			if (submitted.updatedAt !== current.updatedAt) {
+				return errorResponse("相册已在其他标签页或设备被更新，请先刷新并合并改动。", 409);
+			}
+			return json({ manifest: await saveManifest(env, submitted) });
 		}
 
 		if (
