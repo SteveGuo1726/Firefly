@@ -102,6 +102,7 @@ onMount(() => {
 				<a href={url("/admin/?section=dynamic")} onclick={() => (menuOpen = false)}>动态后台</a>
 				<a href={url("/admin/?section=gallery")} onclick={() => (menuOpen = false)}>相册管理</a>
 				<button type="button" class="logout-button" onclick={logout}>退出登录</button>
+				{#if errorMessage}<p role="alert" class="login-error">{errorMessage}</p>{/if}
 			</div>
 		{/if}
 	{:else}
