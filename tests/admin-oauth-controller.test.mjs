@@ -45,9 +45,10 @@ test("OAuth controller performs PKCE login, session profile and CSRF-protected l
  assert.equal(start.status,302);
  const authorize=new URL(start.headers.get("Location"));
  const state=authorize.searchParams.get("state");
+ const stateCookie=start.headers.get("Set-Cookie").split(";")[0];
  assert.equal(authorize.searchParams.get("code_challenge_method"),"S256");
  assert.equal(authorize.searchParams.get("code_challenge")?.length,43);
- const response=await auth.callback(new Request(callbackUrl+"?state="+encodeURIComponent(state)+"&code=example"));
+ const response=await auth.callback(new Request(callbackUrl+"?state="+encodeURIComponent(state)+"&code=example",{headers:{Cookie:stateCookie}}));
  assert.equal(response.status,303);
  assert.equal(sawVerifier,true);
  assert.match(response.headers.get("Set-Cookie"),/HttpOnly; Secure; SameSite=Lax/);
@@ -76,9 +77,24 @@ test("OAuth rejects unexpected login identity and forged callback origin",async(
  });
  const start=await auth.start(new Request("https://blog.example.com/api/admin/auth/start"));
  const state=new URL(start.headers.get("Location")).searchParams.get("state");
- const forged=await auth.callback(new Request("https://evil.example.com/api/admin/auth/callback?state="+state+"&code=x"));
+ const stateCookie=start.headers.get("Set-Cookie").split(";")[0];
+ const forged=await auth.callback(new Request("https://evil.example.com/api/admin/auth/callback?state="+state+"&code=x",{headers:{Cookie:stateCookie}}));
  assert.equal(forged.status,403);
- const denied=await auth.callback(new Request(callbackUrl+"?state="+state+"&code=x"));
+ const denied=await auth.callback(new Request(callbackUrl+"?state="+state+"&code=x",{headers:{Cookie:stateCookie}}));
  assert.match(denied.headers.get("Location"),/auth=failed/);
  assert.equal(denied.headers.get("Set-Cookie"),null);
+});
+
+test("OAuth callback rejects state replay from a different browser even if state URL is known",async()=>{
+ const sessions=createAdminSessionService({store:edgeOneAtomicAuthStore(mockBlob())});
+ const callbackUrl="https://blog.example.com/api/admin/auth/callback";
+ const auth=createGitHubAdminAuthController({
+  clientId:"client",clientSecret:"secret",callbackUrl,sessionService:sessions,
+  fetcher:async()=>{throw new Error("must not call GitHub without browser cookie");},
+ });
+ const start=await auth.start(new Request("https://blog.example.com/api/admin/auth/start"));
+ const state=new URL(start.headers.get("Location")).searchParams.get("state");
+ const response=await auth.callback(new Request(callbackUrl+"?state="+state+"&code=x"));
+ assert.match(response.headers.get("Location"),/auth=failed/);
+ assert.equal(response.headers.get("Set-Cookie"),null);
 });
