@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { fetchPrivatePostIndex } from "../src/utils/admin/private-content-index";
-const session={owner:"SteveGuo1726",repo:"Firefly",branch:"ai/preview-test",oauth:true,token:""} as any;
+const session={owner:"SteveGuo1726",repo:"Firefly",branch:"ai/preview-test",oauth:false,token:"test-token"} as any;
 const originalFetch=globalThis.fetch;
 test("private index includes draft without publishing it in public static list",async()=>{
  const calls:string[]=[];
@@ -26,4 +26,17 @@ test("truncated GitHub tree must fail instead of silently hiding drafts",async()
  globalThis.fetch=(async()=>Response.json({truncated:true,tree:[]})) as typeof fetch;
  try{await assert.rejects(fetchPrivatePostIndex(session,[]),/文件树不完整/);}
  finally{globalThis.fetch=originalFetch;}
+});
+
+test("OAuth private index reads only the session-protected same-origin endpoint",async()=>{
+ const calls:string[]=[];
+ globalThis.fetch=(async(input:RequestInfo|URL)=>{
+  calls.push(String(input));
+  return Response.json({posts:[{id:"draft",path:"src/content/posts/draft.md",title:"Draft",description:"",published:"",updated:"",category:"",tags:[],draft:true,pinned:false,image:""}]});
+ }) as typeof fetch;
+ try{
+  const posts=await fetchPrivatePostIndex({...session,oauth:true,token:""},[]);
+  assert.equal(posts[0]?.draft,true);
+  assert.deepEqual(calls,["/api/admin/private-index"]);
+ }finally{globalThis.fetch=originalFetch;}
 });
