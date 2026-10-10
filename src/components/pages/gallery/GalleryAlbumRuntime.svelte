@@ -25,6 +25,15 @@ let loading = $state(!initialAlbum);
 let errorMessage = $state("");
 let galleryRoot: HTMLDivElement;
 
+function safeCaption(name: string, width?: number, height?: number, size?: number): string {
+ const escape = (value: string) => value.replaceAll("&", "&amp;").replaceAll("<", "&lt;").replaceAll(">", "&gt;").replaceAll('"', "&quot;").replaceAll("'", "&#39;");
+ const details = [
+  width && height ? `${width} × ${height}` : "",
+  size ? `${(size / 1024 / 1024).toFixed(2)} MB` : "",
+ ].filter(Boolean).join(" · ");
+ return escape(name) + (details ? " · " + details : "");
+}
+
 const photoSelector = "a[data-gallery-photo]";
 const lightboxOptions: Partial<FancyboxOptions> = {
 	Thumbs: {
@@ -47,7 +56,7 @@ const lightboxOptions: Partial<FancyboxOptions> = {
 	fitToView: true,
 	preload: 1,
 	infinite: true,
-	caption: false,
+	caption: true,
 };
 
 async function loadAlbum(): Promise<void> {
@@ -133,7 +142,7 @@ onMount(() => {
 		{#if album.photos.length > 0}
 			<div class="masonry" style={`--column-width: ${columnWidth}px`}>
 				{#each album.photos as photo (photo.key)}
-					<a class="photo" href={photo.url} data-fancybox={`gallery-${album.id}`} data-gallery-photo data-src={photo.url}>
+					<a class="photo" href={photo.url} data-fancybox={`gallery-${album.id}`} data-gallery-photo data-src={photo.url} data-caption={safeCaption(photo.name, photo.width, photo.height, photo.size)} aria-label={`查看 ${photo.name} 的大图详情`}> 
 						<img src={photo.url} alt={photo.name} loading="lazy" decoding="async" fetchpriority="low" />
 					</a>
 				{/each}
