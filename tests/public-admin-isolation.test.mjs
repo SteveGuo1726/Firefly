@@ -216,3 +216,14 @@ test("OAuth admin UI keeps bearer tokens out of browser sessions and uses same-o
  assert.match(galleryClient,/session\?\.oauth/);
  assert.match(contentClient,/options\.session\.oauth/);
 });
+
+test("recovered editor drafts retain revision and base Git identity instead of becoming unsafely new documents",async()=>{
+ for(const file of ["AdminPostManager.svelte","AdminDynamicManager.svelte"]){
+  const component=await readFile("src/components/pages/admin/"+file,"utf8");
+  assert.match(component,/JSON\.stringify\(\{currentId,currentPath,loadedPath,baseGitSha,liveRevision,originalSource/);
+  assert.match(component,/currentId=typeof draft\.currentId/);
+  assert.match(component,/baseGitSha=typeof draft\.baseGitSha/);
+  assert.match(component,/liveRevision=typeof draft\.liveRevision/);
+  assert.match(component,/originalSource=typeof draft\.originalSource/);
+ }
+});
