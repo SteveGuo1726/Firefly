@@ -42,3 +42,15 @@ test("never caches failures or sets cookies, fails closed on origin errors",asyn
  assert.equal(e.status,503);
  assert.doesNotMatch(await e.text(),/secret-token/);
 });
+
+test("prebuilt derivative is real WebP and never refetches the original",async()=>{
+ const r=await handleProbe(new Request(host+"/sample-480.webp?client_probe=123"),{},
+  async()=>{throw Error("must not request original for prebuilt thumbnail");},null);
+ assert.equal(r.status,200);
+ assert.equal(r.headers.get("Content-Type"),"image/webp");
+ assert.equal(r.headers.get("X-Firefly-Derivative"),"480-webp-prebuilt");
+ const bytes=new Uint8Array(await r.arrayBuffer());
+ assert.equal(bytes.length,14504);
+ assert.equal(new TextDecoder().decode(bytes.subarray(0,4)),"RIFF");
+ assert.equal(new TextDecoder().decode(bytes.subarray(8,12)),"WEBP");
+});
