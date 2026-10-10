@@ -220,35 +220,33 @@ async function saveAll() {
 }
 
 async function uploadFiles(event: Event) {
-	if (uploading || saving) return;
-	const input = event.currentTarget as HTMLInputElement;
-	const files = Array.from(input.files || []);
-	if (!selectedAlbum || files.length === 0) return;
-	uploading = true;
-	errorMessage = "";
-	try {
-		const uploaded: ManagedGalleryPhoto[] = [];
-		for (const file of files) {
-			uploaded.push(await uploadImageBedFile(file, selectedAlbum.sourceDir));
-		}
-		const originalOrder = [...selectedAlbum.photoOrder];
-		const newKeys = uploaded.map((photo) => photo.key);
-		await refreshRemoteStatePreservingManifest();
-		updateAlbum({
-			photoOrder: [
-				...originalOrder.filter((key) => !newKeys.includes(key)),
-				...newKeys,
-			],
-		});
-		setMessage(
-			`已上传 ${uploaded.length} 张图片，点击“保存更改”写入展示顺序。`,
-		);
-	} catch (error) {
-		setMessage(error instanceof Error ? error.message : "图片上传失败。", true);
-	} finally {
-		uploading = false;
-		input.value = "";
-	}
+ if (uploading || saving) return;
+ const input=event.currentTarget as HTMLInputElement;
+ const files=Array.from(input.files||[]);
+ const target=selectedAlbum;
+ if(!target||files.length===0)return;
+ uploading=true;errorMessage="";
+ const uploaded:ManagedGalleryPhoto[]=[];
+ try{
+  for(const file of files)uploaded.push(await uploadImageBedFile(file,target.sourceDir));
+ }catch(error){
+  setMessage(`已上传 ${uploaded.length}/${files.length} 张图片；剩余上传失败：${error instanceof Error?error.message:"未知错误"}`,true);
+ }finally{
+  if(uploaded.length){
+   try{
+    const previous=[...target.photoOrder];
+    await refreshRemoteStatePreservingManifest();
+    const active=manifest.albums.find(album=>album.id===target.id);
+    if(active){
+     const keys=uploaded.map(photo=>photo.key);
+     selectedId=active.id;
+     updateAlbum({photoOrder:[...previous.filter(key=>!keys.includes(key)),...keys]});
+     if(uploaded.length===files.length)setMessage(`已上传 ${uploaded.length} 张图片，请保存相册清单。`);
+    }
+   }catch(error){setMessage("图片已上传，但同步相册清单失败；请刷新图床并检查未纳入相册的图片。",true);}
+  }
+  uploading=false;input.value="";
+ }
 }
 
 async function removePhoto(photo: ManagedGalleryPhoto) {
