@@ -40,10 +40,6 @@ const lightboxOptions: Partial<FancyboxOptions> = {
 				"zoomIn",
 				"zoomOut",
 				"toggle1to1",
-				"rotateCCW",
-				"rotateCW",
-				"flipX",
-				"flipY",
 			],
 			right: ["slideshow", "thumbs", "close"],
 		},
@@ -51,18 +47,10 @@ const lightboxOptions: Partial<FancyboxOptions> = {
 	animated: true,
 	dragToClose: true,
 	fitToView: true,
-	preload: 3,
+	preload: 1,
 	infinite: true,
 	caption: false,
 };
-
-async function openPhoto(event: MouseEvent): Promise<void> {
-	event.preventDefault();
-	const trigger = event.currentTarget;
-	if (!(trigger instanceof HTMLElement)) return;
-	const Fancybox = await lightboxPromise;
-	Fancybox?.fromTriggerEl(trigger, lightboxOptions);
-}
 
 async function loadAlbum(): Promise<void> {
 	const id =
@@ -139,7 +127,7 @@ onMount(() => {
 		{#if album.photos.length > 0}
 			<div class="masonry" style={`--column-width: ${columnWidth}px`}>
 				{#each album.photos as photo (photo.key)}
-					<a class="photo" href={photo.url} data-fancybox={`gallery-${album.id}`} data-gallery-photo data-src={photo.url} onclick={openPhoto}>
+					<a class="photo" href={photo.url} data-fancybox={`gallery-${album.id}`} data-gallery-photo data-src={photo.url}>
 						<img src={photo.url} alt={photo.name} loading="lazy" decoding="async" fetchpriority="low" />
 					</a>
 				{/each}
