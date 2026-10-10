@@ -1,4 +1,4 @@
-import {randomOpaque,sha256Base64Url,validateOAuthCallback} from "./oauth-core.js";
+import {newAuthorizationTransaction,randomOpaque,sha256Base64Url,validateOAuthCallback} from "./oauth-core.js";
 
 /** Store must supply atomic create-if-absent and take-and-delete for OAuth state.
  * A KV get+delete pair is NOT sufficient to enforce single use across regions.
@@ -12,11 +12,11 @@ export function createAdminSessionService({store,clock=()=>Date.now(),adminLogin
  return {
   async createTransaction({redirectUri}){
    if(!redirectUri || !/^https:\/\//.test(redirectUri))throw new Error("HTTPS callback required");
-   const state=randomOpaque(32),issuedAt=clock();
+   const {state,verifier,challenge}=await newAuthorizationTransaction(),issuedAt=clock();
    const key=await transactionKey(state);
-   const inserted=await store.putIfAbsent(key,{issuedAt,redirectUri},stateTtlMs);
+   const inserted=await store.putIfAbsent(key,{issuedAt,redirectUri,verifier},stateTtlMs);
    if(!inserted)throw new Error("OAuth transaction collision");
-   return {state,redirectUri};
+   return {state,redirectUri,challenge};
   },
   async consumeTransaction(state){
    if(!state || typeof state!=="string")return null;
