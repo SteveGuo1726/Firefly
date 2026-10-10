@@ -1,10 +1,23 @@
 import { getStore } from "@edgeone/pages-blob";
 import { createLiveContentService } from "../../../src/server/live-content/service.js";
+import { edgeOneAtomicAuthStore } from "../../../src/server/admin-auth/edgeone-store.js";
+import { createAdminSessionService } from "../../../src/server/admin-auth/session-service.js";
+import { readAdminSessionId } from "../../../src/server/admin-auth/controller.js";
 
 const STORE_NAME = "firefly-content-live";
 const blob = getStore({ name: STORE_NAME, consistency: "strong" });
 
+const oauthConfigured = Boolean(process.env.FIREFLY_OAUTH_CLIENT_ID && process.env.FIREFLY_OAUTH_CLIENT_SECRET && process.env.FIREFLY_OAUTH_CALLBACK_URL);
+const oauthSessions = oauthConfigured ? createAdminSessionService({
+ store:edgeOneAtomicAuthStore(getStore({name:"firefly-auth-live",consistency:"strong"})),
+ adminLogin:process.env.FIREFLY_ADMIN_LOGIN||"SteveGuo1726",
+}) : null;
+
 const handle = createLiveContentService({
+	authorizeSession: oauthSessions ? async request => {
+  const session=await oauthSessions.verifySession(readAdminSessionId(request));
+  return session?{ok:true,login:session.login}:{ok:false};
+ } : undefined,
 	provider: "edgeone-blob",
 	storeName: STORE_NAME,
 	store: {
