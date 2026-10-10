@@ -3,6 +3,8 @@ import {edgeOneAtomicAuthStore,assertEdgeOneAtomicWrites} from "../../../../src/
 import {createAdminSessionService} from "../../../../src/server/admin-auth/session-service.js";
 import {createGitHubAdminAuthController} from "../../../../src/server/admin-auth/controller.js";
 
+let cachedAuthBlob=null;
+
 /**
  * Explicitly disabled until OAuth server secrets and an exact HTTPS callback
  * are supplied. This route never reads GitHub PATs from browser storage.
@@ -18,7 +20,7 @@ export default async function onRequest(context){
   });
  }
  try{
-  const raw=getStore({name:"firefly-auth-live",consistency:"strong"});
+  const raw=cachedAuthBlob||(cachedAuthBlob=getStore({name:"firefly-auth-live",consistency:"strong"}));
   await assertEdgeOneAtomicWrites(raw);
   const store=edgeOneAtomicAuthStore(raw);
   const sessions=createAdminSessionService({store,adminLogin:process.env.FIREFLY_ADMIN_LOGIN||"SteveGuo1726"});
