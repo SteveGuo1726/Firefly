@@ -5,7 +5,7 @@ import { siteConfig } from "@/config/siteConfig";
 import type { GitHubAdminSession } from "@/utils/admin/github-session";
 import { buildPostDocument, emptyPostFields, excerptMarkdown, parsePostDocument, type AdminPostFields } from "@/utils/admin/content-format";
 import { fetchGitContentSource } from "@/utils/admin/github-content-reader";
-import { deleteLiveContentItem, fetchLiveContentIndex, fetchLiveContentItem, saveLiveContentItem } from "@/utils/admin/live-content-client";
+import { deleteLiveContentItem, fetchLiveContentIndex, fetchLiveContentItem, saveLiveContentItem, fetchLiveContentHistory, restoreLiveContentRevision, type LiveHistoryEntry } from "@/utils/admin/live-content-client";
 import { renderFireflyPreview } from "@/utils/write/preview";
 
 export let session:GitHubAdminSession;
@@ -18,6 +18,7 @@ let fields:AdminPostFields=emptyPostFields();let body="";let tagsText="";let pre
 let previewTimer:ReturnType<typeof setTimeout>|null=null;
 let savedEditorSnapshot="";
 let liveIndexHealthy=false;
+let historyEntries:LiveHistoryEntry[]=[];let historyRevision="";let historyLoading=false;
 function editorSnapshot(){return JSON.stringify({currentPath,fields,body,tagsText});}
 function guardUnsaved(){return !savedEditorSnapshot || editorSnapshot()===savedEditorSnapshot || confirm("当前有未保存的编辑内容。继续将丢失这些修改，确定切换吗？");}
 
@@ -86,6 +87,30 @@ async function remove(){if(!liveIndexHealthy){error="实时内容索引尚未成
 
 async function updatePreview(){try{previewHtml=await renderFireflyPreview({source:body,calloutTheme:siteConfig.post.rehypeCallouts.theme,isMdx:currentPath.endsWith(".mdx")});}catch(e){previewHtml=`<p>${e instanceof Error?e.message:"预览失败"}</p>`;}}
 function schedulePreview(){if(previewTimer)clearTimeout(previewTimer);previewTimer=setTimeout(()=>void updatePreview(),180);}
+async function loadHistory(){
+ if(!currentId || historyLoading)return;
+ historyLoading=true;error="";
+ try{historyEntries=await fetchLiveContentHistory("post",currentId,session);historyRevision=historyEntries[0]?.revision||"";}
+ catch(e){error=e instanceof Error?e.message:"读取历史版本失败。";}
+ finally{historyLoading=false;}
+}
+async function restoreHistory(){
+ if(!currentId||!historyRevision||saving||deleting||!guardUnsaved())return;
+ if(!confirm("确定恢复这个历史版本？当前已发布内容会产生一个新的 revision，仍可通过历史记录找回。"))return;
+ saving=true;error="";message="";
+ try{
+  await restoreLiveContentRevision({session,kind:"post",id:currentId,revision:historyRevision,expectedRevision:liveRevision});
+  const restoredId=currentId;
+  currentId="";currentPath="";savedEditorSnapshot="";
+  historyEntries=[];historyRevision="";
+  await refresh();
+  const row=rows.find(item=>item.id===restoredId);
+  if(row)await open(row);
+  message="已恢复历史版本并生成新的实时 revision。";
+ }catch(e){error=e instanceof Error?e.message:"恢复历史失败。";}
+ finally{saving=false;}
+}
+
 onMount(()=>{
  void refresh();
  const store=window.sessionStorage;
@@ -143,11 +168,23 @@ onMount(()=>{
 {#if needsStaticSecurityRebuild()}
 <div class="security-warning">这篇文章已经存在于当前静态构建中。实时层可以立刻把它从索引隐藏并让正常浏览跳转 404，但旧 HTML 仍可能被直接缓存或读取；密码保护/真正下线需要后续 Git 归档并重新构建后才彻底生效。</div>
 {/if}
+<div class="history-controls">
+ <button type="button" onclick={loadHistory} disabled={!currentId||historyLoading}>{historyLoading?"读取历史中...":"查看历史版本"}</button>
+ {#if historyEntries.length}
+  <select bind:value={historyRevision} aria-label="选择历史版本">
+   {#each historyEntries as revision}
+    <option value={revision.revision}>{revision.updatedAt} · {String(revision.meta?.title||revision.meta?.excerpt||revision.revision.slice(0,8))}</option>
+   {/each}
+  </select>
+  <button type="button" onclick={restoreHistory} disabled={!historyRevision||saving||deleting}>恢复所选版本</button>
+ {/if}
+</div>
 <div class="status"><div>{#if opening}<span>读取源码...</span>{/if}{#if message}<span class="ok">{message}</span>{/if}{#if error}<span class="bad">{error}</span>{/if}</div><div class="actions"><button class="danger" onclick={remove} disabled={!currentId||saving||deleting}>删除实时版本</button><button class="primary" onclick={save} disabled={saving||deleting||opening}>{saving?"保存中...":"实时保存"}</button></div></div>
 </div>
 <div class="preview"><strong>正文预览</strong><div class="prose prose-base max-w-none custom-md dark:prose-invert">{@html previewHtml}</div></div>
 </div>
 </section>
 <style>
+.history-controls{display:flex;flex-wrap:wrap;gap:.45rem;padding:.7rem 0;align-items:center}.history-controls select{max-width:100%;min-width:9rem;border:1px solid var(--line-divider);border-radius:.5rem;background:var(--card-bg);color:inherit;padding:.5rem}
 .manager{overflow:hidden}header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem;border-bottom:1px solid var(--line-divider)}h2{margin:0;font-size:1.05rem}header p{margin:.25rem 0 0;font-size:.76rem;opacity:.58}.actions{display:flex;gap:.45rem}button{border:1px solid var(--line-divider);border-radius:.55rem;background:transparent;color:inherit;padding:.55rem .7rem;font:inherit;font-size:.76rem;font-weight:700;cursor:pointer}button.primary{background:var(--primary);border-color:var(--primary);color:white}button.danger{color:#c43d3d;border-color:rgb(196 61 61/.3)}button:disabled{opacity:.5;cursor:not-allowed}.layout{display:grid;grid-template-columns:17rem minmax(28rem,1fr) minmax(22rem,.8fr);min-height:68vh}aside{padding:.75rem;border-right:1px solid var(--line-divider)}.search,.grid input,.grid textarea,.body textarea{width:100%;border:1px solid var(--line-divider);border-radius:.55rem;background:transparent;color:inherit;font:inherit}.search{padding:.62rem}.list{display:grid;gap:.3rem;margin-top:.6rem;max-height:64vh;overflow:auto}.list button{display:grid;text-align:left;gap:.15rem}.list button.active{border-color:var(--primary);background:color-mix(in oklab,var(--primary) 9%,transparent)}.list span,.list small{font-size:.67rem;opacity:.55;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.editor{padding:.9rem;border-right:1px solid var(--line-divider);min-width:0}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}.grid label,.body{display:grid;gap:.3rem;font-size:.72rem;font-weight:700}.grid .wide{grid-column:span 2}.grid input,.grid textarea{padding:.6rem}.checks{display:flex;gap:1rem;margin:.8rem 0;font-size:.76rem}.checks label{display:flex;align-items:center;gap:.3rem}.body textarea{min-height:25rem;padding:.7rem;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.6}.status{display:flex;justify-content:space-between;gap:.7rem;align-items:center;margin-top:.7rem;font-size:.7rem}.status>div:first-child{display:grid}.ok{color:#059669}.bad{color:#c43d3d}.security-warning{margin-top:.7rem;padding:.7rem .8rem;border:1px solid rgb(217 119 6/.28);border-radius:.55rem;background:rgb(217 119 6/.08);color:#b45309;font-size:.72rem;line-height:1.55}.preview{padding:1rem;overflow:auto;max-height:68vh}.preview>strong{display:block;margin-bottom:.8rem}@media(max-width:1380px){.layout{grid-template-columns:16rem minmax(0,1fr)}.preview{grid-column:1/-1;border-top:1px solid var(--line-divider);max-height:none}}@media(max-width:800px){header{align-items:flex-start;flex-direction:column}.layout{grid-template-columns:1fr}aside,.editor{border-right:0;border-bottom:1px solid var(--line-divider)}.list{max-height:16rem}.grid{grid-template-columns:1fr}.grid .wide{grid-column:auto}.status{align-items:flex-start;flex-direction:column}}
 </style>
