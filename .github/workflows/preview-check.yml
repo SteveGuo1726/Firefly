@@ -50,4 +50,5 @@ jobs:
       - name: Fast preview build guard
         env:
           PUBLIC_GITHUB_ADMIN_BRANCH: ai/preview-test
+          PUBLIC_FIREFLY_PREVIEW_DEMO: 'true'
         run: pnpm build:preview
