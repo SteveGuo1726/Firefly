@@ -22,7 +22,7 @@ export async function refreshOAuthAdminSession(): Promise<GitHubAdminSession | n
   }
   if(!response.ok){oauthCachedSession=null;return null;}
   const data=await response.json();
-  if(!data?.authenticated || !data.user?.login){oauthCachedSession=null;return null;}
+  if(!data?.authenticated || !data.user?.login){oauthCachedSession=null;notifySessionChanged();return null;}
   oauthCachedSession={
    login:String(data.user.login),name:String(data.user.login),avatarUrl:"",
    token:"",oauth:true,
@@ -32,7 +32,7 @@ export async function refreshOAuthAdminSession(): Promise<GitHubAdminSession | n
   notifySessionChanged();
   return oauthCachedSession;
  }catch{
-  oauthCachedSession=null;oauthSupported=false;return null;
+  oauthCachedSession=null;oauthSupported=false;notifySessionChanged();return null;
  }
 }
 
@@ -142,6 +142,7 @@ export async function loginWithGitHubToken(
 	tokenInput: string,
 ): Promise<GitHubAdminSession> {
 	const token = tokenInput.trim();
+	if (oauthSupported) throw new Error("站点已启用 OAuth，请使用 GitHub 授权登录。");
 	if (!token) throw new Error("请输入 GitHub Fine-grained PAT。");
 
 	const headers = {
