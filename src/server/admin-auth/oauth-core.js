@@ -29,7 +29,7 @@ function checkHttps(url,{allowLocalhost=false}={}){
  }
  return value.toString();
 }
-export function githubAuthorizationUrl({clientId,redirectUri,state,scope="",allowLocalhost=false}){
+export function githubAuthorizationUrl({clientId,redirectUri,state,scope="",codeChallenge="",allowLocalhost=false}){
  if(!clientId||!state)throw new Error("Missing OAuth client or state");
  const redirect=checkHttps(redirectUri,{allowLocalhost});
  const target=new URL("https://github.com/login/oauth/authorize");
@@ -37,6 +37,11 @@ export function githubAuthorizationUrl({clientId,redirectUri,state,scope="",allo
  target.searchParams.set("redirect_uri",redirect);
  target.searchParams.set("state",state);
  if(scope)target.searchParams.set("scope",scope);
+ if(codeChallenge){
+  if(!/^[A-Za-z0-9_-]{43}$/.test(codeChallenge))throw new Error("Invalid PKCE S256 challenge");
+  target.searchParams.set("code_challenge",codeChallenge);
+  target.searchParams.set("code_challenge_method","S256");
+ }
  return target.toString();
 }
 export function constantTimeEqual(a,b){
@@ -50,13 +55,14 @@ export function validateOAuthCallback({expectedState,receivedState,issuedAt,now=
  if(!expectedState||!receivedState||!constantTimeEqual(expectedState,receivedState))return false;
  return Number.isFinite(issuedAt)&&issuedAt<=now&&now-issuedAt<=maxAgeMs;
 }
-export async function exchangeGitHubCode({clientId,clientSecret,code,redirectUri,fetcher=fetch,signal}){
+export async function exchangeGitHubCode({clientId,clientSecret,code,redirectUri,codeVerifier="",fetcher=fetch,signal}){
  if(!clientId||!clientSecret||!code)throw new Error("OAuth code exchange configuration incomplete");
  checkHttps(redirectUri,{allowLocalhost:true});
+ if(codeVerifier && !/^[A-Za-z0-9._~-]{43,128}$/.test(codeVerifier))throw new Error("Invalid PKCE verifier");
  const response=await fetcher("https://github.com/login/oauth/access_token",{
   method:"POST",signal,
   headers:{"Accept":"application/json","Content-Type":"application/x-www-form-urlencoded"},
-  body:new URLSearchParams({client_id:clientId,client_secret:clientSecret,code,redirect_uri:redirectUri}),
+  body:new URLSearchParams({client_id:clientId,client_secret:clientSecret,code,redirect_uri:redirectUri,...(codeVerifier?{code_verifier:codeVerifier}:{})}),
  });
  const payload=await response.json().catch(()=>({}));
  if(!response.ok||typeof payload.access_token!=="string"||!payload.access_token){
