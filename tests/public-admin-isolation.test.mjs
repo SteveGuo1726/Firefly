@@ -233,3 +233,16 @@ test("public static management index excludes draft and protected metadata",asyn
  assert.match(source,/filter\(\(post\)=>!post\.data\.draft && !post\.data\.protected\)/);
  assert.doesNotMatch(source,/draft:post\.data\.draft/);
 });
+
+test("live-content internal failures never expose provider keys or storage exception text",async()=>{
+ const source=await readFile("src/server/live-content/service.js","utf8");
+ assert.match(source,/console\.error\("\[Firefly live content\]", error\)/);
+ assert.doesNotMatch(source,/error: error instanceof Error \? error\.message : "Live content service failed\."/);
+});
+test("backup verifies all pointer revisions and full document sources before successful response",async()=>{
+ const service=await readFile("src/server/live-content/service.js","utf8");
+ const backup=await readFile("src/components/pages/admin/AdminBackup.svelte","utf8");
+ assert.match(service,/Backup integrity failure: missing or mismatched/);
+ assert.match(service,/typeof item\.source !== "string"/);
+ assert.match(backup,/备份完整性校验失败/);
+});
