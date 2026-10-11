@@ -47,7 +47,7 @@ try{
  });
  await test('Rapid changes cannot restore an earlier image',async()=>{
   await page.evaluate(()=>{openReader(WORKS[1].id,null);openReader(WORKS[4].id,null);openReader(WORKS[8].id,null)});
-  await page.waitForFunction(()=>document.querySelector('#viewerImage')?.classList.contains('loaded'),null,{timeout:12000});
+  await page.waitForFunction(()=>{const im=document.querySelector('#viewerImage');return im?.classList.contains('loaded')&&im.src===state.focus?.preview},null,{timeout:12000});
   const stateOfView=await page.evaluate(()=>({current:state.focus.id,expected:WORKS[8].id,view:document.querySelector('#viewerImage').src,source:WORKS[8].preview,loadVisible:!document.querySelector('#mediaLoad').hidden}));
   assert.equal(stateOfView.current,stateOfView.expected);assert.equal(stateOfView.view,stateOfView.source);
   assert.equal(stateOfView.loadVisible,false);
