@@ -74,3 +74,20 @@ test('friend application MDX renders values from centralized JSON; UI offers und
  assert.match(lists,/imageThumbnail/);
  assert.match(lists,/SiteSettingsImagePreview/);
 });
+
+test('friend application rejects invalid note structures and contact information',()=>{
+ const clone=()=>structuredClone(original.sections);
+ const blankTitle=clone();
+ blankTitle.friendApplicationConfig.notes[0].title='';
+ assert.throws(()=>validate.assertSiteSettingsCollections(blankTitle),/注意事项/);
+ const nonObject=clone();
+ nonObject.friendApplicationConfig.notes.push(null);
+ assert.throws(()=>validate.assertSiteSettingsCollections(nonObject),/注意事项/);
+ const badEmail=clone();
+ badEmail.friendApplicationConfig.site.email='invalid-address';
+ assert.throws(()=>validate.assertSiteSettingsCollections(badEmail),/邮箱/);
+ const badSite=clone();
+ badSite.friendApplicationConfig.site.url='javascript:alert(1)';
+ assert.throws(()=>validate.assertSiteSettingsCollections(badSite),/网址/);
+ validate.assertSiteSettingsCollections(clone());
+});

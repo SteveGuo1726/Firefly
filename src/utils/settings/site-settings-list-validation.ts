@@ -46,6 +46,20 @@ export function assertSiteSettingsCollections(sections:Record<string,unknown>):v
   if(!Array.isArray(sections.friendsConfig))bad('友链数据应为列表');
   links(sections.friendsConfig,'友链','siteurl','title',false);
  }
+ if(sections.friendApplicationConfig!==undefined){
+  const app=sections.friendApplicationConfig;
+  if(!isObject(app)||!isObject(app.site))bad('友链申请信息格式不正确');
+  const site=app.site;
+  if(typeof site.name!=='string'||!site.name.trim())bad('友链申请信息需要填写本站名称');
+  if(!safeURL(site.url))bad('友链申请信息的本站网址无效');
+  if(typeof site.avatar!=='string')bad('友链申请头像需要填写图片路径或地址');
+  if(typeof site.email!=='string'||!/^\S+@\S+\.\S+$/.test(site.email))bad('友链申请联系邮箱格式不正确');
+  const notes=getList(app,'notes','友链申请注意事项');
+  for(const [i,note] of notes.entries()){
+   if(!isObject(note)||typeof note.title!=='string'||!note.title.trim()||
+      typeof note.content!=='string'||!note.content.trim())bad('友链申请第'+(i+1)+'条注意事项需要标题和正文');
+  }
+ }
  if(sections.booknavConfig!==undefined){
   if(!Array.isArray(sections.booknavConfig))bad('书签分组应为列表');
   const ids=new Set<string>();
