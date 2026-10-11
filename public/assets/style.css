@@ -96,3 +96,9 @@
 
 .viewer-image.low-quality{object-fit:cover;filter:blur(.3px);transition:opacity .2s ease,filter .2s ease,transform .16s cubic-bezier(.2,.8,.2,1)}
 .viewer-image.loaded:not(.low-quality){object-fit:contain;filter:none}
+
+/* A closed reader must not leave invisible images intercepting clicks while fading out. */
+.reader:not(.open){display:none!important;visibility:hidden!important;pointer-events:none!important}
+.reader.open{display:flex;visibility:visible;pointer-events:auto;animation:kiraReaderEnter .16s ease-out both}
+@keyframes kiraReaderEnter{from{opacity:.25}to{opacity:1}}
+@media(prefers-reduced-motion:reduce){.reader.open{animation:none}}
