@@ -1,17 +1,17 @@
 {
-  "checked_at": "2026-10-11T14:35:30.043Z",
+  "checked_at": "2026-10-11T14:39:20.948Z",
   "checks": [
     {
       "label": "Load real SFW Pixiv image gallery with no fake popularity",
       "pass": true,
-      "works": 43
+      "works": 75
     },
     {
       "label": "No header strip and portrait/landscape images fit viewport",
       "pass": true,
       "stageW": 1100,
       "stageH": 900,
-      "imageW": 650,
+      "imageW": 552,
       "imageH": 780,
       "naturalWidth": 1280,
       "naturalHeight": 720
@@ -19,23 +19,23 @@
     {
       "label": "Rapid changes cannot restore an earlier image",
       "pass": true,
-      "current": 98228689000
+      "current": 129105794000
     },
     {
       "label": "Unrestricted proportional zoom affects the image only",
       "pass": true,
       "zoom": 12.5,
       "matrix": "matrix(12.5, 0, 0, 12.5, 0, 0)",
-      "width": 12487.5,
-      "height": 7025,
-      "intrinsicRatio": 1.7775800711743772,
+      "width": 5600,
+      "height": 9750,
+      "intrinsicRatio": 0.5743589743589743,
       "rootTransform": "none",
       "sidebarTransform": "none"
     },
     {
       "label": "Original preloads before clicking original button",
       "pass": true,
-      "source": "https://i.pixiv.re/img-original/img/2024/08/22/11/16/19/121722372_p0.png",
+      "source": "https://i.pixiv.re/img-original/img/2020/03/22/14/22/43/80282525_p0.jpg",
       "cached": true
     },
     {
@@ -44,12 +44,12 @@
       "all": [
         {
           "axis": "character",
-          "count": 12,
+          "count": 6,
           "valid": true
         },
         {
           "axis": "series",
-          "count": 3,
+          "count": 0,
           "valid": true
         },
         {
@@ -59,7 +59,7 @@
         },
         {
           "axis": "color",
-          "count": 2,
+          "count": 0,
           "valid": true
         },
         {
@@ -87,7 +87,7 @@
       "stageW": 390,
       "stageH": 540,
       "imageW": 356,
-      "imageH": 197
+      "imageH": 251
     }
   ],
   "errors": []
