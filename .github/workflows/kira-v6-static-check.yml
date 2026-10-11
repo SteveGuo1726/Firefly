@@ -1,0 +1,48 @@
+name: KIRA V6 zero-cost syntax & snapshot gate
+on:
+  push:
+    branches: [kira-development]
+    paths:
+      - '.github/workflows/kira-v6-static-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  fast-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Check JavaScript and source metadata
+        shell: bash
+        run: |
+          node --check public/assets/app.js
+          node --check pixiv/src/index.js
+          node --check preview/build.mjs
+          node --check pixiv/build.mjs
+          node - <<'JS'
+          const fs=require('fs'),assert=require('node:assert/strict');
+          const data=JSON.parse(fs.readFileSync('public/assets/pixiv-feed.json','utf8'));
+          const html=fs.readFileSync('public/index.html','utf8');
+          const js=fs.readFileSync('public/assets/app.js','utf8');
+          const all=Object.values(data.channels).flat();
+          const done=all.filter(x=>x.dominant_tone).length;
+          const ids=new Set(all.map(x=>x.id));
+          const blocked=all.filter(x=>(x.tags||[]).some(t=>/^r[\s_-]*18(?:g)?$/i.test(t))).length;
+          const result={syntax_valid:true,records:all.length,unique:ids.size,color_extracted:done,explicit_r18_tags_found:blocked,front_has_pixiv_source:html.includes('id="pixivSource"'),app_hydrates_json:js.includes('hydrateRealPixiv'),app_filters_explicit_rating:js.includes('DENY_TAG'),source_url_all_valid:all.every(x=>x.pixiv_url==='https://www.pixiv.net/artworks/'+x.pid),allowed_hosts:all.every(x=>new URL(x.thumbnail_url).hostname==='i.pixiv.re')};
+          assert(result.syntax_valid&&result.records>=40&&result.color_extracted>=20&&result.front_has_pixiv_source&&result.app_hydrates_json&&result.app_filters_explicit_rating&&result.source_url_all_valid&&result.allowed_hosts);
+          fs.mkdirSync('docs',{recursive:true});
+          fs.writeFileSync('docs/kira-v6-static-qa.json',JSON.stringify(result,null,2));
+          console.log(result);
+          JS
+      - name: Publish quality gate result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/kira-v6-static-qa.json
+          git commit -m "test(kira): record V6 static quality checks" || exit 0
+          git pull --rebase origin kira-development
+          git push origin HEAD:kira-development
