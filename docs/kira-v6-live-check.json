@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-11T14:38:54.504274+00:00",
+  "date": "2026-10-11T14:39:51.710829+00:00",
   "checks": {
     "/": {
       "http_status": 200,
@@ -19,14 +19,16 @@
       "mime": "application/javascript; charset=utf-8",
       "real_pixiv_loader": true,
       "progressive_loading": true,
-      "independent_axes": false,
+      "proportional_zoom": true,
       "new_relation_axes": true
     },
     "/assets/pixiv-feed.json": {
       "http_status": 200,
       "bytes": 55878,
       "mime": "application/json; charset=utf-8",
+      "feed_source": null,
       "works_in_snapshot": 43,
+      "unique_works": 43,
       "channels": {
         "discover": 12,
         "miku": 8,
@@ -41,7 +43,7 @@
       "http_status": 200,
       "bytes": 112,
       "mime": "application/json",
-      "expected_version": "7.3.0",
+      "expected_version": "7.5.0",
       "server": {
         "ok": true,
         "service": "kira-jump-international-preview",
