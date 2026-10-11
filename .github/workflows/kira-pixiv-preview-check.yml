@@ -1,0 +1,47 @@
+name: KIRA static Pixiv Worker browser and API sanity
+on:
+  push:
+    branches: [kira-development]
+    paths: [.github/workflows/kira-pixiv-preview-check.yml]
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check published CF preview and client-side JavaScript
+        run: |
+          python3 - <<'PY'
+          import json,urllib.request,subprocess,pathlib,re,datetime
+          base="https://kira-pixiv-feed-dev.guojunyang666666.workers.dev"
+          report={"date":datetime.datetime.now(datetime.timezone.utc).isoformat()}
+          for key,path in [("health","/health"),("feed","/api/v1/pixiv?channel=discover&batch=0"),("html","/")]:
+            try:
+              with urllib.request.urlopen(base+path,timeout=12) as r:
+                body=r.read().decode()
+                report[key]={"status":r.status,"bytes":len(body)}
+                if key=="health":report[key]["payload"]=json.loads(body)
+                if key=="feed":
+                  j=json.loads(body);report[key]["items"]=len(j.get('items',[]));report[key]["has_more"]=j.get('has_more');report[key]["first_pixiv"]=j.get('items',[{}])[0].get('pixiv_url')
+                if key=="html":
+                  report[key]["title_present"]="Pixiv 作品发现" in body
+                  js=re.findall(r'<script>([\s\S]*?)</script>',body)
+                  pathlib.Path('/tmp/kira-pixiv-client.js').write_text('\n'.join(js))
+                  check=subprocess.run(['node','--check','/tmp/kira-pixiv-client.js'],capture_output=True,text=True)
+                  report[key]["js_valid"]=check.returncode==0
+                  report[key]["js_error"]=check.stderr[-900:] if check.returncode else ''
+            except Exception as e:report[key]={"error":str(e)[:350]}
+          pathlib.Path("docs").mkdir(exist_ok=True)
+          pathlib.Path("docs/pixiv-worker-check.json").write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          print(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+      - name: Commit public smoke-test result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/pixiv-worker-check.json
+          git commit -m "test(kira): record CF Pixiv preview checks" || exit 0
+          git push origin HEAD:kira-development
