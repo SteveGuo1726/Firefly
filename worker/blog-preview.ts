@@ -7,6 +7,7 @@ import {
  authorizePreviewSession, previewLogin, previewMe, previewLogout, previewMutationOriginAllowed
 } from "../src/server/preview-auth.js";
 import { buildPreviewPrivatePostIndex, publicPreviewIndexFallback } from "../src/server/preview-private-index.js";
+import { buildReadOnlyGalleryState } from "../src/server/preview-gallery-bridge.js";
 
 
 let cachedService;
@@ -62,6 +63,26 @@ export default {
         if(!previewMutationOriginAllowed(request) &&
            (path.startsWith("/api/live-content/") || path.startsWith("/api/admin/")))
           return new Response('{"error":"Origin mismatch"}',{status:403,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
+        // Compatibility adapter only: independent imagebed gallery owns all writes.
+        if(path==="/api/admin/gallery/state"){
+          if(request.method!=="GET")return new Response("Method Not Allowed",{status:405});
+          const auth=await authorizePreviewSession(request,env);
+          const headers={"Content-Type":"application/json; charset=utf-8","Cache-Control":"private, no-store","X-Robots-Tag":"noindex","X-Content-Type-Options":"nosniff"};
+          if(!auth.ok)return new Response('{"error":"Unauthorized"}',{status:401,headers});
+          try{
+            const upstream=await fetch("https://gallery-api.casto.top/api/gallery/public",{
+              headers:{"Accept":"application/json"},redirect:"error",signal:AbortSignal.timeout(12000),cache:"no-store"
+            });
+            if(!upstream.ok)throw new Error("Public gallery HTTP "+upstream.status);
+            const bytes=await upstream.arrayBuffer();
+            if(bytes.byteLength>2097152)throw new Error("Gallery response exceeds safe limit");
+            const projection=buildReadOnlyGalleryState(JSON.parse(new TextDecoder().decode(bytes)));
+            return new Response(JSON.stringify(projection),{status:200,headers});
+          }catch(error){
+            console.warn("[Firefly preview] public gallery projection unavailable",error instanceof Error?error.message:"unknown");
+            return new Response('{"error":"图床公开数据暂不可用，未修改任何图床文件。"}',{status:502,headers});
+          }
+        }
         if(path==="/api/admin/private-index"){
           if(request.method!=="GET")return new Response("Method Not Allowed",{status:405});
           const auth=await authorizePreviewSession(request,env);
