@@ -1,0 +1,33 @@
+{
+  "checked_at": "2026-10-11T10:55:39.033Z",
+  "checks": [
+    {
+      "name": "Real Pixiv gallery loads",
+      "ok": true,
+      "works": 43
+    },
+    {
+      "name": "Image opens within an unscaled reader",
+      "ok": true,
+      "zoom": "matrix(1, 0, 0, 1, 0, 0)",
+      "reader": "none",
+      "body": "none"
+    },
+    {
+      "name": "Character/color/mood jump content is visible",
+      "ok": true
+    },
+    {
+      "name": "Local artist follow persists",
+      "ok": true,
+      "following": "pixiv:7609394"
+    },
+    {
+      "name": "Mobile avoids horizontal overflow",
+      "ok": true,
+      "scrollWidth": 390,
+      "innerWidth": 390
+    }
+  ],
+  "errors": []
+}
