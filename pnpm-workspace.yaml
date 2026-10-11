@@ -3,3 +3,6 @@ packages:
 allowBuilds:
   esbuild: true
   workerd: true
+
+patchedDependencies:
+  '@expressive-code/plugin-shiki@0.44.2': patches/@expressive-code__plugin-shiki@0.44.2.patch
