@@ -1,51 +1,51 @@
 {
-  "tested_at": "2026-10-11T09:38:42.451987+00:00",
+  "tested_at": "2026-10-11T09:44:15.172453+00:00",
   "results": [
     {
-      "name": "lolicon",
+      "channel": "discover",
+      "provider": "lolicon",
       "http_status": 200,
-      "response_type": "dict",
-      "keys": [
-        "error",
-        "data"
-      ],
-      "count": 3,
-      "sample": [
-        {
-          "title": "魅魔鸭ver2.0",
-          "pid": 85624971,
-          "image_host": "https://i.pixiv.re/img-master/img/2020/11/12/19/03/36/85624971_p0_master1200.jpg"
-        },
-        {
-          "title": "リオンあーと1年分(けんぜん)",
-          "pid": 78934698,
-          "image_host": "https://i.pixiv.re/img-master/img/2020/01/16/22/31/37/78934698_p0_master1200.jpg"
-        }
-      ],
-      "error": ""
+      "count": 12
     },
     {
-      "name": "anosu",
-      "error": "<urlopen error [Errno -2] Name or service not known>"
-    },
-    {
-      "name": "kira-worker-health",
+      "channel": "miku",
+      "provider": "lolicon",
       "http_status": 200,
-      "response_type": "dict",
-      "keys": [
-        "ok",
-        "service",
-        "db",
-        "r18",
-        "version"
-      ],
-      "count": 0,
-      "sample": [],
-      "error": null
+      "count": 12
     },
     {
-      "name": "kira-worker-feed",
-      "error": "HTTP Error 503: Service Unavailable"
+      "channel": "genshin",
+      "provider": "lolicon",
+      "http_status": 200,
+      "count": 12
+    },
+    {
+      "channel": "girl",
+      "provider": "lolicon",
+      "http_status": 200,
+      "count": 12
+    },
+    {
+      "channel": "touhou",
+      "provider": "lolicon",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "channel": "original",
+      "provider": "lolicon",
+      "error": "HTTP Error 429: Too Many Requests"
+    },
+    {
+      "check": "image_thumbnail_url",
+      "host": "i.pixiv.re",
+      "http_status": 200,
+      "mime": "image/jpeg"
+    },
+    {
+      "check": "image_preview_url",
+      "host": "i.pixiv.re",
+      "http_status": 200,
+      "mime": "image/jpeg"
     }
   ]
 }
