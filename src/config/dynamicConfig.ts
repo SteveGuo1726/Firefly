@@ -1,6 +1,7 @@
+import { applyManagedConfig } from "../utils/settings/managed-config";
 import type { DynamicConfig } from "@/types/dynamicConfig";
 
-export const dynamicConfig: DynamicConfig = {
+export const dynamicConfig: DynamicConfig = applyManagedConfig("dynamicConfig", {
 	// 页面标题，如果留空则使用 i18n 中的翻译
 	title: "",
 
@@ -15,4 +16,4 @@ export const dynamicConfig: DynamicConfig = {
 	itemsPerPage: 20,
 	apiUrl: "/api/dynamic.json",
 	memos: { enable: false, apiUrl: "", parent: "" },
-};
+});

@@ -1,7 +1,8 @@
+import { applyManagedConfig } from "../utils/settings/managed-config";
 import type { BackgroundWallpaperConfig } from "@/types/backgroundWallpaper";
 import { profileConfig } from "./profileConfig";
 
-export const backgroundWallpaper: BackgroundWallpaperConfig = {
+export const backgroundWallpaper: BackgroundWallpaperConfig = applyManagedConfig("backgroundWallpaper", {
 	// 壁纸模式："banner" 横幅壁纸，"fullscreen" 全屏壁纸，"overlay" 覆盖透明，"none" 纯色背景无壁纸
 	mode: "banner",
 	// 是否启用背景视频播放，配置后将在导航栏显示视频播放按钮
@@ -194,4 +195,4 @@ export const backgroundWallpaper: BackgroundWallpaperConfig = {
 			},
 		},
 	},
-};
+});

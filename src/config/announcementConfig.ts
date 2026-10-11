@@ -1,6 +1,7 @@
+import { applyManagedConfig } from "../utils/settings/managed-config";
 import type { AnnouncementConfig } from "../types/announcementConfig";
 
-export const announcementConfig: AnnouncementConfig = {
+export const announcementConfig: AnnouncementConfig = applyManagedConfig("announcementConfig", {
 	// 公告标题
 	title: "公告",
 
@@ -20,4 +21,4 @@ export const announcementConfig: AnnouncementConfig = {
 		// 内部链接
 		external: false,
 	},
-};
+});

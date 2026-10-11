@@ -1,3 +1,4 @@
+import { applyManagedConfig } from "../utils/settings/managed-config";
 import type { SiteConfig } from "@/types/siteConfig";
 import { resolvePageToggles } from "../utils/page-toggle-utils";
 import { resolveSiteLang } from "../utils/site-config-utils";
@@ -6,7 +7,7 @@ import { resolveSiteLang } from "../utils/site-config-utils";
 // 语言代码，例如：'zh_CN', 'zh_TW', 'en', 'ja', 'ru', 'ko'。
 const SITE_LANG = "zh_CN";
 
-export const siteConfig: SiteConfig = {
+export const siteConfig: SiteConfig = applyManagedConfig("siteConfig", {
 	// 站点标题
 	title: "星遐蝶梦",
 
@@ -269,4 +270,4 @@ export const siteConfig: SiteConfig = {
 
 	// 站点语言，在本配置文件顶部SITE_LANG定义
 	lang: resolveSiteLang(SITE_LANG),
-};
+});

@@ -1,3 +1,4 @@
+import { applyManagedConfig } from "../utils/settings/managed-config";
 import type { DisplaySettingsConfig } from "../types/displaySettingsConfig";
 import { resolveDisplaySettingsConfig } from "../utils/display-settings-utils";
 
@@ -7,7 +8,7 @@ import { resolveDisplaySettingsConfig } from "../utils/display-settings-utils";
 // 也方便进行调试预览效果
 
 export const displaySettingsConfig: DisplaySettingsConfig =
-	resolveDisplaySettingsConfig({
+	resolveDisplaySettingsConfig(applyManagedConfig("displaySettingsConfig",{
 		// ── 总开关 (Master switch) ────────────────────────────
 
 		// 视图设置面板总开关，关闭时下方所有设置项均不生效，前台将不显示设置面板
@@ -69,4 +70,4 @@ export const displaySettingsConfig: DisplaySettingsConfig =
 
 		// 樱花特效开关
 		sakuraSwitchable: true,
-	});
+	}));
