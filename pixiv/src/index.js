@@ -77,6 +77,7 @@ export default {async fetch(request,env){
   const corsHeaders=cors(request);
   if(request.method==='OPTIONS')return new Response(null,{status:204,headers:corsHeaders});
   if(request.method!=='GET'&&request.method!=='HEAD')return json({error:'method_not_allowed'},405,corsHeaders);
+  if(path==='/'||path==='/index.html')return new Response(request.method==='HEAD'?null:PAGE,{headers:{'content-type':'text/html; charset=utf-8','cache-control':'public, max-age=120','x-content-type-options':'nosniff'}});
   if(path==='/health')return json({ok:true,service:'kira-free-pixiv-feed-dev',db:!!env.DB,r18:false,version:'0.1'},200,corsHeaders);
   if(path!=='/api/v1/pixiv')return json({error:'not_found'},404,corsHeaders);
   const channel=url.searchParams.get('channel')||'discover';
