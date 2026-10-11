@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-11T14:11:14.237Z",
+  "checked_at": "2026-10-11T14:16:47.568Z",
   "checks": [
     {
       "label": "Load real SFW Pixiv image gallery with no fake popularity",
@@ -37,6 +37,16 @@
         {
           "axis": "character",
           "count": 1,
+          "valid": true
+        },
+        {
+          "axis": "series",
+          "count": 1,
+          "valid": true
+        },
+        {
+          "axis": "artist",
+          "count": 0,
           "valid": true
         },
         {
