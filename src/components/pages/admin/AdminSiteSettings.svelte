@@ -8,6 +8,7 @@ import {fetchRepoFile,saveRepoFile} from "@/utils/write/github";
 import SiteSettingsImagePreview from "./SiteSettingsImagePreview.svelte";
 import SiteSettingsListEditor from "./SiteSettingsListEditor.svelte";
 import {isManagedList} from "@/utils/settings/settings-list-schema";
+import {numberPresentation,percentageText} from "@/utils/settings/settings-controls";
 import {sectionCategories,sectionGroups,chineseLabel,chineseHelp,isImageSetting} from "@/utils/settings/settings-editor-ui";
 
 export let session:GitHubAdminSession;
@@ -86,7 +87,7 @@ function fieldsForCurrent(config:Draft,section:keyof Draft["sections"]):Editable
   if(isManagedList(section,path,value)){fields.push({path,value,kind:"list"});return;}
   if(depth>9||fields.length>550){push(path,value);return;}
   if(Array.isArray(value)){
-   if(['keywords','categoryOrder','excludedLangs','noReferrerDomains'].includes(path.at(-1)||'') && value.every(entry=>typeof entry==='string')){
+   if(['keywords','categoryOrder','excludedLangs','noReferrerDomains','playerUrl','feedPaths','apiUrl','fallbackApiUrl','apis','fallbackApis'].includes(path.at(-1)||'') && value.every(entry=>typeof entry==='string')){
     fields.push({path,value,kind:'lines'});return;
    }
    if(!value.length){push(path,value);return;}
@@ -116,6 +117,14 @@ function enumOptions(field:EditableField):{value:string;label:string}[]|null{
   'musicPlayerConfig.playMode':[{value:'list',label:'列表循环'},{value:'one',label:'单曲循环'},{value:'random',label:'随机播放'}],
   'musicPlayerConfig.meting.server':[{value:'netease',label:'网易云音乐'},{value:'tencent',label:'QQ 音乐'},{value:'kugou',label:'酷狗音乐'},{value:'xiami',label:'虾米音乐'},{value:'baidu',label:'百度音乐'}],
   'musicPlayerConfig.meting.type':[{value:'playlist',label:'歌单'},{value:'song',label:'单曲'},{value:'album',label:'专辑'},{value:'search',label:'搜索'},{value:'artist',label:'歌手'}],
+  'siteConfig.post.rehypeCallouts.theme':[{value:'github',label:'GitHub 风格'},{value:'obsidian',label:'Obsidian 风格'},{value:'vitepress',label:'文档风格'}],
+  'siteConfig.post.immersiveReading.tocPosition':[{value:'left',label:'左侧显示'},{value:'right',label:'右侧显示'}],
+  'siteConfig.lang':[{value:'zh_CN',label:'简体中文'},{value:'en',label:'English'},{value:'ja',label:'日本語'}],
+  'backgroundWallpaper.common.carousel.transitionEffect':[{value:'fade',label:'淡入淡出'},{value:'zoom',label:'缩放过渡'},{value:'slide',label:'滑动切换'},{value:'kenburns',label:'缓慢平移'}],
+  'backgroundWallpaper.banner.postInfo.mode':[{value:'description',label:'显示文章摘要'},{value:'meta',label:'显示发布日期等信息'}],
+  'backgroundWallpaper.banner.navbar.transparentMode':[{value:'semi',label:'半透明'},{value:'semifull',label:'随壁纸变化'},{value:'none',label:'不透明'}],
+  'backgroundWallpaper.fullscreen.navbar.transparentMode':[{value:'semi',label:'半透明'},{value:'semifull',label:'随壁纸变化'},{value:'none',label:'不透明'}],
+  'siteConfig.postListLayout.tagsBottomStyle':[{value:'chip',label:'标签按钮'},{value:'inline',label:'简洁文字'}],
   'siteConfig.bangumi.mode':[{value:'static',label:'构建时同步'},{value:'dynamic',label:'访问时加载'}],
   'siteConfig.feed.contentMode':[{value:'full',label:'完整内容'},{value:'summary',label:'仅摘要'}],
   'siteConfig.postListLayout.tagsPosition':[{value:'bottom',label:'卡片下方'},{value:'top',label:'卡片上方'}],
@@ -125,8 +134,8 @@ function enumOptions(field:EditableField):{value:string;label:string}[]|null{
   'sidebarLayoutConfig.position':[{value:'both',label:'左右双侧栏'},{value:'left',label:'仅左侧'},{value:'right',label:'仅右侧'}],
   'sidebarLayoutConfig.tabletSidebar':[{value:'left',label:'平板左侧栏'},{value:'right',label:'平板右侧栏'}],
   'siteConfig.themeColor.defaultMode':[{value:'system',label:'跟随系统'},{value:'light',label:'浅色模式'},{value:'dark',label:'深色模式'}],
-  'siteConfig.navbar.logo.type':[{value:'image',label:'使用图片'},{value:'icon',label:'使用图标库'}],
-  'siteConfig.navbar.menuAlign':[{value:'left',label:'左对齐'},{value:'center',label:'居中'},{value:'right',label:'右对齐'}],
+  'siteConfig.navbar.logo.type':[{value:'image',label:'图片标志'},{value:'icon',label:'图标标志'},{value:'url',label:'外链图标'}],
+  'siteConfig.navbar.menuAlign':[{value:'left',label:'左对齐'},{value:'center',label:'居中'}],
   'siteConfig.navbar.navbarMode':[{value:'fixed',label:'固定在顶部'},{value:'sticky',label:'滚动时吸顶'},{value:'static',label:'跟随页面滚动'}],
   'backgroundWallpaper.mode':[{value:'banner',label:'横幅壁纸'},{value:'fullscreen',label:'全屏壁纸'},{value:'overlay',label:'透明覆盖'},{value:'none',label:'纯色背景'}],
   'siteConfig.imageOptimization.formats':[{value:'webp',label:'WebP 图片'},{value:'avif',label:'AVIF 图片'},{value:'both',label:'两种格式'}],
@@ -264,19 +273,52 @@ onMount(()=>{jsonText=toJson(sectionValue());try{savedLocally=!!localStorage.get
        <summary class="logical-group-heading"><h4>{group.title}</h4><span class="group-count">点击展开 / 收起</span></summary>
        <div class="fields">
         {#each fieldsForGroup(draft,currentSection,group.keys) as field (field.path.join('.'))}
-         <div class="field" class:wide={field.kind==="json"||field.kind==="lines"||field.kind==="list"||showImagePreview(field)||(typeof field.value==="string"&&field.value.length>130)}>
-          <label for={`site-field-${currentSection}-${field.path.join('-')}`} class="field-label">{fieldName(field)}</label>
-          {#if fieldContext(field)}<small class="field-location">{fieldContext(field)}</small>{/if}
+         <div class="field" class:toggle-row={field.kind==="boolean"} class:wide={field.kind==="json"||field.kind==="lines"||field.kind==="list"||showImagePreview(field)||(typeof field.value==="string"&&field.value.length>130)}>
+          {#if field.kind!=="boolean"&&field.kind!=="list"}
+           {#if enumOptions(field)&&(enumOptions(field)||[]).length<=4}
+            <span class="field-label">{fieldName(field)}</span>
+           {:else}
+            <label for={`site-field-${currentSection}-${field.path.join('-')}`} class="field-label">{fieldName(field)}</label>
+           {/if}
+           {#if fieldContext(field)}<small class="field-location">{fieldContext(field)}</small>{/if}
+          {/if}
           {#if field.kind==="list"}
            <SiteSettingsListEditor section={currentSection} path={field.path} value={field.value as Record<string,unknown>[]} onChange={items=>cloneAndSet(field.path,items)}/>
           {:else if field.kind==="boolean"}
-           <select id={`site-field-${currentSection}-${field.path.join('-')}`} value={String(field.value)} onchange={e=>updateField(field,(e.currentTarget as HTMLSelectElement).value==="true")}><option value="true">开启</option><option value="false">关闭</option></select>
+           <label class="setting-switch-row" for={`site-field-${currentSection}-${field.path.join('-')}`}>
+            <span class="switch-copy"><strong>{fieldName(field)}</strong></span>
+            <input class="setting-switch-input" id={`site-field-${currentSection}-${field.path.join('-')}`} type="checkbox" role="switch" checked={field.value===true} onchange={e=>updateField(field,(e.currentTarget as HTMLInputElement).checked)} />
+            <span class="setting-switch-track" aria-hidden="true"><span></span></span>
+            <small class="switch-status">{field.value===true?"已开启":"已关闭"}</small>
+           </label>
           {:else if field.kind==="number"}
-           <input id={`site-field-${currentSection}-${field.path.join('-')}`} type="number" value={Number.isFinite(field.value)?String(field.value):''} oninput={e=>updateField(field,(e.currentTarget as HTMLInputElement).value)}/>
+           {@const numberMeta=numberPresentation(currentSection,field.path,Number(field.value))}
+           <div class="number-editor" class:with-slider={numberMeta.slider}>
+            {#if currentSection==="siteConfig"&&field.path.join(".")==="themeColor.hue"}
+             <span class="theme-color-swatch" style={`background:hsl(${Number(field.value)} 70% 55%)`} role="img" aria-label="当前主题颜色预览"></span>
+            {/if}
+            {#if numberMeta.slider}
+             <input class="number-range" type="range" min={numberMeta.min??0} max={numberMeta.max??100} step={numberMeta.step} value={Number(field.value)} aria-label={fieldName(field)+"滑杆"} oninput={e=>updateField(field,(e.currentTarget as HTMLInputElement).value)} />
+            {/if}
+            <div class="number-entry">
+             <input id={`site-field-${currentSection}-${field.path.join('-')}`} type="number" min={numberMeta.min} max={numberMeta.max} step={numberMeta.step} value={Number.isFinite(field.value)?String(field.value):''} oninput={e=>updateField(field,(e.currentTarget as HTMLInputElement).value)} />
+             {#if numberMeta.unit}<span class="number-unit">{numberMeta.unit}</span>{/if}
+            </div>
+            {#if numberMeta.slider}<output class="range-output">{percentageText(numberMeta,Number(field.value))}</output>{/if}
+           </div>
+           {#if numberMeta.help}<small class="field-help">{numberMeta.help}</small>{/if}
           {:else if enumOptions(field)}
-           <select id={`site-field-${currentSection}-${field.path.join('-')}`} value={String(field.value)} onchange={e=>updateField(field,(e.currentTarget as HTMLSelectElement).value)}>
-            {#each enumOptions(field)||[] as option}<option value={option.value}>{option.label}</option>{/each}
-           </select>
+           {#if (enumOptions(field)||[]).length<=4}
+            <div class="choice-row" role="group" aria-label={fieldName(field)}>
+             {#each enumOptions(field)||[] as option}
+              <button type="button" class:chosen={String(field.value)===option.value} aria-pressed={String(field.value)===option.value} onclick={()=>updateField(field,option.value)}>{option.label}</button>
+             {/each}
+            </div>
+           {:else}
+            <select id={`site-field-${currentSection}-${field.path.join('-')}`} value={String(field.value)} onchange={e=>updateField(field,(e.currentTarget as HTMLSelectElement).value)}>
+             {#each enumOptions(field)||[] as option}<option value={option.value}>{option.label}</option>{/each}
+            </select>
+           {/if}
           {:else if field.kind==="lines"}
            <textarea id={`site-field-${currentSection}-${field.path.join('-')}`} rows="5" spellcheck="false" onblur={e=>updateField(field,(e.currentTarget as HTMLTextAreaElement).value)}>{(field.value as string[]).join('\n')}</textarea>
            <small class="field-help">每行一个内容。可以直接增加或删除行，不需要了解配置格式。</small>
@@ -287,7 +329,7 @@ onMount(()=>{jsonText=toJson(sectionValue());try{savedLocally=!!localStorage.get
           {:else}
            <input id={`site-field-${currentSection}-${field.path.join('-')}`} type="text" value={String(field.value??'')} oninput={e=>updateField(field,(e.currentTarget as HTMLInputElement).value)}/>
           {/if}
-          {#if chineseHelp(currentSection,field.path,field.value)}<small class="field-help">{chineseHelp(currentSection,field.path,field.value)}</small>{/if}
+          {#if field.kind!=="boolean"&&field.kind!=="number"&&chineseHelp(currentSection,field.path,field.value)}<small class="field-help">{chineseHelp(currentSection,field.path,field.value)}</small>{/if}
           {#if showImagePreview(field)}<SiteSettingsImagePreview value={String(field.value??'')} label={fieldName(field)}/>{/if}
          </div>
         {/each}
@@ -391,4 +433,31 @@ onMount(()=>{jsonText=toJson(sectionValue());try{savedLocally=!!localStorage.get
 @media(min-width:901px){.settings-groups{max-height:calc(100vh - 1rem)}}
 @media(max-width:900px){.settings-grid{grid-template-columns:minmax(0,1fr)}.settings-groups button{min-width:7.6rem;max-width:9rem}.settings-form{padding:.62rem}.settings-groups .category-heading{min-width:4.4rem;padding:.38rem .24rem}.settings-header{padding:.65rem .8rem}}
 @media(max-width:620px){.logical-group{padding:.3rem .4rem}.settings-form .field{padding:.15rem .06rem}.settings-form .field input,.settings-form .field select,.settings-form .field textarea{font-size:16px}.group-count{font-size:.6rem}}
+/* Direct switches, compact segmented choices and measured numeric controls. */
+.settings-form .field.toggle-row{border:1px solid var(--line-divider);border-radius:.55rem;background:color-mix(in srgb,var(--card-bg) 98%,var(--primary) 2%);padding:.25rem .52rem;min-height:2.5rem;display:flex;justify-content:center}
+.setting-switch-row{display:flex;align-items:center;gap:.5rem;cursor:pointer;width:100%;min-height:2.15rem;font-size:.77rem;user-select:none}
+.switch-copy{flex:1;min-width:0;line-height:1.4;font-weight:600}
+.switch-copy strong{font-size:.76rem;font-weight:650}
+.settings-form .field .setting-switch-input{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important}
+.setting-switch-track{flex:none;width:2.35rem;height:1.35rem;border-radius:99px;background:color-mix(in srgb,var(--text-muted,#888) 45%,transparent);position:relative;transition:background .15s ease}
+.setting-switch-track>span{display:block;width:1.03rem;height:1.03rem;border-radius:50%;background:#fff;box-shadow:0 1px 3px #0002;position:absolute;top:.16rem;left:.16rem;transition:transform .15s ease}
+.setting-switch-input:checked+.setting-switch-track{background:var(--primary)}
+.setting-switch-input:checked+.setting-switch-track>span{transform:translateX(1rem)}
+.setting-switch-input:focus-visible+.setting-switch-track{outline:3px solid var(--primary);outline-offset:3px}
+.switch-status{font-size:.65rem;color:var(--text-muted,#888);min-width:2.45rem;text-align:right}
+.choice-row{display:flex;flex-wrap:wrap;gap:.3rem;min-width:0}
+.settings-form .choice-row button{min-height:1.95rem;padding:.32rem .55rem;border-radius:.42rem;font-size:.72rem;font-weight:520;background:transparent}
+.settings-form .choice-row button.chosen{background:color-mix(in srgb,var(--primary) 12%,var(--card-bg));color:var(--primary);border-color:var(--primary);font-weight:740}
+.settings-form .choice-row button:focus-visible{outline:2px solid var(--primary);outline-offset:2px}
+.number-editor{display:flex;align-items:center;gap:.5rem;min-width:0;flex-wrap:wrap}
+.number-editor.with-slider{flex-wrap:nowrap}
+.settings-form .field .number-entry{display:flex;align-items:center;gap:.15rem;min-width:4.8rem;max-width:11rem;width:100%;position:relative}
+.settings-form .field .number-entry input{width:100%;padding-right:2rem}
+.settings-form .field .number-entry:has(.number-unit) input{padding-right:3rem}
+.number-unit{position:absolute;right:.45rem;font-size:.64rem;color:var(--text-muted,#888);white-space:nowrap;pointer-events:none}
+.settings-form .field .number-range{flex:1;min-width:65px;width:100%;height:1.1rem;accent-color:var(--primary);padding:0;border:none;background:none;cursor:pointer}
+.range-output{min-width:2rem;font-size:.7rem;color:var(--primary);text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
+@media(max-width:620px){.number-editor.with-slider{gap:.3rem}.settings-form .field .number-entry{max-width:6.2rem}.switch-status{font-size:.62rem}}
+
+.theme-color-swatch{width:1.3rem;height:1.3rem;flex-shrink:0;display:inline-block;border:2px solid var(--line-divider);border-radius:50%;box-shadow:0 1px 3px #0002}
 </style>

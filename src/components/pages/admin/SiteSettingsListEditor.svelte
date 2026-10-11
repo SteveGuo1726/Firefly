@@ -23,6 +23,34 @@ function fields(item:Record<string,unknown>,def:ListDefinition){
 }
 function imageField(key:string,value:unknown){return ['imgurl','avatar','qrCode','cover','src'].includes(key)||(key==='icon'&&typeof value==='string'&&isImageSetting(section,[...path,key],value));}
 function nested(item:Record<string,unknown>,key:string){return Array.isArray(item[key])?item[key] as Record<string,unknown>[]:[];}
+type NestedLeaf={path:string[];value:unknown};
+function nestedFields(value:unknown,base:string[]=[],depth=0):NestedLeaf[]{
+ if(depth>7)return [{path:base,value}];
+ if(value&&typeof value==='object'&&!Array.isArray(value)){
+  const pairs=Object.entries(value as Record<string,unknown>);
+  if(!pairs.length)return [];
+  return pairs.flatMap(([key,v])=>nestedFields(v,[...base,key],depth+1));
+ }
+ return [{path:base,value}];
+}
+function nestedLabel(path:string[]):string{
+ const last=path.at(-1)||'';
+ return chineseLabel(section,[...pathToCurrent(),...path]);
+}
+function pathToCurrent():string[]{return path.filter(x=>!/^\d+$/.test(x));}
+function changeNested(index:number,key:string,subpath:string[],next:unknown){
+ const source=list[index][key];
+ if(!source||typeof source!=='object'||Array.isArray(source))return;
+ const cloned=structuredClone(source) as Record<string,unknown>;
+ let target=cloned;
+ for(const segment of subpath.slice(0,-1)){
+  const nested=target[segment];if(!nested||typeof nested!=='object'||Array.isArray(nested))return;
+  target=nested as Record<string,unknown>;
+ }
+ target[subpath.at(-1)!]=next;
+ change(index,key,cloned);
+}
+
 const componentOptions=[['profile','个人资料'],['announcement','公告'],['music','音乐播放器'],['categories','分类'],['tags','标签'],['advertisement','广告'],['stats','统计'],['calendar','日历'],['sidebarToc','目录'],['dynamic','最新动态'],['siteInfo','站点信息']];
 function options(key:string):string[][]{
  if(key==='type'&&path.some(x=>x.includes('Components')))return componentOptions;
@@ -51,22 +79,65 @@ function options(key:string):string[][]{
        <div class="item-fields">
         {#each fields(item,definition!) as field (field.key)}
          {@const val=item[field.key]}
-         <div class="item-field" class:wide={['textarea','json','lines','image'].includes(field.kind||'')||imageField(field.key,val)}>
-          <label>{field.title}</label>
+         <div class="item-field" class:toggle-item={field.kind==='boolean'||typeof val==='boolean'} class:wide={['textarea','json','lines','image'].includes(field.kind||'')||imageField(field.key,val)}>
           {#if field.kind==='boolean'||typeof val==='boolean'}
-           <label class="checkbox-inline"><input type="checkbox" checked={val===true} onchange={e=>change(index,field.key,(e.currentTarget as HTMLInputElement).checked)}/><span>{val===true?'开启':'关闭'}</span></label>
-          {:else if field.kind==='lines'||Array.isArray(val)&&val.every(v=>typeof v==='string')}
-           <textarea rows="2" onblur={e=>change(index,field.key,(e.currentTarget as HTMLTextAreaElement).value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean))}>{Array.isArray(val)?val.join('\n'):''}</textarea>
-          {:else if field.kind==='json'||val!==null&&typeof val==='object'}
-           <textarea rows="3" spellcheck="false" onblur={e=>jsonField(index,field.key,(e.currentTarget as HTMLTextAreaElement).value)}>{JSON.stringify(val??{},null,2)}</textarea>
-          {:else if field.kind==='number'||typeof val==='number'}
-           <input type="number" value={Number(val??0)} oninput={e=>change(index,field.key,Number((e.currentTarget as HTMLInputElement).value))}/>
-          {:else if options(field.key).length}
-           <select value={String(val??'')} onchange={e=>change(index,field.key,(e.currentTarget as HTMLSelectElement).value)}>{#each options(field.key) as opt}<option value={opt[0]}>{opt[1]}</option>{/each}{#if val&&!options(field.key).some(opt=>opt[0]===val)}<option value={String(val)}>{String(val)}</option>{/if}</select>
-          {:else if field.kind==='textarea'}
-           <textarea rows="2" oninput={e=>change(index,field.key,(e.currentTarget as HTMLTextAreaElement).value)}>{String(val??'')}</textarea>
+           <label class="item-switch-row">
+            <span class="item-switch-title">{field.title}</span>
+            <input class="item-switch-input" type="checkbox" role="switch" checked={val===true} onchange={e=>change(index,field.key,(e.currentTarget as HTMLInputElement).checked)}/>
+            <span class="item-switch-track" aria-hidden="true"><span></span></span>
+            <small>{val===true?'已开启':'已关闭'}</small>
+           </label>
           {:else}
-           <input type="text" value={String(val??'')} oninput={e=>change(index,field.key,(e.currentTarget as HTMLInputElement).value)}/>
+           <label>{field.title}</label>
+          {/if}
+          {#if field.kind!=='boolean'&&typeof val!=='boolean'}
+           {#if field.kind==='lines'||Array.isArray(val)&&val.every(v=>typeof v==='string')}
+           <textarea aria-label={field.title} rows="2" onblur={e=>change(index,field.key,(e.currentTarget as HTMLTextAreaElement).value.split(/\r?\n/).map(x=>x.trim()).filter(Boolean))}>{Array.isArray(val)?val.join('\n'):''}</textarea>
+          {:else if (field.kind==='json'||val!==null&&typeof val==='object')&&val!==null&&typeof val==='object'&&!Array.isArray(val)}
+           <details class="item-advanced-options">
+            <summary>编辑{field.title}<span>点击展开</span></summary>
+            <div class="item-nested-fields">
+             {#each nestedFields(val) as nestedField (nestedField.path.join('.'))}
+              <div class="item-field" class:wide={typeof nestedField.value==='string'&&nestedField.value.length>90||Array.isArray(nestedField.value)}>
+               <label>{nestedLabel(nestedField.path)}</label>
+               {#if typeof nestedField.value==='boolean'}
+                <label class="item-switch-row nested-switch">
+                 <input class="item-switch-input" type="checkbox" role="switch" aria-label={nestedLabel(nestedField.path)} checked={nestedField.value} onchange={e=>changeNested(index,field.key,nestedField.path,(e.currentTarget as HTMLInputElement).checked)}/>
+                 <span class="item-switch-track" aria-hidden="true"><span></span></span><small>{nestedField.value?'已开启':'已关闭'}</small>
+                </label>
+               {:else if typeof nestedField.value==='number'}
+                <input type="number" aria-label={nestedLabel(nestedField.path)} value={nestedField.value} step={Number.isInteger(nestedField.value)?1:0.01} oninput={e=>changeNested(index,field.key,nestedField.path,Number((e.currentTarget as HTMLInputElement).value))}/>
+               {:else if Array.isArray(nestedField.value)&&nestedField.value.every(v=>typeof v==='string')}
+                <textarea rows="2" aria-label={nestedLabel(nestedField.path)} onblur={e=>changeNested(index,field.key,nestedField.path,(e.currentTarget as HTMLTextAreaElement).value.split(/\r?\n/).map(v=>v.trim()).filter(Boolean))}>{nestedField.value.join('\n')}</textarea>
+               {:else}
+                <input type="text" aria-label={nestedLabel(nestedField.path)} value={String(nestedField.value??'')} oninput={e=>changeNested(index,field.key,nestedField.path,(e.currentTarget as HTMLInputElement).value)}/>
+               {/if}
+               {#if typeof nestedField.value==='string'&&isImageSetting(section,[...path,field.key,...nestedField.path],nestedField.value)}
+                <SiteSettingsImagePreview compact={true} label={nestedLabel(nestedField.path)} value={nestedField.value}/>
+               {/if}
+              </div>
+             {/each}
+            </div>
+           </details>
+          {:else if field.kind==='json'||val!==null&&typeof val==='object'}
+           <textarea aria-label={field.title} rows="2" spellcheck="false" onblur={e=>jsonField(index,field.key,(e.currentTarget as HTMLTextAreaElement).value)}>{JSON.stringify(val??{},null,2)}</textarea>
+          {:else if field.kind==='number'||typeof val==='number'}
+           <input aria-label={field.title} type="number" value={Number(val??0)} oninput={e=>change(index,field.key,Number((e.currentTarget as HTMLInputElement).value))}/>
+          {:else if options(field.key).length}
+           {#if options(field.key).length<=3}
+            <div class="item-choice-row" role="group" aria-label={field.title}>
+             {#each options(field.key) as opt}
+              <button type="button" class:chosen={val===opt[0]} aria-pressed={val===opt[0]} onclick={()=>change(index,field.key,opt[0])}>{opt[1]}</button>
+             {/each}
+            </div>
+           {:else}
+            <select aria-label={field.title} value={String(val??'')} onchange={e=>change(index,field.key,(e.currentTarget as HTMLSelectElement).value)}>{#each options(field.key) as opt}<option value={opt[0]}>{opt[1]}</option>{/each}{#if val&&!options(field.key).some(opt=>opt[0]===val)}<option value={String(val)}>{String(val)}</option>{/if}</select>
+           {/if}
+          {:else if field.kind==='textarea'}
+           <textarea aria-label={field.title} rows="2" oninput={e=>change(index,field.key,(e.currentTarget as HTMLTextAreaElement).value)}>{String(val??'')}</textarea>
+          {:else}
+           <input aria-label={field.title} type="text" value={String(val??'')} oninput={e=>change(index,field.key,(e.currentTarget as HTMLInputElement).value)}/>
+           {/if}
           {/if}
           {#if field.hint}<small>{field.hint}</small>{/if}
           {#if imageField(field.key,val)}<SiteSettingsImagePreview compact={true} label={field.title} value={typeof val==='string'?val:''}/>{/if}
@@ -129,4 +200,25 @@ function options(key:string):string[][]{
 .item-field :global(.image-preview.compact){margin:0;padding:.3rem}
 .item-field :global(.image-preview.compact .preview-image-link){height:76px}
 @media(max-width:620px){.item-fields{grid-template-columns:minmax(0,1fr)}.item-field.wide{grid-column:span 1}.expand{font-size:.58rem}.list-search{order:3;width:100%!important}.list-manager .list-actions button{min-width:1.4rem!important;padding:.12rem!important}.item-title small{max-width:140px}}
+.item-field.toggle-item{border:1px solid var(--line-divider);border-radius:.45rem;padding:.26rem .45rem;background:color-mix(in srgb,var(--card-bg) 98%,var(--primary) 2%);justify-content:center}
+.item-switch-row{display:flex;align-items:center;gap:.38rem;cursor:pointer;min-height:1.7rem;user-select:none}
+.item-switch-title{flex:1;min-width:0;font-size:.71rem;font-weight:640}
+.item-field .item-switch-input{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important}
+.item-switch-track{flex:none;width:2rem;height:1.12rem;border-radius:99px;background:color-mix(in srgb,var(--text-muted,#888) 45%,transparent);position:relative}
+.item-switch-track>span{display:block;width:.85rem;height:.85rem;position:absolute;top:.135rem;left:.13rem;border-radius:50%;background:white;box-shadow:0 1px 3px #0002;transition:transform .14s ease}
+.item-switch-input:checked+.item-switch-track{background:var(--primary)}
+.item-switch-input:checked+.item-switch-track>span{transform:translateX(.9rem)}
+.item-switch-input:focus-visible+.item-switch-track{outline:2px solid var(--primary);outline-offset:3px}
+.item-switch-row small{font-size:.62rem;color:var(--text-muted,#888);white-space:nowrap}
+.item-choice-row{display:flex;gap:.28rem;flex-wrap:wrap}
+.list-manager .item-choice-row button{min-height:1.85rem;padding:.24rem .55rem;font-size:.71rem;border:1px solid var(--line-divider);border-radius:.42rem}
+.list-manager .item-choice-row button.chosen{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 12%,var(--card-bg));color:var(--primary);font-weight:730}
+
+.item-advanced-options{border:1px solid var(--line-divider);border-radius:.45rem;min-width:0}
+.item-advanced-options>summary{list-style:none;cursor:pointer;padding:.42rem .55rem;display:flex;justify-content:space-between;gap:.4rem;font-size:.71rem;font-weight:650}
+.item-advanced-options>summary::-webkit-details-marker{display:none}
+.item-advanced-options>summary>span{font-size:.63rem;color:var(--text-muted,#888);font-weight:400}
+.item-nested-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem;padding:.55rem;border-top:1px solid var(--line-divider)}
+.nested-switch{gap:.4rem;justify-content:flex-start}
+@media(max-width:620px){.item-nested-fields{grid-template-columns:minmax(0,1fr)}}
 </style>

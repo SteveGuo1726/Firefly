@@ -109,10 +109,21 @@ export function chineseLabel(section:string,path:string[]):string{
  const full=section+'.'+path.join('.');
  const direct=fieldOverrides[full]?.title;
  if(direct)return direct;
+ const parent=path.at(-2)||'';
+ const grandparent=path.at(-3)||'';
+ if((key==='desktop'||key==='mobile')&&parent==='enable'&&fieldNames[grandparent])
+  return (key==='desktop'?'电脑端':'手机端')+'启用'+fieldNames[grandparent];
+ if((key==='enable'||key==='enabled')&&parent&&fieldNames[parent])
+  return '开启'+fieldNames[parent].replace(/^(启用|显示|允许切换)/,'');
+ if(key==='mode'&&parent&&fieldNames[parent])return fieldNames[parent]+'展示方式';
+ if(key==='title'&&parent==='homeText')return '首页主标题';
+ if(key==='subtitle'&&parent==='homeText')return '首页副标题';
+ if(key==='src'&&parent==='favicon')return '浏览器图标图片';
+ if(key==='type'&&parent==='logo')return '网站标志形式';
  const base=fieldNames[key];
  return base||'其他设置';
 }
-export function chineseHelp(section:string,path:string[],value:unknown):string{
+export function chineseHelp(section:string,path:string[],_value:unknown):string{
  const direct=fieldOverrides[section+'.'+path.join('.')]?.hint;
  if(direct)return direct;
  const k=path.at(-1)||'';
