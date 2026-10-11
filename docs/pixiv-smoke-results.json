@@ -1,0 +1,51 @@
+{
+  "tested_at": "2026-10-11T09:38:42.451987+00:00",
+  "results": [
+    {
+      "name": "lolicon",
+      "http_status": 200,
+      "response_type": "dict",
+      "keys": [
+        "error",
+        "data"
+      ],
+      "count": 3,
+      "sample": [
+        {
+          "title": "魅魔鸭ver2.0",
+          "pid": 85624971,
+          "image_host": "https://i.pixiv.re/img-master/img/2020/11/12/19/03/36/85624971_p0_master1200.jpg"
+        },
+        {
+          "title": "リオンあーと1年分(けんぜん)",
+          "pid": 78934698,
+          "image_host": "https://i.pixiv.re/img-master/img/2020/01/16/22/31/37/78934698_p0_master1200.jpg"
+        }
+      ],
+      "error": ""
+    },
+    {
+      "name": "anosu",
+      "error": "<urlopen error [Errno -2] Name or service not known>"
+    },
+    {
+      "name": "kira-worker-health",
+      "http_status": 200,
+      "response_type": "dict",
+      "keys": [
+        "ok",
+        "service",
+        "db",
+        "r18",
+        "version"
+      ],
+      "count": 0,
+      "sample": [],
+      "error": null
+    },
+    {
+      "name": "kira-worker-feed",
+      "error": "HTTP Error 503: Service Unavailable"
+    }
+  ]
+}
