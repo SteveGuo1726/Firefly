@@ -22,13 +22,3 @@ There are deliberately no write endpoints yet. D1 begins empty so demo creators/
 ## Guardrails
 
 Keep current blog and `img.casto.top` file URLs unchanged. Avoid any EdgeOne/domestic site deployment during this development phase. Real media variants, uploader authentication, moderation, ownership and licensing have not been implemented yet. The demo images are generated imagery for UI validation.
-
-## External art source lab (October 2026)
-
-- Live experiment: https://kira-source-lab-dev.guojunyang666666.workers.dev/
-- Source: `public/explore.html`. Shows Openverse preview thumbnails with artist credits, declared license/source links, filters for AI-labelled results; Danbooru is metadata-only and may be unavailable due to upstream restrictions.
-- API routes: `GET /api/v1/external/openverse?channel=anime&page=1` and `GET /api/v1/external/danbooru?channel=miku&page=1`.
-- Shared D1 budget: migration `api/migrations/0002_external_api_budget.sql`, 60 Openverse and 8 Danbooru remote misses per UTC day, 6-hour edge caches.
-- Source comparison, terms, licensing and Pixiv limitations: `docs/external-source-research.md`.
-
-This lab is **not** a free source of republishable Pixiv files. No external images are imported into the main KIRA work catalog, and the browser never mirrors the originals to our CDN. EdgeOne/domestic deployment remains entirely paused.
