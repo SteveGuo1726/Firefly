@@ -912,7 +912,7 @@
           "Blog"
         ],
         "weight": 26,
-        "enabled": false
+        "enabled": true
       }
     ],
     "sponsorConfig": {
