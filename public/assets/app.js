@@ -289,12 +289,26 @@ function relationScore(source,candidate,axis){
  }
  if(axis==='color'){
   if(!source.dominantHex||!candidate.dominantHex)return 0;
-  const parts=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+  const parts=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);
   const a=parts(source.dominantHex),b=parts(candidate.dominantHex);
-  const dist=Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
-  const sameTone=source.color===candidate.color;
-  if(!sameTone&&dist>96)return 0;
-  return Math.round((sameTone?90:35)+Math.max(0,100-dist)+overlap*4);
+  const hue=v=>{
+    const [r,g,bl]=v,max=Math.max(r,g,bl),min=Math.min(r,g,bl),d=max-min;
+    if(d===0)return 0;
+    const h=max===r?((g-bl)/d)%6:max===g?(bl-r)/d+2:(r-g)/d+4;
+    return (h/6+1)%1;
+  };
+  const saturation=v=>{const hi=Math.max(...v),lo=Math.min(...v);return hi? (hi-lo)/hi:0};
+  const distance=Math.hypot(...a.map((x,i)=>255*(x-b[i])));
+  const huediff=Math.abs(hue(a)-hue(b)),cycle=Math.min(huediff,1-huediff);
+  const satDiff=Math.abs(saturation(a)-saturation(b));
+  const same=source.color===candidate.color;
+  const warm=new Set(['红','粉','暖','金']),cool=new Set(['蓝','紫','绿']),neutral=new Set(['黑','白','灰']);
+  const adjacent=(warm.has(source.color)&&warm.has(candidate.color))||(cool.has(source.color)&&cool.has(candidate.color));
+  if(same)return Math.round(160-Math.min(90,distance*.46)+overlap*2);
+  if(adjacent&&cycle<.21&&satDiff<.58)return Math.round(108-cycle*240-satDiff*30+overlap*2);
+  if(neutral.has(source.color)&&neutral.has(candidate.color)&&distance<135)return Math.round(95-distance*.42);
+  if(distance<68)return Math.round(70-distance*.5);
+  return 0;
  }
  if(axis==='mood'){
   if(!generic.has(source.mood)&&source.mood===candidate.mood)return 100+overlap*7;
@@ -316,7 +330,7 @@ function relatedDraw(){
  container.innerHTML=list.map(x=>
   '<button class="related-item" data-related="'+x.id+'" aria-label="查看相关作品：'+esc(x.title)+'">'+
   '<img src="'+esc(x.card)+'" referrerpolicy="no-referrer" alt="" loading="lazy">'+
-  '<span>'+esc(x.title)+'<small class="related-reason">'+esc(state.relatedPath==='character'?x.character:state.relatedPath==='color'?x.color+'色调':x.mood)+'</small></span></button>'
+  '<span>'+esc(x.title)+'<small class="related-reason">'+esc(state.relatedPath==='character'?x.character:state.relatedPath==='color'?(x.color===w.color?x.color+'同色':x.color+'邻近色系'):x.mood)+'</small></span></button>'
  ).join('');
  let desc=$('relatedCount');
  if(!desc){desc=document.createElement('p');desc.id='relatedCount';desc.className='reader-related-count';container.before(desc)}
