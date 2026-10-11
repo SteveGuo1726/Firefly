@@ -2,18 +2,39 @@
 import SiteSettingsImagePreview from './SiteSettingsImagePreview.svelte';
 import {definitionForList,displayItemTitle,orderedMove} from '@/utils/settings/settings-list-schema';
 import type {ListDefinition} from '@/utils/settings/settings-list-schema';
-import {isImageSetting,chineseLabel} from '@/utils/settings/settings-editor-ui';
+import {isImageSetting,chineseLabel,isRemoteImageUrl,normalizeLocalImagePath} from '@/utils/settings/settings-editor-ui';
 export let section:string;
 export let path:string[];
 export let value:Record<string,unknown>[];
 export let onChange:(next:Record<string,unknown>[])=>void;
 let query='',error='';
+let removed:{index:number;item:Record<string,unknown>;title:string}|null=null;
+function imageThumbnail(item:Record<string,unknown>):string|null{
+ const source=item.imgurl||item.avatar||item.cover;
+ if(typeof source!=='string'||!source.trim())return null;
+ if(isRemoteImageUrl(source))return source;
+ const local=normalizeLocalImagePath(source);
+ return local?'/api/admin/auth/site-image'+local:null;
+}
+function undoRemove(){
+ if(!removed)return;
+ const next=[...list];
+ next.splice(Math.min(removed.index,next.length),0,removed.item);
+ removed=null;
+ commit(next);
+}
+
 $: definition=definitionForList(section,path);
 $: list=Array.isArray(value)?value:[];
 $: visible=list.map((item,index)=>({item,index})).filter(({item})=>!query||Object.values(item).some(v=>typeof v==='string'&&v.toLowerCase().includes(query.toLowerCase())));
 function commit(items:Record<string,unknown>[]){if(items.length>300){error='单个列表最多添加 300 项';return;}error='';onChange(items);}
 function add(){if(definition)commit([...list,definition.create()]);}
-function remove(index:number){if(confirm('从本机草稿中删除「'+displayItemTitle(list[index],index,definition!)+'」？'))commit(list.filter((_,i)=>i!==index));}
+function remove(index:number){
+ const title=displayItemTitle(list[index],index,definition!);
+ if(!confirm('从草稿中删除「'+title+'」？可以撤销。'))return;
+ removed={index,item:structuredClone(list[index]),title};
+ commit(list.filter((_,i)=>i!==index));
+}
 function move(index:number,to:number){commit(orderedMove(list,index,to,Boolean(definition?.orderByWeight)));}
 function change(index:number,key:string,next:unknown){commit(list.map((item,i)=>i===index?{...item,[key]:next}:item));}
 function jsonField(index:number,key:string,text:string){try{change(index,key,JSON.parse(text))}catch{error='附加选项的 JSON 格式不正确。'}}
@@ -62,6 +83,9 @@ function options(key:string):string[][]{
  <header class="list-toolbar">
   <strong>{definition?.title||'列表'}</strong><span>{list.length} 项</span>
   {#if list.length>8}<input class="list-search" type="search" aria-label="搜索列表" placeholder="搜索名称或网址" bind:value={query}/>{/if}
+  {#if removed}
+   <button type="button" class="undo-action" onclick={undoRemove} aria-label={'撤销删除 '+removed.title}>撤销删除「{removed.title}」</button>
+  {/if}
   <button type="button" class="add" onclick={add} disabled={!definition}>＋ 新增{definition?.itemLabel||'项目'}</button>
  </header>
  {#if definition?.help}<p class="list-description">{definition.help}</p>{/if}
@@ -74,7 +98,7 @@ function options(key:string):string[][]{
    <article class="list-card" class:inactive={item.enabled===false||item.enable===false}>
     <div class="list-line">
      <details class="item-detail">
-      <summary><span class="num">{index+1}</span><span class="item-title"><strong>{displayItemTitle(item,index,definition!)}</strong><small>{item.enabled===false?'已停用 · ':''}{String(item.siteurl||item.url||item.desc||'点击展开编辑')}</small></span><span class="expand">编辑 ▾</span></summary>
+      <summary><span class="num">{index+1}</span>{#if imageThumbnail(item)}<img class="list-avatar" src={imageThumbnail(item)!} alt="" loading="lazy" referrerpolicy="no-referrer" />{/if}<span class="item-title"><strong>{displayItemTitle(item,index,definition!)}</strong><small>{item.enabled===false?'已停用 · ':''}{String(item.siteurl||item.url||item.desc||'点击展开编辑')}</small></span><span class="expand">编辑 ▾</span></summary>
       <div class="item-body">
        <div class="item-fields">
         {#each fields(item,definition!) as field (field.key)}
@@ -221,4 +245,7 @@ function options(key:string):string[][]{
 .item-nested-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem;padding:.55rem;border-top:1px solid var(--line-divider)}
 .nested-switch{gap:.4rem;justify-content:flex-start}
 @media(max-width:620px){.item-nested-fields{grid-template-columns:minmax(0,1fr)}}
+.undo-action{border:1px solid var(--primary);color:var(--primary);font-size:.69rem;max-width:11rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.list-avatar{width:2.25rem;height:2.25rem;flex:none;object-fit:cover;border:1px solid var(--line-divider);border-radius:.42rem;background:var(--card-bg)}
+@media(max-width:620px){.list-avatar{width:1.85rem;height:1.85rem}}
 </style>

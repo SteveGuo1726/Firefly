@@ -31,6 +31,7 @@ const metadata:Record<string,{title:string;hint:string}>={
  sidebarLayoutConfig:{title:"侧边栏组件",hint:"组件排列、响应式隐藏、布局与内容"},
  analyticsConfig:{title:"访问统计",hint:"公开统计标识与前端分析开关，不含服务端密钥"},
  friendsConfig:{title:"友情链接",hint:"友链头像、站点名称、网址、订阅和排序；支持增删。"},
+ friendApplicationConfig:{title:"友链申请说明",hint:"本站友链资料、申请邮箱和可增删的申请注意事项。"},
  friendsPageConfig:{title:"友链页面",hint:"友链页介绍、申请说明及随机排序开关。"},
  friendCircleConfig:{title:"友链朋友圈",hint:"友链订阅聚合、更新间隔与缓存设置。"},
  sponsorConfig:{title:"赞助与支持",hint:"赞助方式、二维码和赞助者列表。"},
@@ -247,20 +248,24 @@ onMount(()=>{jsonText=toJson(sectionValue());try{savedLocally=!!localStorage.get
  <div class="site-mode-notice card-base" role="note"><strong>生效方式：构建时更新</strong><span>站点访客无需额外获取设置文件。后台编辑不会自动影响正式站点；密码、令牌、运行函数和部分尚未迁入 JSON 的高级配置仍由原来的服务端或 TypeScript 文件管理。</span></div>
  {#if error}<p class="settings-feedback error" role="alert">{error}</p>{/if}
  {#if message}<p class="settings-feedback" role="status">{message}</p>{/if}
- <div class="settings-grid">
-  <aside class="settings-groups card-base" aria-label="配置分组">
-   <div class="sidebar-top"><strong>按用途查找设置</strong><small>已整理 {sections.length} 类功能</small></div>
-   {#each sectionCategories as category}
-    <div class="category-heading"><strong>{category.title}</strong><small>{category.description}</small></div>
-    {#each category.sections as name}
-     {#if sections.includes(name as keyof Draft["sections"])}
-      <button type="button" class:active={name===currentSection} onclick={()=>changeSection(name as keyof Draft["sections"])} aria-current={name===currentSection?"true":undefined}>
-       <strong>{metadata[name]?.title||'其他功能设置'}</strong><small>{metadata[name]?.hint||'调整此功能的展示方式'}</small>
-      </button>
-     {/if}
-    {/each}
+ <nav class="settings-topic-nav" aria-label="站点设置主要分类">
+  {#each sectionCategories as category}
+   {@const active=category.sections.some(name=>name===currentSection)}
+   <button type="button" class:active aria-current={active?'page':undefined} onclick={()=>changeSection(category.sections[0] as keyof Draft['sections'])}>
+    <strong>{category.title}</strong><small>{category.description}</small>
+   </button>
+  {/each}
+ </nav>
+ <nav class="settings-subnav" aria-label="当前分类的设置">
+  {#each sectionCategories.filter(category=>category.sections.some(name=>name===currentSection)) as category}
+   {#each category.sections as name}
+    <button type="button" class:active={name===currentSection} aria-current={name===currentSection?'page':undefined} onclick={()=>changeSection(name as keyof Draft['sections'])}>
+     {metadata[name]?.title||'其他设置'}
+    </button>
    {/each}
-  </aside>
+  {/each}
+ </nav>
+ <div class="settings-grid">
   <main class="settings-form card-base">
    <header class="form-heading"><div><span class="eyebrow">可视化站点设置</span><h3>{metadata[currentSection]?.title||'站点功能'}</h3><p>{metadata[currentSection]?.hint}</p></div><div class="form-tools"><button type="button" onclick={toggleAdvanced}>{advanced?"返回图形化设置":"高级：编辑源码数据"}</button><button type="button" onclick={resetSection}>恢复本组默认值</button></div></header>
    {#if advanced}
@@ -460,4 +465,24 @@ onMount(()=>{jsonText=toJson(sectionValue());try{savedLocally=!!localStorage.get
 @media(max-width:620px){.number-editor.with-slider{gap:.3rem}.settings-form .field .number-entry{max-width:6.2rem}.switch-status{font-size:.62rem}}
 
 .theme-color-swatch{width:1.3rem;height:1.3rem;flex-shrink:0;display:inline-block;border:2px solid var(--line-divider);border-radius:50%;box-shadow:0 1px 3px #0002}
+
+/* Task-focused primary navigation: a single responsive workspace, not a 22-row sidebar. */
+.settings-workspace .settings-topic-nav{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.4rem;min-width:0}
+.settings-workspace .settings-topic-nav button{display:grid;gap:.14rem;text-align:left;padding:.58rem .76rem;border:1px solid var(--line-divider);border-radius:.55rem;background:var(--card-bg);min-width:0;min-height:3.15rem}
+.settings-topic-nav button strong{font-size:.78rem;font-weight:710}
+.settings-topic-nav button small{font-size:.65rem;font-weight:400;white-space:nowrap;text-overflow:ellipsis;overflow:hidden;color:var(--text-muted,#888)}
+.settings-topic-nav button.active{background:color-mix(in srgb,var(--primary) 12%,var(--card-bg));border-color:var(--primary);color:var(--primary)}
+.settings-workspace .settings-subnav{display:flex;align-items:center;flex-wrap:wrap;gap:.28rem;padding:.15rem 0 .38rem;border-bottom:1px solid var(--line-divider)}
+.settings-workspace .settings-subnav button{min-height:1.85rem;padding:.28rem .6rem;font-size:.72rem;background:transparent;border-color:transparent}
+.settings-workspace .settings-subnav button.active{color:var(--primary);background:color-mix(in srgb,var(--primary) 11%,var(--card-bg));border-color:color-mix(in srgb,var(--primary) 35%,transparent)}
+.settings-workspace .settings-grid{display:block;min-width:0}
+.settings-workspace .settings-form{max-width:100%;width:100%;min-width:0}
+@media(min-width:1100px){.settings-workspace .settings-topic-nav{grid-template-columns:repeat(6,minmax(0,1fr))}}
+@media(max-width:650px){.settings-workspace .settings-topic-nav{grid-template-columns:repeat(2,minmax(0,1fr));gap:.3rem}
+ .settings-workspace .settings-topic-nav button{padding:.42rem .55rem;min-height:2.9rem}
+ .settings-topic-nav button strong{font-size:.74rem}
+ .settings-topic-nav button small{font-size:.61rem}
+ .settings-workspace .settings-subnav{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;padding-bottom:.4rem}
+ .settings-workspace .settings-subnav button{flex-shrink:0;white-space:nowrap}
+}
 </style>

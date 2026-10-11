@@ -9,6 +9,8 @@ export const listDefinitions:Record<string,ListDefinition>={
  'backgroundWallpaper.common.homeText.links':{title:'首页快捷链接',help:'首页大标题下面的图标入口；点击条目可编辑名称、地址和图标。',itemLabel:'快捷入口',fields:[
   {key:'name',title:'显示名称'},{key:'url',title:'跳转地址'},{key:'icon',title:'图标名称或图片'},{key:'showName',title:'显示名称文字',kind:'boolean'}],
   create:()=>({name:'新快捷入口',icon:'material-symbols:link',url:'https://example.com',showName:false})},
+ 'friendApplicationConfig.notes':{title:'申请友链的注意事项',help:'申请人提交友链前需要阅读的要求。可新增、删除、调整顺序；按页面展示顺序保存。',itemLabel:'注意事项',fields:[
+  {key:'title',title:'注意事项标题'},{key:'content',title:'具体说明',kind:'textarea'}],create:()=>({title:'新注意事项',content:'请填写具体要求'})},
  'profileConfig.links':{title:'个人社交链接',help:'侧栏资料卡中的 GitHub、RSS、邮箱等快捷入口。',itemLabel:'社交链接',fields:[
   {key:'name',title:'显示名称'},{key:'url',title:'跳转链接'},{key:'icon',title:'图标名称或图片'},{key:'showName',title:'显示名称文字',kind:'boolean'}],create:()=>({name:'新社交链接',icon:'material-symbols:link',url:'https://example.com',showName:true})},
  'sponsorConfig.methods':{title:'赞助方式',help:'管理支付宝、微信或第三方支持方式。每种方式都可独立启用或关闭。',itemLabel:'赞助方式',fields:[

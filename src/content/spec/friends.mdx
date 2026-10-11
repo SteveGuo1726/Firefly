@@ -7,34 +7,9 @@ description: "与优秀的朋友们一起成长"
 
 {/* ========== 站点信息 ========= */}
 
-export const site = {
-	name: "星遐蝶梦",
-	desc: "星穹漫遐，蝶携清梦。",
-	url: "https://blog.casto.top",
-	avatar: "https://blog.casto.top/assets/images/avatar.png",
-	email: "2367211699@qq.com"
-};
-
-{/* ========= 注意事项 ========== */}
-
-export const notes = [
-	{
-		title: "互换原则",
-		content: "请先将本站添加到您的友链页面，确认后会添加您的友链"
-	},
-	{
-		title: "链接维护",
-		content: "友链网站长期无法访问或内容违规，将会被移除"
-	},
-	{
-		title: "内容要求",
-		content: "内容积极向上，不含有任何含色情/反动/暴力等违法违规内容"
-	},
-	{
-		title: "站点要求",
-		content: "支持 HTTPS，以原创内容为主，能够正常访问且有持续更新"
-	}
-];
+import siteSettings from '../../data/site-settings.json';
+export const site = siteSettings.sections.friendApplicationConfig.site;
+export const notes = siteSettings.sections.friendApplicationConfig.notes;
 
 {/* ============================= */}
 
