@@ -64,13 +64,21 @@ const BOORU_CHANNELS=Object.freeze({miku:'hatsune_miku',touhou:'touhou',genshin:
 const OPEN_LICENSES=new Set(['by','by-sa','cc0','pdm']);
 function safeHttp(input,hosts=null){try{const u=new URL(input);return u.protocol==='https:'&&(!hosts||hosts.includes(u.hostname))?u.toString():null;}catch{return null;}}
 function shortText(v,max=180){return typeof v==='string'?v.trim().slice(0,max):'';}
-async function cachedUpstream(url,headers,ttl=21600){
+async function cachedUpstream(url,headers,ttl=21600,DB=null,source=''){
   // Edge-local cache does not guarantee a global quota: production must add a
   // daily global request budget or a publisher agreement before heavy usage.
   const key=new Request(url,{method:'GET'});
   const cache=caches.default;
   const hit=await cache.match(key);
   if(hit)return {upstream:await hit.json(),cache:'HIT'};
+  // A shared D1 budget caps the *total* cold misses across Cloudflare PoPs.
+  // This protects anonymous Openverse's 200/day limit and avoids abusing sources.
+  if(DB&&source){
+    const limit=source==='openverse'?60:8;
+    const day=new Date().toISOString().slice(0,10);
+    const row=await DB.prepare("INSERT INTO external_api_budget(source,day,calls) VALUES(?,?,1) ON CONFLICT(source,day) DO UPDATE SET calls=calls+1 WHERE calls<? RETURNING calls").bind(source,day,limit).first();
+    if(!row)throw new Error('external_daily_budget_exhausted');
+  }
   const rsp=await fetch(url,{headers,signal:AbortSignal.timeout(9000)});
   if(!rsp.ok)throw new Error('upstream_status_'+rsp.status);
   const body=await rsp.text();
@@ -79,7 +87,7 @@ async function cachedUpstream(url,headers,ttl=21600){
   await cache.put(key,new Response(body,{headers:{'content-type':'application/json','cache-control':'public, max-age='+ttl}}));
   return {upstream:data,cache:'MISS'};
 }
-async function exploreOpenverse(u){
+async function exploreOpenverse(u,DB){
   const channel=u.searchParams.get('channel')||'anime';
   if(!Object.hasOwn(OPENVERSE_CHANNELS,channel))return json({error:'invalid_channel'},400);
   const page=Math.max(1,Math.min(5,Number.parseInt(u.searchParams.get('page')||'1',10)||1));
@@ -90,8 +98,8 @@ async function exploreOpenverse(u){
   query.searchParams.set('license','by,by-sa,cc0,pdm');
   query.searchParams.set('mature','false');
   let data;
-  try{data=await cachedUpstream(query.toString(),{'accept':'application/json','user-agent':'KiraJumpDevelopment/0.1 (https://github.com/SteveGuo1726/Firefly)'},21600);}
-  catch(e){console.error('Openverse source error',e.message);return json({error:'external_source_unavailable',provider:'openverse',retry_after_seconds:1800},503,{'retry-after':'1800'});}
+  try{data=await cachedUpstream(query.toString(),{'accept':'application/json','user-agent':'KiraJumpDevelopment/0.1 (https://github.com/SteveGuo1726/Firefly)'},21600,DB,'openverse');}
+  catch(e){console.error('Openverse source error',e.message);return json({error:'external_source_unavailable',provider:'openverse',retry_after_seconds:1800},e.message==='external_daily_budget_exhausted'?429:503,{'retry-after':'1800'});}
   const items=(Array.isArray(data.upstream?.results)?data.upstream.results:[])
     .filter(x=>x.mature===false&&OPEN_LICENSES.has(x.license)&&safeHttp(x.thumbnail)&&safeHttp(x.foreign_landing_url)&&safeHttp(x.license_url))
     .slice(0,16).map(x=>({
@@ -108,7 +116,7 @@ async function exploreOpenverse(u){
       has_more:page<(data.upstream?.page_count||0),cache:data.cache,
       disclaimer:'开放许可来自上游提交者，需核验作品和上传者是否真正拥有该授权；不得自动入库。'});
 }
-async function exploreDanbooru(u){
+async function exploreDanbooru(u,DB){
   const channel=u.searchParams.get('channel')||'miku';
   if(!Object.hasOwn(BOORU_CHANNELS,channel))return json({error:'invalid_channel'},400);
   const page=Math.max(1,Math.min(3,Number.parseInt(u.searchParams.get('page')||'1',10)||1));
@@ -116,8 +124,8 @@ async function exploreDanbooru(u){
   url.searchParams.set('tags','rating:g '+BOORU_CHANNELS[channel]);
   url.searchParams.set('limit','16');url.searchParams.set('page',String(page));
   let data;
-  try{data=await cachedUpstream(url.toString(),{'accept':'application/json','user-agent':'KiraJumpDevelopment/0.1 (github.com/SteveGuo1726/Firefly; metadata discovery)'},21600);}
-  catch(e){console.error('Danbooru source error',e.message);return json({error:'external_source_unavailable',provider:'danbooru',retry_after_seconds:1800},503,{'retry-after':'1800'});}
+  try{data=await cachedUpstream(url.toString(),{'accept':'application/json','user-agent':'KiraJumpDevelopment/0.1 (github.com/SteveGuo1726/Firefly; metadata discovery)'},21600,DB,'danbooru');}
+  catch(e){console.error('Danbooru source error',e.message);return json({error:'external_source_unavailable',provider:'danbooru',retry_after_seconds:1800},e.message==='external_daily_budget_exhausted'?429:503,{'retry-after':'1800'});}
   const items=(Array.isArray(data.upstream)?data.upstream:[]).filter(x=>x.rating==='g'&&!x.is_deleted&&!x.is_banned)
     .slice(0,16).map(x=>({
       id:'danbooru:'+x.id,provider:'danbooru',title:shortText(x.tag_string_character,120).replaceAll('_',' ')||'二次元插画',
@@ -141,8 +149,8 @@ export default {async fetch(request,env){
   try {
     if(path==='/health')return json({ok:true,service:'kira-gallery-api-dev',db:!!env.DB,version:'0.2.0'},200,headers);
     if(path==='/api/v1/works')return addCors(await listWorks(env.DB,u),headers,request.method==='HEAD');
-    if(path==='/api/v1/external/openverse')return addCors(await exploreOpenverse(u),headers,request.method==='HEAD');
-    if(path==='/api/v1/external/danbooru')return addCors(await exploreDanbooru(u),headers,request.method==='HEAD');
+    if(path==='/api/v1/external/openverse')return addCors(await exploreOpenverse(u,env.DB),headers,request.method==='HEAD');
+    if(path==='/api/v1/external/danbooru')return addCors(await exploreDanbooru(u,env.DB),headers,request.method==='HEAD');
     if(path==='/api/v1/jump')return addCors(await jump(env.DB,u),headers,request.method==='HEAD');
     const workId=path.match(/^\/api\/v1\/works\/([a-zA-Z0-9][\w-]{0,80})$/);
     if(workId)return addCors(await getWork(env.DB,workId[1]),headers,request.method==='HEAD');
