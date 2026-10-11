@@ -33,7 +33,7 @@ jobs:
           const ids=new Set(all.map(x=>x.id));
           const blocked=all.filter(x=>(x.tags||[]).some(t=>/^r[\s_-]*18(?:g)?$/i.test(t))).length;
           const result={syntax_valid:true,records:all.length,unique:ids.size,color_extracted:done,explicit_r18_tags_found:blocked,front_has_pixiv_source:html.includes('id="pixivSource"'),app_hydrates_json:js.includes('hydrateRealPixiv'),app_filters_explicit_rating:js.includes('DENY_TAG'),source_url_all_valid:all.every(x=>x.pixiv_url==='https://www.pixiv.net/artworks/'+x.pid),allowed_hosts:all.every(x=>new URL(x.thumbnail_url).hostname==='i.pixiv.re')};
-          assert(result.syntax_valid&&result.records>=40&&result.color_extracted>=20&&result.front_has_pixiv_source&&result.app_hydrates_json&&result.app_filters_explicit_rating&&result.source_url_all_valid&&result.allowed_hosts);
+          assert(result.syntax_valid&&result.records>=40&&result.color_extracted>=20&&result.front_has_pixiv_source&&result.app_hydrates_json&&result.app_filters_explicit_rating&&result.source_url_all_valid&&result.allowed_hosts&&result.explicit_r18_tags_found===0);
           fs.mkdirSync('docs',{recursive:true});
           fs.writeFileSync('docs/kira-v6-static-qa.json',JSON.stringify(result,null,2));
           console.log(result);
