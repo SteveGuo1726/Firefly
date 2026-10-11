@@ -1,4 +1,4 @@
-name: KIRA V7.2 Cloudflare live verification
+name: KIRA V7.3 Cloudflare live verification
 on:
   push:
     branches: [kira-development]
@@ -51,6 +51,23 @@ jobs:
             except Exception as e:result={"error":str(e)}
             print(path,result)
             report["checks"][path]=result
+          # HEAD verifies response and MIME only; it does not claim successful browser decoding.
+          samples=[]
+          try:
+            req=urllib.request.Request(base+"/assets/pixiv-feed.json",headers={"User-Agent":"Mozilla/5.0"})
+            with urllib.request.urlopen(req,timeout=10) as resp: source=json.load(resp)
+            example=source["channels"]["miku"][0]
+            for key in ("thumbnail_url","preview_url","original_url"):
+              item={"quality":key,"pixiv_id":example["pid"],"check":"HEAD-only"}
+              try:
+                head=urllib.request.Request(example[key],method="HEAD",headers={"User-Agent":"Mozilla/5.0"})
+                with urllib.request.urlopen(head,timeout=10) as media:
+                  item["http_status"]=media.status
+                  item["mime"]=media.headers.get("content-type")
+              except Exception as ex:item["error"]=str(ex)[:160]
+              samples.append(item)
+          except Exception as ex:samples.append({"error":"sample_setup: "+str(ex)[:180]})
+          report["external_image_head_samples"]=samples
           health=report["checks"].get("/health",{})
           report["gallery_v73_pass"]=(health.get("server",{}).get("version")=="7.3.0" and report["checks"].get("/",{}).get("new_jump_tabs") and report["checks"].get("/assets/app.js",{}).get("new_relation_axes") and report["checks"].get("/assets/pixiv-feed.json",{}).get("works_in_snapshot",0)>=30)
           pathlib.Path("docs").mkdir(exist_ok=True)
