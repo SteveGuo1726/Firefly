@@ -1,7 +1,8 @@
+import { applyManagedConfig } from "../utils/settings/managed-config";
 import type { MusicPlayerConfig } from "../types/musicConfig";
 
 // 音乐播放器配置
-export const musicPlayerConfig: MusicPlayerConfig = {
+export const musicPlayerConfig: MusicPlayerConfig = applyManagedConfig("musicPlayerConfig", {
 	// 是否在导航栏显示音乐播放器入口
 	showInNavbar: true,
 
@@ -58,4 +59,4 @@ export const musicPlayerConfig: MusicPlayerConfig = {
 			},
 		],
 	},
-};
+});

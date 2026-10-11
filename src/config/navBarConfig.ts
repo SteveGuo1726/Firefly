@@ -1,3 +1,4 @@
+import { applyManagedConfig } from "../utils/settings/managed-config";
 import {
 	type NavBarConfig,
 	type NavBarLink,
@@ -96,32 +97,16 @@ const getDynamicNavBarConfig = (): NavBarConfig => {
 		],
 	});
 
-	// 自定义导航栏链接
+	// 自定义导航菜单由集中站点配置提供数据，不改变内置菜单或页面开关联动。
 	links.push({
 		name: "链接",
 		url: "#",
 		icon: "material-symbols:link",
-		// 子菜单
-		children: [
-			{
-				name: "GitHub",
-				url: "https://github.com/SteveGuo1726",
-				external: true,
-				icon: "fa7-brands:github",
-			},
-			{
-				name: "QQ交流群",
-				url: "https://qm.qq.com/q/PBynpUViEM",
-				external: true,
-				icon: "fa7-brands:qq",
-			},
-			{
-				name: "Firefly文档",
-				url: "https://docs-firefly.cuteleaf.cn",
-				external: true,
-				icon: "material-symbols:docs",
-			},
-		],
+		children: applyManagedConfig("navCustomLinks", [
+			{ name: "GitHub", url: "https://github.com/SteveGuo1726", external: true, icon: "fa7-brands:github" },
+			{ name: "QQ交流群", url: "https://qm.qq.com/q/PBynpUViEM", external: true, icon: "fa7-brands:qq" },
+			{ name: "Firefly文档", url: "https://docs-firefly.cuteleaf.cn", external: true, icon: "material-symbols:docs" },
+		]),
 	});
 
 	// 文档链接

@@ -3,6 +3,7 @@
  * Credentials and executable configuration remain in their original modules.
  */
 import initial from '@/data/site-settings.json';
+import {assertSiteSettingsCollections} from './site-settings-list-validation';
 
 export type SiteSettingsDocument = typeof initial;
 export type SiteSettingsSectionName = keyof SiteSettingsDocument['sections'];
@@ -17,8 +18,8 @@ function copyValid(defaults:unknown,override:unknown,path:string,depth=0):unknow
  if(depth>16)throw new Error(`站点设置嵌套过深：${path}`);
  if(Array.isArray(defaults)){
   if(!Array.isArray(override))throw new Error(`站点设置 ${path} 应为数组`);
-  // Lists may contain heterogeneous component schemas; keep their entries.
-  // Their array shape is checked here; feature-specific rules remain with the owning module.
+  // Lists can contain heterogeneous component schemas; preserve their entries.
+  // Their top-level array shape is validated here; detailed constraints remain with the owning feature.
   return override;
  }
  if(isObject(defaults)){
@@ -46,6 +47,7 @@ export function assertSiteSettings(data:unknown,defaults:SiteSettingsDocument=in
   copyValid((defaults.sections as Record<string,unknown>)[key],overrides,key);
  }
  const sections=data.sections as Record<string,unknown>;
+ assertSiteSettingsCollections(sections);
  const site=sections.siteConfig;
  if(isObject(site)){
   const theme=isObject(site.themeColor)?site.themeColor:null;

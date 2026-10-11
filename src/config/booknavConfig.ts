@@ -1,7 +1,8 @@
+import { applyManagedConfig } from "../utils/settings/managed-config";
 import type { BooknavGroup, BooknavPageConfig } from "../types/booknavConfig";
 
 // 书签导航页面配置
-export const booknavPageConfig: BooknavPageConfig = {
+export const booknavPageConfig: BooknavPageConfig = applyManagedConfig("booknavPageConfig", {
 	// 页面标题，如果留空则使用 i18n 中的翻译
 	title: "",
 
@@ -19,11 +20,11 @@ export const booknavPageConfig: BooknavPageConfig = {
 		//   https://favicon.im/{domain}
 		api: "https://a.favicon.im/{domain}",
 	},
-};
+});
 
 // 书签导航配置
 // 每个数组项是一个分类组，分类组内的 items 是该分类下的书签
-export const booknavConfig: BooknavGroup[] = [
+export const booknavConfig: BooknavGroup[] = applyManagedConfig("booknavConfig", [
 	{
 		id: "dev",
 		name: "开发",
@@ -153,4 +154,4 @@ export const booknavConfig: BooknavGroup[] = [
 			},
 		],
 	},
-];
+]);

@@ -6,6 +6,8 @@ import type {GitHubAdminSession} from "@/utils/admin/github-session";
 import {getGitHubRepoConfigFromSession} from "@/utils/admin/github-session";
 import {fetchRepoFile,saveRepoFile} from "@/utils/write/github";
 import SiteSettingsImagePreview from "./SiteSettingsImagePreview.svelte";
+import SiteSettingsListEditor from "./SiteSettingsListEditor.svelte";
+import {isManagedList} from "@/utils/settings/settings-list-schema";
 import {sectionCategories,sectionGroups,chineseLabel,chineseHelp,isImageSetting} from "@/utils/settings/settings-editor-ui";
 
 export let session:GitHubAdminSession;
@@ -27,6 +29,15 @@ const metadata:Record<string,{title:string;hint:string}>={
  sakuraConfig:{title:"樱花与特效",hint:"动画开关、速度、数量及显示参数"},
  sidebarLayoutConfig:{title:"侧边栏组件",hint:"组件排列、响应式隐藏、布局与内容"},
  analyticsConfig:{title:"访问统计",hint:"公开统计标识与前端分析开关，不含服务端密钥"},
+ friendsConfig:{title:"友情链接",hint:"友链头像、站点名称、网址、订阅和排序；支持增删。"},
+ friendsPageConfig:{title:"友链页面",hint:"友链页介绍、申请说明及随机排序开关。"},
+ friendCircleConfig:{title:"友链朋友圈",hint:"友链订阅聚合、更新间隔与缓存设置。"},
+ sponsorConfig:{title:"赞助与支持",hint:"赞助方式、二维码和赞助者列表。"},
+ booknavPageConfig:{title:"书签页面",hint:"书签导航页面名称及图标自动获取。"},
+ booknavConfig:{title:"书签导航",hint:"书签分类和分类内的网址，可增删和排序。"},
+ musicPlayerConfig:{title:"音乐播放器",hint:"歌单平台、播放设置、本地歌曲与封面。"},
+ navCustomLinks:{title:"自定义导航",hint:"管理导航栏「链接」菜单中的项目和子菜单。"},
+
 };
 type Draft=typeof bundledSettings;
 let draft:Draft=structuredClone(initial);
@@ -52,15 +63,18 @@ function changeSection(section:keyof Draft["sections"]){
 }
 function cloneAndSet(path:string[],value:unknown){
  const candidate=structuredClone(draft);
- let object=candidate.sections[currentSection] as Record<string,unknown>;
- for(const key of path.slice(0,-1))object=object[key] as Record<string,unknown>;
- object[path.at(-1)!]=value;
+ if(path.length===0)(candidate.sections as Record<string,unknown>)[currentSection]=value;
+ else{
+  let object=candidate.sections[currentSection] as Record<string,unknown>;
+  for(const key of path.slice(0,-1))object=object[key] as Record<string,unknown>;
+  object[path.at(-1)!]=value;
+ }
  draft=candidate;dirty=true;error="";
  // Validate only on save or after leaving JSON mode: partially typed URLs and
  // incomplete numbers must not force the text cursor back to the previous value.
  if(editorMode!=="json")jsonText=toJson(sectionValue());
 }
-type EditableField={path:string[];value:unknown;kind:"string"|"number"|"boolean"|"json"|"lines"};
+type EditableField={path:string[];value:unknown;kind:"string"|"number"|"boolean"|"json"|"lines"|"list"};
 function fieldsForCurrent(config:Draft,section:keyof Draft["sections"]):EditableField[]{
  const fields:EditableField[]=[];
  const push=(path:string[],value:unknown)=>{
@@ -69,6 +83,7 @@ function fieldsForCurrent(config:Draft,section:keyof Draft["sections"]):Editable
   }else fields.push({path,value,kind:"json"});
  };
  const walk=(value:unknown,path:string[]=[],depth=0)=>{
+  if(isManagedList(section,path,value)){fields.push({path,value,kind:"list"});return;}
   if(depth>9||fields.length>550){push(path,value);return;}
   if(Array.isArray(value)){
    if(['keywords','categoryOrder','excludedLangs','noReferrerDomains'].includes(path.at(-1)||'') && value.every(entry=>typeof entry==='string')){
@@ -84,19 +99,31 @@ function fieldsForCurrent(config:Draft,section:keyof Draft["sections"]):Editable
  walk(config.sections[section]);return fields;
 }
 function fieldsForGroup(config:Draft,section:keyof Draft["sections"],keys:string[]):EditableField[]{
- return fieldsForCurrent(config,section).filter(field=>keys.includes(field.path[0]));
+ return fieldsForCurrent(config,section).filter(field=>field.path.length===0?keys.includes("$root"):keys.includes(field.path[0]));
 }
 function fieldName(field:EditableField):string{
- return chineseLabel(currentSection,field.path);
+ return field.path.length===0?(metadata[currentSection]?.title||"列表管理"):chineseLabel(currentSection,field.path);
 }
 function fieldContext(field:EditableField):string{
  const all=field.path.slice(0,-1);
- if(!all.length)return '';
+ if(all.length<2)return '';
  return all.map((segment,index)=>chineseLabel(currentSection,all.slice(0,index+1))).join(' · ');
 }
 function enumOptions(field:EditableField):{value:string;label:string}[]|null{
  const path=currentSection+'.'+field.path.join('.');
  const map:Record<string,{value:string;label:string}[]>={
+  'musicPlayerConfig.mode':[{value:'meting',label:'在线歌单'},{value:'local',label:'本地歌曲'}],
+  'musicPlayerConfig.playMode':[{value:'list',label:'列表循环'},{value:'one',label:'单曲循环'},{value:'random',label:'随机播放'}],
+  'musicPlayerConfig.meting.server':[{value:'netease',label:'网易云音乐'},{value:'tencent',label:'QQ 音乐'},{value:'kugou',label:'酷狗音乐'},{value:'xiami',label:'虾米音乐'},{value:'baidu',label:'百度音乐'}],
+  'musicPlayerConfig.meting.type':[{value:'playlist',label:'歌单'},{value:'song',label:'单曲'},{value:'album',label:'专辑'},{value:'search',label:'搜索'},{value:'artist',label:'歌手'}],
+  'siteConfig.bangumi.mode':[{value:'static',label:'构建时同步'},{value:'dynamic',label:'访问时加载'}],
+  'siteConfig.feed.contentMode':[{value:'full',label:'完整内容'},{value:'summary',label:'仅摘要'}],
+  'siteConfig.postListLayout.tagsPosition':[{value:'bottom',label:'卡片下方'},{value:'top',label:'卡片上方'}],
+  'siteConfig.postListLayout.tagsBottomStyle':[{value:'chip',label:'标签按钮'},{value:'inline',label:'行内文字'}],
+  'backgroundWallpaper.common.playerMode':[{value:'random',label:'随机切换'},{value:'list',label:'按顺序切换'}],
+  'backgroundWallpaper.fullscreen.layout':[{value:'classic',label:'经典模式'},{value:'hero',label:'沉浸式横幅'}],
+  'sidebarLayoutConfig.position':[{value:'both',label:'左右双侧栏'},{value:'left',label:'仅左侧'},{value:'right',label:'仅右侧'}],
+  'sidebarLayoutConfig.tabletSidebar':[{value:'left',label:'平板左侧栏'},{value:'right',label:'平板右侧栏'}],
   'siteConfig.themeColor.defaultMode':[{value:'system',label:'跟随系统'},{value:'light',label:'浅色模式'},{value:'dark',label:'深色模式'}],
   'siteConfig.navbar.logo.type':[{value:'image',label:'使用图片'},{value:'icon',label:'使用图标库'}],
   'siteConfig.navbar.menuAlign':[{value:'left',label:'左对齐'},{value:'center',label:'居中'},{value:'right',label:'右对齐'}],
@@ -159,7 +186,16 @@ function restoreLocal(){
  try{
   const saved=localStorage.getItem(draftKey);if(!saved){error="当前设备没有保存的站点设置草稿。";return;}
   const parsed=JSON.parse(saved).settings;
-  assertSiteSettings(parsed);draft=parsed;dirty=false;savedLocally=true;jsonText=toJson(sectionValue());setMessage("已从当前浏览器恢复站点设置草稿。");
+  if(!parsed||parsed.schemaVersion!==1||!parsed.sections||typeof parsed.sections!=="object")throw Error("草稿格式不正确");
+  // Earlier drafts only contain the original 14 groups.
+  const merged=structuredClone(initial);
+  for(const [key,value] of Object.entries(parsed.sections)){
+   if(Object.hasOwn(merged.sections,key))(merged.sections as Record<string,unknown>)[key]=value;
+  }
+  const migrated=Object.keys(merged.sections).filter(key=>!Object.hasOwn(parsed.sections,key)).length;
+  assertSiteSettings(merged);
+  draft=merged;dirty=false;savedLocally=true;jsonText=toJson(sectionValue());
+  setMessage(migrated?"已恢复旧草稿，并自动补全 "+migrated+" 组新设置；原有内容没有丢失。":"已从当前浏览器恢复站点设置草稿。");
  }catch(e){error=e instanceof Error?e.message:"恢复本机草稿失败";}
 }
 function resetSection(){
@@ -196,7 +232,7 @@ onMount(()=>{jsonText=toJson(sectionValue());try{savedLocally=!!localStorage.get
 
 <section class="settings-workspace">
  <header class="settings-header card-base">
-  <div><p class="eyebrow">站点配置中心</p><h2>站点设置</h2><p>从左侧选择你想修改的功能，再按说明调整具体设置。图片地址会在输入时自动预览；高级模式保留完整配置编辑能力。</p></div>
+  <div><p class="eyebrow">站点配置中心</p><h2>站点设置</h2><p>按用途选择设置。列表可直接新增、删除、排序，点开单条再编辑；图片地址输入后自动预览。</p></div>
   <div class="settings-actions"><button type="button" onclick={saveLocal} disabled={busy}>保存本机草稿</button><button type="button" onclick={exportJson} disabled={busy}>导出完整 JSON</button>{#if canCommit()}<button class="primary" type="button" onclick={publishExperiment} disabled={busy}>{busy?"提交中…":"提交实验分支"}</button>{/if}</div>
  </header>
  <div class="site-mode-notice card-base" role="note"><strong>生效方式：构建时更新</strong><span>站点访客无需额外获取设置文件。后台编辑不会自动影响正式站点；密码、令牌、运行函数和部分尚未迁入 JSON 的高级配置仍由原来的服务端或 TypeScript 文件管理。</span></div>
@@ -223,15 +259,17 @@ onMount(()=>{jsonText=toJson(sectionValue());try{savedLocally=!!localStorage.get
     <button class="primary" type="button" onclick={applyJson}>检查并应用此分类</button>
    {:else}
     <div class="logical-groups">
-     {#each sectionGroups(currentSection,sectionValue()) as group (group.id)}
-      <section class="logical-group">
-       <header class="logical-group-heading"><h4>{group.title}</h4><p>{group.description}</p></header>
+     {#each sectionGroups(currentSection,sectionValue()) as group, groupIndex (group.id)}
+      <details class="logical-group" open={groupIndex===0}>
+       <summary class="logical-group-heading"><h4>{group.title}</h4><span class="group-count">点击展开 / 收起</span></summary>
        <div class="fields">
         {#each fieldsForGroup(draft,currentSection,group.keys) as field (field.path.join('.'))}
-         <div class="field" class:wide={field.kind==="json"||field.kind==="lines"||showImagePreview(field)||(typeof field.value==="string"&&field.value.length>130)}>
+         <div class="field" class:wide={field.kind==="json"||field.kind==="lines"||field.kind==="list"||showImagePreview(field)||(typeof field.value==="string"&&field.value.length>130)}>
           <label for={`site-field-${currentSection}-${field.path.join('-')}`} class="field-label">{fieldName(field)}</label>
           {#if fieldContext(field)}<small class="field-location">{fieldContext(field)}</small>{/if}
-          {#if field.kind==="boolean"}
+          {#if field.kind==="list"}
+           <SiteSettingsListEditor section={currentSection} path={field.path} value={field.value as Record<string,unknown>[]} onChange={items=>cloneAndSet(field.path,items)}/>
+          {:else if field.kind==="boolean"}
            <select id={`site-field-${currentSection}-${field.path.join('-')}`} value={String(field.value)} onchange={e=>updateField(field,(e.currentTarget as HTMLSelectElement).value==="true")}><option value="true">开启</option><option value="false">关闭</option></select>
           {:else if field.kind==="number"}
            <input id={`site-field-${currentSection}-${field.path.join('-')}`} type="number" value={Number.isFinite(field.value)?String(field.value):''} oninput={e=>updateField(field,(e.currentTarget as HTMLInputElement).value)}/>
@@ -254,7 +292,7 @@ onMount(()=>{jsonText=toJson(sectionValue());try{savedLocally=!!localStorage.get
          </div>
         {/each}
        </div>
-      </section>
+      </details>
      {/each}
     </div>
    {/if}
@@ -322,4 +360,35 @@ onMount(()=>{jsonText=toJson(sectionValue());try{savedLocally=!!localStorage.get
 @media(min-width:901px){.settings-groups{position:sticky;top:1rem;max-height:calc(100vh - 2rem);overflow:auto}}
 @media(max-width:900px){.category-heading{min-width:6.5rem;max-width:7.5rem;flex:0 0 auto;border-top:0;border-left:1px solid var(--line-divider);padding:.38rem}.category-heading small{display:none}.settings-groups>.sidebar-top{flex:0 0 7rem}.settings-groups button{min-width:8.5rem;max-width:10rem}}
 @media(max-width:620px){.logical-group{padding:.6rem}.settings-form .field{padding:.6rem}.category-heading{min-width:5rem}.settings-groups button{min-width:8rem}}
+
+/* Compact disclosure-based settings layout, inspired by the local manager. */
+.settings-header{padding:.82rem 1rem;gap:.7rem}.settings-header h2{font-size:1.13rem;margin:.1rem 0 .2rem}
+.settings-header p{font-size:.74rem}.site-mode-notice{padding:.45rem .7rem;font-size:.7rem;gap:.1rem}
+.settings-grid{grid-template-columns:minmax(10rem,12.5rem) minmax(0,1fr);gap:.6rem}
+.settings-groups{padding:.38rem;gap:.1rem}.settings-groups button{padding:.36rem .55rem;min-height:2.05rem;gap:0}
+.settings-groups button strong{font-size:.75rem}.settings-groups button small{display:none}
+.sidebar-top{padding:.35rem .55rem}.sidebar-top small{font-size:.61rem}
+.category-heading{margin:.38rem .15rem .06rem;padding:.42rem .35rem .18rem}
+.category-heading strong{font-size:.68rem}.category-heading small{display:none}
+.settings-form{padding:.66rem .72rem}.form-heading{padding-bottom:.55rem;margin-bottom:.52rem}
+.form-heading h3{font-size:1rem}.form-heading p{font-size:.71rem}
+.logical-groups{gap:.42rem}.logical-group{padding:.35rem .52rem;border-radius:.6rem;background:var(--card-bg)}
+.logical-group-heading{cursor:pointer;display:flex;align-items:center;gap:.5rem;padding:.24rem .2rem;margin:0;border-bottom:0;list-style:none;min-height:2.05rem}
+.logical-group-heading::-webkit-details-marker{display:none}
+.logical-group-heading h4{font-size:.81rem;margin:0;flex:1}
+.logical-group-heading:before{content:'▸';color:var(--primary);font-size:.75rem}
+.logical-group[open]>.logical-group-heading:before{content:'▾'}
+.group-count{font-size:.64rem;color:var(--text-muted,#888);white-space:nowrap}
+.logical-group>.fields{padding:.45rem .15rem .28rem;border-top:1px solid var(--line-divider)}
+.fields{gap:.42rem .65rem}
+.settings-form .field{padding:.15rem .08rem;border:none;background:transparent;border-radius:0;gap:.19rem}
+.field-label{font-size:.74rem;font-weight:640}
+.field-location{display:none}.field-help{font-size:.65rem;line-height:1.35;color:var(--text-muted,#888)}
+.settings-form .field input,.settings-form .field select,.settings-form .field textarea{padding:.37rem .52rem;border-radius:.4rem;font-size:.78rem;min-height:2.1rem;margin-top:0}
+.settings-form .field input[type=number]{max-width:220px}
+.form-footer{margin-top:.65rem;padding-top:.6rem}.form-tools{gap:.25rem}
+.settings-workspace button{min-height:2.05rem;padding:.36rem .55rem;border-radius:.43rem;font-size:.72rem}
+@media(min-width:901px){.settings-groups{max-height:calc(100vh - 1rem)}}
+@media(max-width:900px){.settings-grid{grid-template-columns:minmax(0,1fr)}.settings-groups button{min-width:7.6rem;max-width:9rem}.settings-form{padding:.62rem}.settings-groups .category-heading{min-width:4.4rem;padding:.38rem .24rem}.settings-header{padding:.65rem .8rem}}
+@media(max-width:620px){.logical-group{padding:.3rem .4rem}.settings-form .field{padding:.15rem .06rem}.settings-form .field input,.settings-form .field select,.settings-form .field textarea{font-size:16px}.group-count{font-size:.6rem}}
 </style>

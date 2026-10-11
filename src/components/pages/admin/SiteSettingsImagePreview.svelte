@@ -3,6 +3,7 @@ import {onDestroy} from 'svelte';
 import {isRemoteImageUrl,normalizeLocalImagePath} from '@/utils/settings/settings-editor-ui';
 export let value:string='';
 export let label:string='图片';
+export let compact:boolean=false;
 let checked='';
 let imageSrc='';
 let imageOptions:string[]=[];
@@ -51,7 +52,7 @@ function failedLoading(){
 function loaded(){loading=false;failed=false;}
 onDestroy(()=>{if(wait)clearTimeout(wait);});
 </script>
-<div class="image-preview" aria-label={`${label}预览`}>
+<div class="image-preview" class:compact aria-label={`${label}预览`}>
  <div class="preview-caption"><span class="preview-icon">▣</span><span>图片实时预览</span><small>{isRemoteImageUrl(value)?'网络图片':'本地资源'}</small></div>
  {#if !value.trim()}
   <div class="preview-empty">输入图片地址后，这里会显示预览。</div>
@@ -77,4 +78,8 @@ onDestroy(()=>{if(wait)clearTimeout(wait);});
 .preview-empty.error{color:#bd5656}
 .preview-loading{font-size:.65rem;color:var(--text-muted,#888)}
 @media(max-width:620px){.preview-image-link{height:150px}}
+.image-preview.compact{padding:.3rem;gap:.25rem;margin-top:0}
+.image-preview.compact .preview-caption{font-size:.64rem}
+.image-preview.compact .preview-image-link{height:76px}
+.image-preview.compact .preview-empty{min-height:45px;font-size:.64rem}
 </style>

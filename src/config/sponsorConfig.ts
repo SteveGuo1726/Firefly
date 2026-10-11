@@ -1,6 +1,7 @@
+import { applyManagedConfig } from "../utils/settings/managed-config";
 import type { SponsorConfig } from "../types/sponsorConfig";
 
-export const sponsorConfig: SponsorConfig = {
+export const sponsorConfig: SponsorConfig = applyManagedConfig("sponsorConfig", {
 	// 页面标题，如果留空则使用 i18n 中的翻译
 	title: "",
 
@@ -56,4 +57,4 @@ export const sponsorConfig: SponsorConfig = {
 
 	// 打赏者列表（可选）
 	sponsors: [],
-};
+});
