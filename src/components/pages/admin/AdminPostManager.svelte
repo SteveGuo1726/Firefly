@@ -28,20 +28,110 @@ let previewViewport:"desktop"|"mobile"="desktop";
 let dockedPreview=false;
 let previewScrollPanel:HTMLElement|null=null;
 let syncingScrollFrom:"source"|"preview"|null=null;
+type ScrollAnchor={source:number;preview:number};
+let lineMeasurementCache:{text:string;width:number;font:string;positions:Map<number,number>}|null=null;
+
+/* A hidden pre-wrapped mirror measures the actual Y coordinate of Markdown
+   source lines, including wrapped URLs and long code. Simple line ratios are
+   wrong as soon as one paragraph occupies several visual lines. */
+function measureSourceLines(source:HTMLTextAreaElement):Map<number,number>{
+ const style=getComputedStyle(source);
+ const value=source.value,width=source.clientWidth,font=style.font;
+ if(lineMeasurementCache?.text===value&&lineMeasurementCache.width===width&&lineMeasurementCache.font===font)return lineMeasurementCache.positions;
+ const mirror=document.createElement("div");
+ Object.assign(mirror.style,{
+  position:"fixed",left:"-99999px",top:"0",visibility:"hidden",pointerEvents:"none",
+  boxSizing:"border-box",width:`${source.offsetWidth}px`,font:style.font,lineHeight:style.lineHeight,
+  letterSpacing:style.letterSpacing,wordSpacing:style.wordSpacing,padding:style.padding,
+  border:style.border,tabSize:style.tabSize,whiteSpace:"pre-wrap",overflowWrap:style.overflowWrap,
+  wordBreak:style.wordBreak,textAlign:style.textAlign,
+ });
+ const fragment=document.createDocumentFragment();
+ const markers:HTMLElement[]=[];
+ const lines=value.split("\n");
+ for(let i=0;i<lines.length;i++){
+  const span=document.createElement("span");
+  span.textContent="\u200b";
+  fragment.append(span,document.createTextNode(lines[i]));
+  if(i!==lines.length-1)fragment.append(document.createTextNode("\n"));
+  markers.push(span);
+ }
+ mirror.append(fragment);
+ document.body.append(mirror);
+ const top=mirror.getBoundingClientRect().top;
+ const positions=new Map<number,number>();
+ for(let i=0;i<markers.length;i++)positions.set(i+1,markers[i].getBoundingClientRect().top-top);
+ mirror.remove();
+ lineMeasurementCache={text:value,width,font,positions};
+ return positions;
+}
+
+/* Match the nearest rendered headings/paragraphs, then interpolate within each
+   pair. Clamp at scroll limits and use progress matching only for raw MDX
+   components with no usable source markers. */
+function alignPreviewToSource(from:"source"|"preview",source:HTMLTextAreaElement,preview:HTMLElement):number{
+ const sourceMax=Math.max(0,source.scrollHeight-source.clientHeight);
+ const previewMax=Math.max(0,preview.scrollHeight-preview.clientHeight);
+ const ratio=from==="source"?(sourceMax?source.scrollTop/sourceMax:0):(previewMax?preview.scrollTop/previewMax:0);
+ const fallback=ratio*(from==="source"?previewMax:sourceMax);
+ const nodes=Array.from(preview.querySelectorAll<HTMLElement>("[data-source-line]"));
+ if(nodes.length<2)return fallback;
+ const positions=measureSourceLines(source);
+ const previewBounds=preview.getBoundingClientRect();
+ const anchors:ScrollAnchor[]=[{source:0,preview:0}];
+ for(const node of nodes){
+  const line=Number(node.dataset.sourceLine),y=positions.get(line);
+  if(!line||y===undefined||y<0)continue;
+  const x=node.getBoundingClientRect().top-previewBounds.top+preview.scrollTop-preview.clientTop;
+  if(x<0)continue;
+  const last=anchors[anchors.length-1];
+  if(y>last.source+1&&x>last.preview+1&&y<sourceMax&&x<previewMax)anchors.push({source:y,preview:x});
+ }
+ if(anchors.length<2)return fallback;
+ anchors.push({source:sourceMax,preview:previewMax});
+ const current=from==="source"?source.scrollTop:preview.scrollTop;
+ const axis=from==="source"?"source":"preview";
+ const other=from==="source"?"preview":"source";
+ for(let i=1;i<anchors.length;i++){
+  const left=anchors[i-1],right=anchors[i];
+  if(current<=right[axis]||i===anchors.length-1){
+   const gap=right[axis]-left[axis];
+   if(gap<=0)return fallback;
+   const fraction=Math.max(0,Math.min(1,(current-left[axis])/gap));
+   return Math.max(0,Math.min(from==="source"?previewMax:sourceMax,left[other]+fraction*(right[other]-left[other])));
+  }
+ }
+ return fallback;
+}
 function syncDockedScroll(from:"source"|"preview"){
  if(!dockedPreview||syncingScrollFrom&&syncingScrollFrom!==from)return;
  const source=editorTextarea,preview=previewScrollPanel;
  if(!source||!preview)return;
- const origin=from==="source"?source:preview;
  const target=from==="source"?preview:source;
- const maxOrigin=Math.max(0,origin.scrollHeight-origin.clientHeight);
- const maxTarget=Math.max(0,target.scrollHeight-target.clientHeight);
- if(maxOrigin===0||maxTarget===0)return;
- const targetTop=origin.scrollTop/maxOrigin*maxTarget;
- if(Math.abs(target.scrollTop-targetTop)<2)return;
+ const targetTop=alignPreviewToSource(from,source,preview);
+ if(!Number.isFinite(targetTop)||Math.abs(target.scrollTop-targetTop)<2)return;
  syncingScrollFrom=from;
  target.scrollTop=targetTop;
  requestAnimationFrame(()=>{if(syncingScrollFrom===from)syncingScrollFrom=null;});
+}
+/* Clicking a rendered heading or paragraph places the source caret on its
+   original Markdown line, useful when the two pane heights differ greatly. */
+function locateSourceFromPreview(event:MouseEvent){
+ if(!dockedPreview||!editorTextarea||!previewScrollPanel)return;
+ const target=event.target;
+ if(!(target instanceof Element)||target.closest("a,button,input,select,textarea,summary"))return;
+ const block=target.closest<HTMLElement>("[data-source-line]");
+ if(!block||!previewScrollPanel.contains(block))return;
+ const line=Number(block.dataset.sourceLine),lines=editorTextarea.value.split("\n");
+ if(!Number.isInteger(line)||line<1||line>lines.length)return;
+ const y=measureSourceLines(editorTextarea).get(line);
+ if(y===undefined)return;
+ let charIndex=0;
+ for(let i=0;i<line-1;i++)charIndex+=lines[i].length+1;
+ editorTextarea.focus({preventScroll:true});
+ editorTextarea.setSelectionRange(charIndex,charIndex);
+ editorTextarea.scrollTop=Math.max(0,y-12);
+ syncDockedScroll("source");
 }
 function toggleDockedPreview(){
  dockedPreview=!dockedPreview;
@@ -363,7 +453,7 @@ onMount(()=>{
    <button type="button" class:active={previewViewport==="mobile"} onclick={()=>previewViewport="mobile"}>手机</button>
   </div>
  </div>
- <div class="preview-viewport" class:mobile-preview={previewViewport==="mobile"} bind:this={previewScrollPanel} onscroll={()=>syncDockedScroll("preview")}>
+ <div class="preview-viewport" class:mobile-preview={previewViewport==="mobile"} bind:this={previewScrollPanel} onscroll={()=>syncDockedScroll("preview")} onclick={locateSourceFromPreview}>
  {#if previewPresentation==="article"}
   <article class="article-preview card-base relative w-full" aria-label="文章正式版式预览">
    <header class="article-preview-header">
@@ -575,4 +665,25 @@ onMount(()=>{
 .layout.docked>.editor>.editor-intro{display:flex !important;flex-direction:row;justify-content:flex-end;flex:0 0 auto;margin:0;min-height:2.4rem}
 .layout.docked>.editor>.editor-intro .editor-title,.layout.docked>.editor>.editor-intro .draft-quick-toggle{display:none}
 .layout.docked>.editor>.editor-intro .quick-preview-button{display:inline-flex;align-items:center;justify-content:center;min-height:2.4rem}
+
+/* Compact portrait side-by-side comparison, without widening the document.
+   Independent pane scrolling keeps the source readable at every viewport. */
+@media(max-width:640px){
+ .layout.docked{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);width:100%;max-width:100%;height:min(80dvh,850px);min-height:450px;overflow:hidden;align-items:stretch}
+ .layout.docked>.editor,.layout.docked>.preview{width:100%;max-width:100%;min-height:0;min-width:0;overflow:hidden;padding:.3rem}
+ .layout.docked>.editor{display:flex;flex-direction:column;gap:.25rem}
+ .layout.docked>.editor>.editor-intro{display:flex!important;flex:0 0 auto;justify-content:center;min-height:2.3rem}
+ .layout.docked>.editor>.editor-intro-actions{width:100%;justify-content:center}
+ .layout.docked>.editor>.editor-intro .quick-preview-button{width:100%;display:inline-flex;font-size:.66rem;padding:.3rem .15rem;white-space:nowrap}
+ .layout.docked>.editor>.body{flex:1;min-height:0;max-width:100%;display:flex;flex-direction:column}
+ .layout.docked>.editor>.body span{font-size:.63rem}
+ .layout.docked>.editor>.body textarea{flex:1;display:block;width:100%;max-width:100%;height:100%;min-height:0;max-height:none;resize:none;font-size:12px;line-height:1.5;padding:.35rem;overflow-x:auto;overflow-y:auto;white-space:pre-wrap;overflow-wrap:anywhere}
+ .layout.docked>.preview{display:flex;flex-direction:column;gap:0;border-left:1px solid var(--line-divider)}
+ .layout.docked>.preview>.preview-heading{display:none}
+ .layout.docked>.preview>.preview-viewport{flex:1;width:100%;max-width:100%;min-height:0;max-height:none;height:auto;padding:.2rem;overflow-y:auto;overflow-x:hidden;scrollbar-gutter:auto}
+ .layout.docked>.preview>.preview-viewport :global(.prose){font-size:.72rem;line-height:1.6;max-width:100%;overflow-wrap:anywhere}
+ .layout.docked>.preview>.preview-viewport :global(pre){max-width:100%;overflow-x:auto;font-size:.68rem}
+ .layout.docked>.preview-viewport .article-preview{padding:.25rem}
+}
+.mermaid-parse-error{font-size:.78rem;color:var(--primary);padding:.55rem;border:1px solid var(--line-divider);border-radius:.5rem;overflow-wrap:anywhere}
 </style>
