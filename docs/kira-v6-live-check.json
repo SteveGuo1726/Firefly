@@ -1,25 +1,25 @@
 {
-  "date": "2026-10-11T14:33:07.713583+00:00",
+  "date": "2026-10-11T14:38:54.504274+00:00",
   "checks": {
     "/": {
       "http_status": 200,
-      "bytes": 12798,
+      "bytes": 12665,
       "mime": "text/html; charset=utf-8",
       "no_top_strip": true,
       "new_jump_tabs": true
     },
     "/assets/style.css": {
       "http_status": 200,
-      "bytes": 35797,
+      "bytes": 36870,
       "mime": "text/css; charset=utf-8"
     },
     "/assets/app.js": {
       "http_status": 200,
-      "bytes": 39147,
+      "bytes": 41222,
       "mime": "application/javascript; charset=utf-8",
       "real_pixiv_loader": true,
       "progressive_loading": true,
-      "independent_axes": true,
+      "independent_axes": false,
       "new_relation_axes": true
     },
     "/assets/pixiv-feed.json": {
@@ -45,7 +45,7 @@
       "server": {
         "ok": true,
         "service": "kira-jump-international-preview",
-        "version": "7.3.0",
+        "version": "7.4.0",
         "safe_works": 43,
         "measured_palettes": 39
       }
@@ -74,5 +74,5 @@
       "mime": "image/jpeg"
     }
   ],
-  "gallery_v73_pass": true
+  "gallery_v73_pass": false
 }
