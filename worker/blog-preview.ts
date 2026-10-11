@@ -63,6 +63,26 @@ export default {
         if(!previewMutationOriginAllowed(request) &&
            (path.startsWith("/api/live-content/") || path.startsWith("/api/admin/")))
           return new Response('{"error":"Origin mismatch"}',{status:403,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}});
+        // Public-only read bridge: uses the same-origin preview Worker so a browser
+        // never sends its untrusted Origin header directly to the legacy imagebed.
+        // This endpoint exposes ONLY data already available in /api/gallery/public.
+        if(path==="/api/gallery/preview-state"){
+          if(request.method!=="GET")return new Response("Method Not Allowed",{status:405});
+          const headers={"Content-Type":"application/json; charset=utf-8","Cache-Control":"public, max-age=30","X-Content-Type-Options":"nosniff"};
+          try{
+            const upstream=await fetch("https://gallery-api.casto.top/api/gallery/public",{
+              headers:{"Accept":"application/json"},redirect:"follow",signal:AbortSignal.timeout(12000)
+            });
+            if(!upstream.ok)throw new Error("Imagebed public gallery HTTP "+upstream.status);
+            const bytes=await upstream.arrayBuffer();
+            if(bytes.byteLength>2097152)throw new Error("Gallery payload size exceeds safe limit");
+            const projection=buildReadOnlyGalleryState(JSON.parse(new TextDecoder().decode(bytes)));
+            return new Response(JSON.stringify(projection),{status:200,headers});
+          }catch(error){
+            console.warn("[Firefly preview] gallery public bridge failed",error instanceof Error?error.message:"unknown");
+            return new Response('{"error":"图床公开相册暂时读取失败；未修改任何图床数据。"}',{status:502,headers:{...headers,"Cache-Control":"no-store"}});
+          }
+        }
         // Compatibility adapter only: independent imagebed gallery owns all writes.
         if(path==="/api/admin/gallery/state"){
           if(request.method!=="GET")return new Response("Method Not Allowed",{status:405});
