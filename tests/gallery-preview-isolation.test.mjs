@@ -35,3 +35,12 @@ test("isolated preview uses a separate same-origin gallery state and disables mu
  assert.match(manager,/disabled=\{uploading \|\| previewReadOnly\}/);
  assert.match(manager,/保存本机草稿/);
 });
+
+test("preview admin gallery tab loads isolated editor rather than the old placeholder",async()=>{
+ const {readFile}=await import("node:fs/promises");
+ const app=await readFile("src/components/pages/admin/AdminApp.svelte","utf8");
+ assert.match(app,/import\("\.\.\/gallery\/GalleryAdminManager\.svelte"\)/);
+ assert.match(app,/\{#if GalleryComponent\}/);
+ assert.ok(!app.includes('section==="gallery"&&previewPasswordLogin'));
+ assert.ok(!app.includes("相册仍使用正式图床"));
+});
