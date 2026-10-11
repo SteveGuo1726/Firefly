@@ -4,6 +4,7 @@ on:
     branches: [kira-development]
     paths:
       - '.github/workflows/kira-v6-qa.yml'
+      - 'scripts/kira-v6-browser-qa.mjs'
   workflow_dispatch:
 permissions:
   contents: write
