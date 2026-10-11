@@ -4,6 +4,11 @@ on:
     branches: [kira-development]
     paths:
       - '.github/workflows/kira-v6-live-check.yml'
+      - 'public/index.html'
+      - 'public/assets/app.js'
+      - 'public/assets/style.css'
+      - 'public/assets/pixiv-feed.json'
+      - 'preview/build.mjs'
   workflow_dispatch:
 permissions:
   contents: write
@@ -36,13 +41,18 @@ jobs:
                   result["real_pixiv_loader"]="hydrateRealPixiv" in code
                   result["progressive_loading"]="loadWorkPreview" in code and "imageWithFailover" in code
                   result["independent_axes"]="zoomX" in code and "zoomY" in code
-                if path=="/":result["no_top_strip"]='class="reader-top"' not in body.decode()
-                if path=="/health":result["expected_version"]="7.2.0"
+                  result["new_relation_axes"]="if(axis===\u0027series\u0027)" in code and "if(axis===\u0027artist\u0027)" in code
+                if path=="/":
+                  result["no_top_strip"]='class="reader-top"' not in body.decode()
+                  result["new_jump_tabs"]='data-path="series"' in body.decode() and 'data-path="artist"' in body.decode()
+                if path=="/health":result["expected_version"]="7.3.0"
                 if path=="/health":result["server"]=json.loads(body)
             except urllib.error.HTTPError as e: result={"error":str(e),"body":e.read(100).decode(errors="replace")}
             except Exception as e:result={"error":str(e)}
             print(path,result)
             report["checks"][path]=result
+          health=report["checks"].get("/health",{})
+          report["gallery_v73_pass"]=(health.get("server",{}).get("version")=="7.3.0" and report["checks"].get("/",{}).get("new_jump_tabs") and report["checks"].get("/assets/app.js",{}).get("new_relation_axes") and report["checks"].get("/assets/pixiv-feed.json",{}).get("works_in_snapshot",0)>=30)
           pathlib.Path("docs").mkdir(exist_ok=True)
           pathlib.Path("docs/kira-v6-live-check.json").write_text(json.dumps(report,ensure_ascii=False,indent=2))
           PY
