@@ -1,5 +1,5 @@
 'use strict';
-/* KIRA! JUMP V5 — client-only design prototype. No backend, telemetry or third-party JS. */
+/* KIRA! JUMP V6 — local-only interactions and verified Pixiv metadata; no telemetry. */
 const $=id=>document.getElementById(id);
 const ico=name=>`<svg aria-hidden="true"><use href="#ico-${name}"></use></svg>`;
 
@@ -34,7 +34,9 @@ function normalizeSnapshot(snapshot){
     const tagSet=new Set([group]),facets=facet(tags,tagSet);
     records.set(id,{
       id,pid:a.pid,title:String(a.title||'无标题').slice(0,140),artist:String(a.author||'未知画师').slice(0,100),
-      tags,facets,character:facets.character,mood:facets.mood,color:facets.color,
+      tags,facets,character:facets.character,mood:facets.mood,color:/^(蓝|紫|粉|红|金|绿|黑|白|灰|暖)$/.test(a.dominant_tone||'')?a.dominant_tone:facets.color,
+      dominantHex:/^#[a-fA-F0-9]{6}$/.test(a.dominant_hex||'')?a.dominant_hex:null,
+      artistKey:Number.isSafeInteger(a.uid)&&a.uid>0?'pixiv:'+a.uid:'name:'+String(a.author||'未知画师'),
       kinds:[facets.kind],likes:null,series:0,ratio:Math.max(.62,Math.min(2.35,Number(a.height)/Math.max(1,Number(a.width))||1.3)),
       desc:'来自 Pixiv 的外部作品 · 原作者保留版权，详情请查看 Pixiv 原作。',
       card,preview,original,pixivUrl:'https://www.pixiv.net/artworks/'+a.pid,
@@ -74,7 +76,7 @@ function baseList(){
   }
   if(state.main==='精选')list.sort((a,b)=>b.tags.length-a.tags.length);
   if(state.main==='换一批')list.reverse();
-  if(state.main==='关注')list=list.filter(w=>state.followed.has(w.artist));
+  if(state.main==='关注')list=list.filter(w=>state.followed.has(w.artistKey));
   if(state.filter!=='全部')list=list.filter(w=>w.kind===state.filter||w.tags.includes(state.filter)||w.mood===state.filter);
   const q=state.search.trim().toLowerCase();
   if(q)list=list.filter(w=>[w.title,w.artist,w.character,w.mood,w.color,...w.tags].join(' ').toLowerCase().includes(q));
@@ -93,7 +95,7 @@ function card(w,i){
     '<div class="art-tags"><span># '+esc(w.character)+'</span><span># '+esc(w.mood)+'</span></div></div></article>';
 }
 
-function colorFor(w){return {蓝:'#6a91e9',紫:'#9876e9',粉:'#f879aa',金:'#e0a45f',红:'#eb7782',白:'#a9abd5',暖:'#d5a468'}[w.color]||'#7368b8'}
+function colorFor(w){if(w.dominantHex)return w.dominantHex;return {蓝:'#6a91e9',紫:'#9876e9',粉:'#f879aa',金:'#e0a45f',红:'#eb7782',白:'#a9abd5',暖:'#d5a468'}[w.color]||'#7368b8'}
 
 function draw(){
   const list=baseList();state.shown=list;
@@ -122,9 +124,9 @@ function closeReader(){if(!$('reader').classList.contains('open'))return;const s
 
 function related(w,path){
  const score=x=>{const overlap=shared(x,w);
-   if(path==='character')return (x.character===w.character?10:0)+overlap*3+(x.kind===w.kind?1:0);
+   if(path==='character')return (w.character!=='原创角色'&&x.character===w.character?10:0)+overlap*3+(x.kind===w.kind?1:0);
    if(path==='color')return (w.color!=='未分类'&&x.color===w.color?12:0)+overlap*2;
-   return (x.mood===w.mood?10:0)+overlap*2;};
+   return (w.mood!=='插画'&&x.mood===w.mood?10:0)+overlap*2;};
  return WORKS.filter(x=>x.id!==w.id).sort((a,b)=>score(b)-score(a)).slice(0,4);
 }
 function relatedDraw(){
@@ -150,7 +152,7 @@ function fillReader(){
  $('readerTags').innerHTML=ordered.map(tag=>'<button data-term="'+esc(tag)+'"># '+esc(tag)+'</button>').join('');
  $('favArt').classList.toggle('faved',state.liked.has(w.id));
  $('favArt').querySelector('span').textContent=state.liked.has(w.id)?'已收藏':'收藏作品';
- $('followArtist').textContent=state.followed.has(w.artist)?'✓ 已关注':'＋ 关注';
+ $('followArtist').textContent=state.followed.has(w.artistKey)?'✓ 已关注':'＋ 关注';
  if($('pixivSource'))$('pixivSource').href=w.pixivUrl;
  $('btnOriginal').classList.remove('on');$('btnOriginal').querySelector('span').textContent='查看原图';$('btnOriginal').disabled=false;
  const shown=state.shown.length?state.shown:WORKS;
@@ -206,7 +208,7 @@ $('viewerImage').addEventListener('dblclick',()=>resetZoom());
 $('viewerImage').addEventListener('click',e=>{if(state.moving)return;changeZoom(state.zoom===1?1.8:1)});
 $('favArt').onclick=()=>{const w=state.focus;if(!w)return;if(state.liked.has(w.id)){state.liked.delete(w.id);toast('已取消收藏')}else{state.liked.add(w.id);toast('已收藏这张作品 ♡')}try{localStorage.setItem('kira.likes.v2',JSON.stringify([...state.liked]))}catch{};fillFav()};
 function fillFav(){const active=state.liked.has(state.focus.id);$('favArt').classList.toggle('faved',active);$('favArt').querySelector('span').textContent=active?'已收藏':'收藏作品'}
-$('followArtist').onclick=()=>{const w=state.focus;if(!w)return;if(state.followed.has(w.artist)){state.followed.delete(w.artist);toast('已取消关注 '+w.artist)}else{state.followed.add(w.artist);toast('已关注画师 '+w.artist)}try{localStorage.setItem('kira.follows.v2',JSON.stringify([...state.followed]))}catch{}$('followArtist').textContent=state.followed.has(w.artist)?'✓ 已关注':'＋ 关注';if(state.main==='关注')draw()};
+$('followArtist').onclick=()=>{const w=state.focus;if(!w)return;if(state.followed.has(w.artistKey)){state.followed.delete(w.artistKey);toast('已取消关注 '+w.artist)}else{state.followed.add(w.artistKey);toast('已关注画师 '+w.artist)}try{localStorage.setItem('kira.follows.v2',JSON.stringify([...state.followed]))}catch{}$('followArtist').textContent=state.followed.has(w.artistKey)?'✓ 已关注':'＋ 关注';if(state.main==='关注')draw()};
 $('copyArt').onclick=async()=>{const w=state.focus;const u=new URL(window.location.href);u.hash='art-'+w.id;try{await navigator.clipboard.writeText(u.href);toast('已复制 KIRA 作品链接')}catch{toast('Pixiv 编号：'+w.pid)}};
 $('saveOriginal').onclick=saveArtwork;
 $('readerTags').addEventListener('click',e=>{const b=e.target.closest('[data-term]');if(!b)return;const term=b.dataset.term;closeReader();state.search=term;state.filter='全部';state.route='all';state.main='推荐';$('search').value=term;draw();window.scrollTo({top:0,behavior:'smooth'})});
