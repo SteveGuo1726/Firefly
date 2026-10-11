@@ -44,3 +44,15 @@ test("preview admin gallery tab loads isolated editor rather than the old placeh
  assert.ok(!app.includes('section==="gallery"&&previewPasswordLogin'));
  assert.ok(!app.includes("相册仍使用正式图床"));
 });
+
+test("public bridge bypasses disallowed imagebed Origin while preserving read-only safety",async()=>{
+ const {readFile}=await import("node:fs/promises");
+ const client=await readFile("src/utils/admin/imagebed-client.ts","utf8");
+ const worker=await readFile("worker/blog-preview.ts","utf8");
+ assert.match(client,/fetch\("\/api\/gallery\/preview-state"/);
+ assert.match(client,/state\.source !== "public-gallery-bridge"/);
+ assert.match(worker,/if\(path==="\/api\/gallery\/preview-state"\)/);
+ assert.match(worker,/gallery-api\.casto\.top\/api\/gallery\/public/);
+ assert.match(worker,/buildReadOnlyGalleryState/);
+ assert.match(worker,/if\(path\.startsWith\("\/api\/admin\/gallery\/"\)/);
+});
