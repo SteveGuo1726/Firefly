@@ -226,4 +226,18 @@ onMount(()=>{
 .demo-entry{width:min(36rem,calc(100% - 1rem));margin:6rem auto 1rem;padding:1.5rem;display:grid;gap:1rem}.demo-entry h1{font-size:1.5rem;font-weight:800;margin:0}.demo-entry p{font-size:.9rem;line-height:1.65;opacity:.8}.demo-entry form{display:grid;gap:.65rem}.demo-entry label{font-size:.85rem;font-weight:700}.demo-entry input{padding:.8rem;border-radius:.55rem;background:transparent;color:inherit;border:1px solid var(--line-divider);font:inherit}.demo-entry button{justify-self:start;padding:.7rem 1.1rem;background:var(--primary);color:white;border:0;border-radius:.55rem;font-weight:700;cursor:pointer}.demo-error{color:#c43d3d}
 
 .admin-shell{display:grid;gap:1rem}.admin-heading{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:1.1rem 1.2rem}.eyebrow{font-size:.68rem;font-weight:800;letter-spacing:.16em;opacity:.45}h1{margin:.15rem 0 0;font-size:1.55rem}.admin-heading p,.login-hint p{margin:.3rem 0 0;font-size:.82rem;opacity:.62}.identity{display:grid;text-align:right}.identity span{font-size:.72rem;opacity:.55}.login-hint{padding:1.2rem}.login-hint h2{margin:0;font-size:1rem}.admin-tabs{display:flex;flex-wrap:wrap;gap:.35rem;padding:.45rem}.admin-tabs button,.admin-tabs a{border:0;border-radius:.6rem;padding:.65rem .95rem;background:transparent;color:inherit;font:inherit;font-weight:700;text-decoration:none;cursor:pointer}.admin-tabs button.active,.admin-tabs button:hover,.admin-tabs a:hover{background:color-mix(in oklab,var(--primary) 11%,transparent)}@media(max-width:760px){.admin-heading{align-items:flex-start;flex-direction:column}.identity{text-align:left}}
+
+/* Never allow long article Markdown, paths or rich-content previews to
+   enlarge the admin grid beyond the phone or tablet viewport. */
+.admin-shell{grid-template-columns:minmax(0,1fr);width:100%;max-width:100%;min-width:0;box-sizing:border-box;overflow-x:clip}
+.admin-shell>.admin-heading,.admin-shell>.admin-tabs{max-width:100%;min-width:0;box-sizing:border-box}
+.admin-heading>div,.identity,.identity span{min-width:0;max-width:100%;overflow-wrap:anywhere}
+.admin-tabs{min-width:0;max-width:100%;flex-wrap:wrap}
+@media(max-width:640px){
+ .admin-shell{gap:.7rem}
+ .admin-heading{padding:.9rem .8rem;gap:.7rem}
+ .admin-heading p{line-height:1.55;overflow-wrap:anywhere}
+ .admin-tabs{padding:.4rem;gap:.2rem;justify-content:space-between}
+ .admin-tabs button,.admin-tabs a{padding:.65rem .55rem;min-width:0;min-height:2.5rem;font-size:.84rem;white-space:nowrap}
+}
 </style>
