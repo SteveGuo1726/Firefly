@@ -1,5 +1,5 @@
 {
-  "date": "2026-10-11T14:14:44.459220+00:00",
+  "date": "2026-10-11T14:16:46.072026+00:00",
   "checks": {
     "/": {
       "http_status": 200,
@@ -51,5 +51,28 @@
       }
     }
   },
+  "external_image_head_samples": [
+    {
+      "quality": "thumbnail_url",
+      "pixiv_id": 121735103,
+      "check": "HEAD-only",
+      "http_status": 200,
+      "mime": "image/jpeg"
+    },
+    {
+      "quality": "preview_url",
+      "pixiv_id": 121735103,
+      "check": "HEAD-only",
+      "http_status": 200,
+      "mime": "image/jpeg"
+    },
+    {
+      "quality": "original_url",
+      "pixiv_id": 121735103,
+      "check": "HEAD-only",
+      "http_status": 200,
+      "mime": "image/jpeg"
+    }
+  ],
   "gallery_v73_pass": true
 }
