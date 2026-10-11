@@ -10,7 +10,7 @@ let failImages=false;let delayOriginals=400;
 const svg=(wide)=>wide
   ? '<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720"><rect width="1280" height="720" fill="#896bd3"/><circle cx="800" cy="240" r="170" fill="#fb91bf"/></svg>'
   : '<svg xmlns="http://www.w3.org/2000/svg" width="720" height="1280"><rect width="720" height="1280" fill="#5595ea"/><circle cx="240" cy="470" r="165" fill="#f6b973"/></svg>';
-await page.route(/https:\/\/(?:i\.pixiv\.re|i\.pixiv\.cat|i\.pximg\.net|i-cf\.pximg\.net)\//,async route=>{
+await page.route(/https:\/\/(?:i\.pixiv\.re|i\.pixiv\.cat|i\.pixiv\.nl|i\.pximg\.net|i-cf\.pximg\.net)\//,async route=>{
  if(failImages)return route.abort('failed');
  if(route.request().url().includes('img-original'))await new Promise(resolve=>setTimeout(resolve,delayOriginals));
  const wide=/[24680]_p0|[24680]_master|wide/.test(route.request().url());
