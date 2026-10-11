@@ -1,5 +1,8 @@
 <script lang="ts">
 import { onMount } from "svelte";
+import "@fancyapps/ui/dist/fancybox/fancybox.css";
+import "@/styles/fancybox-custom.css";
+import { galleryFullImage, loadGalleryRoute } from "@/utils/gallery-delivery";
 import { createGalleryManifestBackup, inspectGalleryManifest } from "@/utils/admin/gallery-manifest-backup";
 import type {
 	GalleryAdminState,
@@ -432,6 +435,26 @@ async function removeAlbum() {
 	}
 }
 
+/** Reuse the public gallery's native Fancybox viewer and image delivery route. */
+async function openAlbumPhoto(index:number){
+ const photos=orderedPhotos;
+ if(!photos.length||index<0||index>=photos.length)return;
+ try{
+  const {Fancybox}=await import("@fancyapps/ui");
+  const slides=photos.map(photo=>({
+   src:galleryFullImage(photo.url,loadGalleryRoute()),
+   type:"image" as const,
+   caption:String(photo.name||"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;")+(photo.width&&photo.height?` · ${photo.width} × ${photo.height}`:""),
+  }));
+  Fancybox.show(slides,{
+   startIndex:index,
+   Thumbs:{autoStart:true,showOnStart:"yes"},
+   Toolbar:{display:{left:["infobar"],middle:["zoomIn","zoomOut","toggle1to1"],right:["slideshow","thumbs","close"]}},
+   animated:true,dragToClose:true,fitToView:true,preload:1,infinite:true,caption:true,
+  });
+ }catch(error){setMessage(error instanceof Error?`图片查看器暂不可用：${error.message}`:"图片查看器暂不可用，请重试。",true);}
+}
+
 async function downloadManifestBackup() {
  if (!session || loading) return;
  errorMessage = "";
@@ -606,7 +629,7 @@ onMount(() => {
 								ondragover={(event) => event.preventDefault()}
 								ondrop={() => dropPhoto(photo.key)}
 							>
-								<div class="photo-preview"><img src={photo.url} alt={photo.name} loading="lazy" /></div>
+								<div class="photo-preview"><button type="button" class="photo-lightbox-trigger" onclick={()=>openAlbumPhoto(index)} aria-label={`使用博客图片查看器打开 ${photo.name}`} title="原生图片查看：放大、缩小、切换照片"><img src={photo.url} alt={photo.name} loading="lazy" /></button></div>
 								<div class="photo-name" title={photo.key}>{photo.name}</div>
 								<div class="photo-actions">
 									<button type="button" onclick={() => updateAlbum({ cover: photo.key })}>{selectedAlbum.cover === photo.key ? "封面" : "设封面"}</button>
@@ -685,6 +708,8 @@ onMount(() => {
 	.photo-item.cover { border-color: var(--primary); box-shadow: 0 0 0 1px var(--primary); }
 	.photo-preview { aspect-ratio: 4 / 3; overflow: hidden; background: rgb(127 127 127 / 0.1); }
 	.photo-preview img { width: 100%; height: 100%; object-fit: cover; display: block; }
+	.photo-preview .photo-lightbox-trigger{display:block;width:100%;height:100%;border:0;background:none;padding:0;cursor:zoom-in;overflow:hidden}
+	.photo-preview .photo-lightbox-trigger:focus-visible{outline:3px solid var(--primary);outline-offset:-3px}
 	.photo-name { padding: 0.45rem 0.5rem 0.2rem; font-size: 0.72rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 	.photo-actions { display: flex; gap: 0.25rem; padding: 0.3rem 0.4rem 0.5rem; flex-wrap: wrap; }
 	.photo-actions button { min-height: 1.75rem; padding: 0.25rem 0.4rem; font-size: 0.66rem; }
