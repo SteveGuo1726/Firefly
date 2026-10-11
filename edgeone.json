@@ -62,5 +62,5 @@
   "buildCommand": "PUBLIC_GITHUB_ADMIN_BRANCH=master PUBLIC_FIREFLY_PREVIEW_DEMO=false pnpm build",
   "installCommand": "pnpm install --frozen-lockfile",
   "outputDirectory": "dist",
-  "nodeVersion": "22.23.0"
+  "nodeVersion": "24.18.0"
 }
