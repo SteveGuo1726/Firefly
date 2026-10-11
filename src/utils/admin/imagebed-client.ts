@@ -64,6 +64,19 @@ async function readJson<T>(response: Response): Promise<T> {
 }
 
 export async function fetchGalleryAdminState(): Promise<GalleryAdminState> {
+	// The existing imagebed rejects requests with the experimental site's
+	// Origin header. Read its PUBLIC album catalog through our same-origin,
+	// server-side-only adapter. No gallery administrator credentials required.
+	if (isIsolatedPreviewGallery()) {
+		const response = await fetch("/api/gallery/preview-state", {
+			credentials: "same-origin",
+			cache: "no-store",
+		});
+		const state = await readJson<GalleryAdminState>(response);
+		if (!state.readOnly || state.source !== "public-gallery-bridge")
+			throw new Error("相册只读接口返回异常，已停止处理以保护图床。");
+		return state;
+	}
 	const response = await fetch(adminApiUrl("/api/admin/gallery/state"), {
 		headers: adminHeaders(),
 		cache: "no-store",
