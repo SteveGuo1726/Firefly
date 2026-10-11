@@ -1,6 +1,7 @@
 import {getStore} from "@edgeone/pages-blob";
 import {edgeOneAtomicAuthStore,assertEdgeOneAtomicWrites} from "./edgeone-store.js";
 import {createAdminSessionService} from "./session-service.js";
+import {createPatBlobSessions} from "./pat-session-store.js";
 import {readAdminSessionId} from "./controller.js";
 
 let cachedBlob=null;
@@ -26,10 +27,14 @@ export async function proxyGalleryManagement(request,{env=process.env,fetcher=fe
   return new Response("Gallery service secret is not configured",{status:503});
  }
  const raw=storeFactory();
- await assertEdgeOneAtomicWrites(raw);
- const sessionStore=edgeOneAtomicAuthStore(raw);
- const service=createAdminSessionService({store:sessionStore,adminLogin:env.FIREFLY_ADMIN_LOGIN||"SteveGuo1726"});
- const identity=await service.verifySession(readAdminSessionId(request));
+ const sessionToken=readAdminSessionId(request);
+ const pat=createPatBlobSessions({blob:raw,adminLogin:env.FIREFLY_ADMIN_LOGIN||"SteveGuo1726"});
+ let identity=await pat.verifySession(sessionToken);
+ if(!identity && env.FIREFLY_OAUTH_CLIENT_ID && env.FIREFLY_OAUTH_CLIENT_SECRET && env.FIREFLY_OAUTH_CALLBACK_URL){
+  await assertEdgeOneAtomicWrites(raw);
+  const service=createAdminSessionService({store:edgeOneAtomicAuthStore(raw),adminLogin:env.FIREFLY_ADMIN_LOGIN||"SteveGuo1726"});
+  identity=await service.verifySession(sessionToken);
+ }
  if(!identity)return new Response("Unauthorized",{status:401});
  const upstreamBase=new URL(env.FIREFLY_GALLERY_API_ORIGIN||"https://gallery-api.casto.top");
  if(upstreamBase.protocol!=="https:"||upstreamBase.username||upstreamBase.password||upstreamBase.search||upstreamBase.hash){

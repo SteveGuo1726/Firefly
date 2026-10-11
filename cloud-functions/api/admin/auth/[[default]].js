@@ -3,6 +3,7 @@ import {edgeOneAtomicAuthStore,assertEdgeOneAtomicWrites} from "../../../../src/
 import {createAdminSessionService} from "../../../../src/server/admin-auth/session-service.js";
 import {createGitHubAdminAuthController} from "../../../../src/server/admin-auth/controller.js";
 import {createPatSessionController} from "../../../../src/server/admin-auth/pat-session.js";
+import {createPatBlobSessions} from "../../../../src/server/admin-auth/pat-session-store.js";
 
 let cachedAuthBlob=null;
 
@@ -19,13 +20,10 @@ export default async function onRequest(context){
  let phase="storage";
  try{
   const raw=cachedAuthBlob||(cachedAuthBlob=getStore({name:"firefly-auth-live",consistency:"strong"}));
-  phase="atomic-write";
-  await assertEdgeOneAtomicWrites(raw);
-  phase="session";
-  const store=edgeOneAtomicAuthStore(raw);
-  const sessions=createAdminSessionService({store,adminLogin:process.env.FIREFLY_ADMIN_LOGIN||"SteveGuo1726"});
+  phase="pat-session";
+  const patSessions=createPatBlobSessions({blob:raw,adminLogin:process.env.FIREFLY_ADMIN_LOGIN||"SteveGuo1726"});
   const pathname=new URL(request.url).pathname;
-  const pat=createPatSessionController({sessions});
+  const pat=createPatSessionController({sessions:patSessions});
   if(pathname==="/api/admin/auth/pat-login")return pat.login(request);
   const oauthReady=Boolean(clientId&&clientSecret&&callbackUrl);
   if(pathname==="/api/admin/auth/me" && !oauthReady)return pat.me(request);
@@ -33,6 +31,12 @@ export default async function onRequest(context){
   if(!oauthReady)return new Response(JSON.stringify({error:"GitHub OAuth is not configured"}),{
    status:503,headers:{"Content-Type":"application/json","Cache-Control":"no-store"},
   });
+  // OAuth PKCE state needs an atomic one-time claim. Do not downgrade it.
+  phase="atomic-write";
+  await assertEdgeOneAtomicWrites(raw);
+  phase="oauth-session";
+  const store=edgeOneAtomicAuthStore(raw);
+  const sessions=createAdminSessionService({store,adminLogin:process.env.FIREFLY_ADMIN_LOGIN||"SteveGuo1726"});
   const auth=createGitHubAdminAuthController({clientId,clientSecret,callbackUrl,sessionService:sessions});
   if(pathname==="/api/admin/auth/start" && request.method==="GET")return auth.start(request);
   if(pathname==="/api/admin/auth/callback" && request.method==="GET")return auth.callback(request);

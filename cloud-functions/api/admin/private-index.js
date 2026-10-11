@@ -1,6 +1,7 @@
 import {getStore} from "@edgeone/pages-blob";
 import {edgeOneAtomicAuthStore,assertEdgeOneAtomicWrites} from "../../../src/server/admin-auth/edgeone-store.js";
 import {createAdminSessionService} from "../../../src/server/admin-auth/session-service.js";
+import {createPatBlobSessions} from "../../../src/server/admin-auth/pat-session-store.js";
 import {buildPrivatePostIndex} from "../../../src/server/admin-auth/private-index.js";
 export default async function onRequest(context){
  const request=context.request;
@@ -10,9 +11,13 @@ export default async function onRequest(context){
  const token=(request.headers.get("Cookie")||"").split(";").map(x=>x.trim()).find(x=>x.startsWith("__Host-firefly-admin="))?.split("=")[1]||"";
  try{
   const blob=getStore({name:"firefly-auth-live",consistency:"strong"});
-  await assertEdgeOneAtomicWrites(blob);
-  const sessions=createAdminSessionService({store:edgeOneAtomicAuthStore(blob),adminLogin:process.env.FIREFLY_ADMIN_LOGIN||"SteveGuo1726"});
-  const user=await sessions.verifySession(token);
+  const pat=createPatBlobSessions({blob,adminLogin:process.env.FIREFLY_ADMIN_LOGIN||"SteveGuo1726"});
+  let user=await pat.verifySession(token);
+  if(!user && process.env.FIREFLY_OAUTH_CLIENT_ID && process.env.FIREFLY_OAUTH_CLIENT_SECRET && process.env.FIREFLY_OAUTH_CALLBACK_URL){
+   await assertEdgeOneAtomicWrites(blob);
+   const sessions=createAdminSessionService({store:edgeOneAtomicAuthStore(blob),adminLogin:process.env.FIREFLY_ADMIN_LOGIN||"SteveGuo1726"});
+   user=await sessions.verifySession(token);
+  }
   if(!user)return new Response(JSON.stringify({error:"Unauthorized"}),{status:401,headers:{"Cache-Control":"no-store","Content-Type":"application/json"}});
   const owner=process.env.FIREFLY_GITHUB_OWNER||"SteveGuo1726";
   const repo=process.env.FIREFLY_GITHUB_REPO||"Firefly";
