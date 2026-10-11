@@ -6,6 +6,9 @@
     "dev": "wrangler dev",
     "deploy:preview": "wrangler deploy",
     "dev:api": "wrangler dev -c api/wrangler.jsonc",
-    "test": "node --check public/assets/app.js && node --check api/src/index.js"
+    "test": "node --check public/assets/app.js && node --check api/src/index.js",
+    "build:preview": "node preview/build.mjs",
+    "build:pixiv": "node pixiv/build.mjs",
+    "qa:syntax": "node --check public/assets/app.js && node --check pixiv/src/index.js"
   }
 }
