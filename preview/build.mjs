@@ -47,7 +47,7 @@ async function serveLiveFeed(req,ctx){
  'if(req.method!=="GET"&&req.method!=="HEAD")return new Response("Method Not Allowed",{status:405,headers:HEADERS});',
  'if(u.pathname==="/health")return new Response(JSON.stringify({ok:true,service:"kira-jump-international-preview",version:"7.5.0",safe_works:ARTWORK_COUNT,measured_palettes:TONE_COUNT}),{headers:{...HEADERS,"Content-Type":"application/json","Cache-Control":"no-store"}});',
  'if(u.pathname==="/assets/pixiv-feed.json")return serveLiveFeed(req,ctx);',
- 'if(u.pathname==="/robots.txt")return new Response("User-agent: *\nDisallow: /\n",{headers:{...HEADERS,"Content-Type":"text/plain; charset=utf-8"}});',
+ 'if(u.pathname==="/robots.txt")return new Response("User-agent: *\\nDisallow: /\\n",{headers:{...HEADERS,"Content-Type":"text/plain; charset=utf-8"}});',
  'const entry=FILES[u.pathname];if(!entry)return new Response("Not Found",{status:404,headers:HEADERS});',
  'return new Response(req.method==="HEAD"?null:entry.body,{headers:{...HEADERS,"Content-Type":entry.type,"Cache-Control":"public, max-age="+entry.ttl}});',
  '}};'
