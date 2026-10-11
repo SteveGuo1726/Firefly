@@ -53,18 +53,30 @@ try{
   assert.equal(stateOfView.loadVisible,false);
   return {current:stateOfView.current};
  });
- await test('Unlocked image scaling adjusts horizontal and vertical axis separately',async()=>{
-  await page.locator('#zoomX').evaluate(el=>{el.value='2.3';el.dispatchEvent(new Event('input',{bubbles:true}))});
-  await page.locator('#zoomY').evaluate(el=>{el.value='1.4';el.dispatchEvent(new Event('input',{bubbles:true}))});
-  const d=await page.evaluate(()=>({
-    zoomX:state.zoomX,zoomY:state.zoomY,
-    viewerTransform:getComputedStyle(document.querySelector('#viewerImage')).transform,
-    rootTransform:getComputedStyle(document.querySelector('#reader')).transform,
-    sidebarTransform:getComputedStyle(document.querySelector('.reader-details')).transform
-  }));
-  assert(Math.abs(d.zoomX-2.3)<.01);assert(Math.abs(d.zoomY-1.4)<.01);
-  assert.equal(d.rootTransform,'none');assert.equal(d.sidebarTransform,'none');
-  await page.locator('#zoomReset').click();return d;
+ await test('Unrestricted proportional zoom affects the image only',async()=>{
+  await page.locator('#zoomPercent').fill('1250');
+  await page.locator('#zoomPercent').dispatchEvent('change');
+  const result=await page.evaluate(()=>{
+   const im=document.querySelector('#viewerImage'),rect=im.getBoundingClientRect();
+   const natural=im.offsetWidth/im.offsetHeight;
+   return {zoom:state.zoom,matrix:getComputedStyle(im).transform,width:rect.width,height:rect.height,
+    intrinsicRatio:natural,rootTransform:getComputedStyle(document.querySelector('#reader')).transform,
+    sidebarTransform:getComputedStyle(document.querySelector('.reader-details')).transform};
+  });
+  assert(result.zoom>5,'zoom still capped at 500%');
+  const ratio=result.width/result.height;
+  assert(Math.abs(ratio-result.intrinsicRatio)<.01,'image stretched');
+  assert.equal(result.rootTransform,'none');
+  assert.equal(result.sidebarTransform,'none');
+  await page.locator('#zoomReset').click();
+  return result;
+ });
+ await test('Original preloads before clicking original button',async()=>{
+  await page.evaluate(()=>openReader(WORKS[9].id,null));
+  await page.waitForFunction(()=>originalPrefetching.size>0||warmImages.has(WORKS[9].original),null,{timeout:8000});
+  const r=await page.evaluate(()=>({source:state.focus.original,cached:warmImages.has(state.focus.original)||originalPrefetching.has(state.focus.original)}));
+  assert(r.cached,'original did not preload');
+  return r;
  });
  await test('Recommendations are truly matched, with no random padding',async()=>{
   const r=await page.evaluate(()=>({
@@ -94,7 +106,7 @@ try{
   if(p.original&&p.preview!==p.original){
     const before=await page.locator('#viewerImage').getAttribute('src');
     await page.locator('#btnOriginal').click();
-    assert.equal(await page.locator('#viewerImage').getAttribute('src'),before);
+    // With browser preloading it is valid to swap immediately, or after async decoding.
     await page.waitForFunction(()=>state.original===true,null,{timeout:15000});
     const after=await page.locator('#viewerImage').getAttribute('src');
     assert.notEqual(after,before);
