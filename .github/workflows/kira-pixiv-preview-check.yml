@@ -20,7 +20,8 @@ jobs:
           report={"date":datetime.datetime.now(datetime.timezone.utc).isoformat()}
           for key,path in [("health","/health"),("feed","/api/v1/pixiv?channel=discover&batch=0"),("html","/")]:
             try:
-              with urllib.request.urlopen(base+path,timeout=12) as r:
+              req=urllib.request.Request(base+path,headers={'User-Agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36','Accept':'text/html,application/json;q=0.9,*/*;q=0.8'})
+              with urllib.request.urlopen(req,timeout=12) as r:
                 body=r.read().decode()
                 report[key]={"status":r.status,"bytes":len(body)}
                 if key=="health":report[key]["payload"]=json.loads(body)
