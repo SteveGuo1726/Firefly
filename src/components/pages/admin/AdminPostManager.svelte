@@ -97,7 +97,7 @@ function editorSnapshot(){return JSON.stringify({currentId,currentPath,loadedPat
 function guardUnsaved(){return !savedEditorSnapshot || editorSnapshot()===savedEditorSnapshot || confirm("当前有未保存的编辑内容。继续将丢失这些修改，确定切换吗？");}
 
 
-function filtered(){const n=query.trim().toLowerCase();return rows.filter(r=>(listFilter==="all"||(listFilter==="drafts"?r.draft:!r.draft))&&(!n||[r.title,r.description,r.category,r.tags.join(" "),r.path].join(" ").toLowerCase().includes(n)));}
+function filtered(data:Row[],text:string,status:"all"|"drafts"|"published"){const n=text.trim().toLowerCase();return data.filter(r=>(status==="all"||(status==="drafts"?r.draft:!r.draft))&&(!n||[r.title,r.description,r.category,r.tags.join(" "),r.path].join(" ").toLowerCase().includes(n)));}
 function idFromPath(path:string){return path.replace(/^src\/content\/posts\//,"").replace(/\.(?:md|mdx)$/i,"");}
 function normalizePath(value:string){const relative=value.trim().replace(/^src\/content\/posts\//,"").replace(/^\/+/, "");if(!relative||relative.includes("..")||relative.includes("\\")||!/\.(md|mdx)$/i.test(relative))throw new Error("文件路径必须位于 src/content/posts/ 下，并以 .md 或 .mdx 结尾。");return"src/content/posts/"+relative;}
 function baseMeta(){return{title:fields.title.trim(),description:fields.description.trim(),published:fields.published,updated:fields.updated,category:fields.category.trim(),tags:tagsText.split(/[,\n]/).map(v=>v.trim()).filter(Boolean),draft:fields.draft,pinned:fields.pinned,image:fields.image.trim(),protected:Boolean(fields.password),comment:fields.comment};}
@@ -296,7 +296,7 @@ onMount(()=>{
  <button type="button" class:active={listFilter==="all"} aria-pressed={listFilter==="all"} onclick={()=>listFilter="all"}>全部 {rows.length}</button>
  <button type="button" class:active={listFilter==="drafts"} aria-pressed={listFilter==="drafts"} onclick={()=>listFilter="drafts"}>草稿 {rows.filter(row=>row.draft).length}</button>
  <button type="button" class:active={listFilter==="published"} aria-pressed={listFilter==="published"} onclick={()=>listFilter="published"}>已发布 {rows.filter(row=>!row.draft).length}</button>
-</div><div class="list">{#if loading}<p>读取中...</p>{:else}{#each filtered() as row}<button class:active={row.id===currentId} onclick={()=>open(row)}><strong>{row.title}</strong><span>{row.draft?"草稿 · ":"已发布 · "}{row.category||"未分类"} · {row.live?"实时":"Git"}</span><small>{row.path}</small></button>{/each}{/if}</div>{#if deletedRows.length}<div class="deleted-entries"><strong>已删除 ({deletedRows.length})</strong>{#each deletedRows as item}<button type="button" onclick={()=>openDeleted(item)} title="查看历史并恢复">{item.id} · 恢复</button>{/each}</div>{/if}</aside>
+</div><div class="list">{#if loading}<p>读取中...</p>{:else}{#each filtered(rows,query,listFilter) as row}<button class:active={row.id===currentId} onclick={()=>open(row)}><strong>{row.title}</strong><span>{row.draft?"草稿 · ":"已发布 · "}{row.category||"未分类"} · {row.live?"实时":"Git"}</span><small>{row.path}</small></button>{/each}{/if}</div>{#if deletedRows.length}<div class="deleted-entries"><strong>已删除 ({deletedRows.length})</strong>{#each deletedRows as item}<button type="button" onclick={()=>openDeleted(item)} title="查看历史并恢复">{item.id} · 恢复</button>{/each}</div>{/if}</aside>
 <div class="editor">
 <div class="grid">
 <label class="wide"><span>标题</span><input bind:value={fields.title}/></label>
