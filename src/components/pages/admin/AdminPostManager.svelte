@@ -20,7 +20,7 @@ export let session:GitHubAdminSession;
 type BasePost={id:string;path:string;title:string;description:string;published:string;updated:string;category:string;tags:string[];draft:boolean;pinned:boolean;image:string};
 type Row=BasePost&{live:boolean;baseGitSha:string;revision:string};
 
-let rows:Row[]=[];let query="";let loading=false;let opening=false;let saving=false;let deleting=false;
+let rows:Row[]=[];let query="";let listFilter:"all"|"drafts"|"published"="all";let loading=false;let opening=false;let saving=false;let deleting=false;
 let currentId="";let currentPath="";let loadedPath="";let baseGitSha="";let liveRevision="";let originalSource="";
 let fields:AdminPostFields=emptyPostFields();let body="";let tagsText="";let previewHtml="";let message="";let error="";
 let previewPresentation:"article"|"body"="article";
@@ -97,7 +97,7 @@ function editorSnapshot(){return JSON.stringify({currentId,currentPath,loadedPat
 function guardUnsaved(){return !savedEditorSnapshot || editorSnapshot()===savedEditorSnapshot || confirm("当前有未保存的编辑内容。继续将丢失这些修改，确定切换吗？");}
 
 
-function filtered(){const n=query.trim().toLowerCase();return !n?rows:rows.filter(r=>[r.title,r.description,r.category,r.tags.join(" "),r.path].join(" ").toLowerCase().includes(n));}
+function filtered(){const n=query.trim().toLowerCase();return rows.filter(r=>(listFilter==="all"||(listFilter==="drafts"?r.draft:!r.draft))&&(!n||[r.title,r.description,r.category,r.tags.join(" "),r.path].join(" ").toLowerCase().includes(n)));}
 function idFromPath(path:string){return path.replace(/^src\/content\/posts\//,"").replace(/\.(?:md|mdx)$/i,"");}
 function normalizePath(value:string){const relative=value.trim().replace(/^src\/content\/posts\//,"").replace(/^\/+/, "");if(!relative||relative.includes("..")||relative.includes("\\")||!/\.(md|mdx)$/i.test(relative))throw new Error("文件路径必须位于 src/content/posts/ 下，并以 .md 或 .mdx 结尾。");return"src/content/posts/"+relative;}
 function baseMeta(){return{title:fields.title.trim(),description:fields.description.trim(),published:fields.published,updated:fields.updated,category:fields.category.trim(),tags:tagsText.split(/[,\n]/).map(v=>v.trim()).filter(Boolean),draft:fields.draft,pinned:fields.pinned,image:fields.image.trim(),protected:Boolean(fields.password),comment:fields.comment};}
@@ -107,13 +107,13 @@ async function liveMeta(){
 	return{...baseMeta(),html,searchText:excerptMarkdown(body,4000)};
 }
 
-async function refresh(){
+async function refresh(refreshGit=false){
 	liveIndexHealthy=false;loading=true;error="";
 	try{
 		const baseResponse=await fetch("/api/admin-content-index.json",{cache:"no-store"});
 		if(!baseResponse.ok)throw new Error("读取构建期内容索引失败。");
 		const base=await baseResponse.json();
-		const privatePosts=await fetchPrivatePostIndex(session,base.posts as BasePost[]);
+		const privatePosts=await fetchPrivatePostIndex(session,base.posts as BasePost[],refreshGit);
         limitedGitIndex=Boolean((privatePosts as unknown as {limited?:boolean}).limited);
 		deletedRows=[];const map=new Map<string,Row>(privatePosts.map(p=>[p.id,{...p,live:false,baseGitSha:"",revision:""}]));
 		try{
@@ -289,9 +289,14 @@ onMount(()=>{
 </script>
 
 <section class="manager card-base">
-<header><div><h2>文章管理</h2><p>列表轻量合并静态索引和 Blob 覆盖；打开单篇时才读取 Git 基线。</p></div><div class="actions"><button onclick={()=>refresh()} disabled={loading}>刷新</button><button class="primary" onclick={createNew}>新建</button></div></header>
+<header><div><h2>文章管理</h2><p>列表轻量合并静态索引和 Blob 覆盖；打开单篇时才读取 Git 基线。</p></div><div class="actions"><button onclick={()=>refresh(true)} disabled={loading}>刷新</button><button class="primary" onclick={createNew}>新建</button></div></header>
 <div class="layout" class:docked={dockedPreview}>
-<aside><input class="search" type="search" bind:value={query} placeholder="搜索文章"/><div class="list">{#if loading}<p>读取中...</p>{:else}{#each filtered() as row}<button class:active={row.id===currentId} onclick={()=>open(row)}><strong>{row.title}</strong><span>{row.draft?"草稿 · ":"已发布 · "}{row.category||"未分类"} · {row.live?"实时":"Git"}</span><small>{row.path}</small></button>{/each}{/if}</div>{#if deletedRows.length}<div class="deleted-entries"><strong>已删除 ({deletedRows.length})</strong>{#each deletedRows as item}<button type="button" onclick={()=>openDeleted(item)} title="查看历史并恢复">{item.id} · 恢复</button>{/each}</div>{/if}</aside>
+<aside><input class="search" type="search" bind:value={query} placeholder="搜索文章"/>
+<div class="post-list-filter" role="group" aria-label="文章状态筛选">
+ <button type="button" class:active={listFilter==="all"} aria-pressed={listFilter==="all"} onclick={()=>listFilter="all"}>全部 {rows.length}</button>
+ <button type="button" class:active={listFilter==="drafts"} aria-pressed={listFilter==="drafts"} onclick={()=>listFilter="drafts"}>草稿 {rows.filter(row=>row.draft).length}</button>
+ <button type="button" class:active={listFilter==="published"} aria-pressed={listFilter==="published"} onclick={()=>listFilter="published"}>已发布 {rows.filter(row=>!row.draft).length}</button>
+</div><div class="list">{#if loading}<p>读取中...</p>{:else}{#each filtered() as row}<button class:active={row.id===currentId} onclick={()=>open(row)}><strong>{row.title}</strong><span>{row.draft?"草稿 · ":"已发布 · "}{row.category||"未分类"} · {row.live?"实时":"Git"}</span><small>{row.path}</small></button>{/each}{/if}</div>{#if deletedRows.length}<div class="deleted-entries"><strong>已删除 ({deletedRows.length})</strong>{#each deletedRows as item}<button type="button" onclick={()=>openDeleted(item)} title="查看历史并恢复">{item.id} · 恢复</button>{/each}</div>{/if}</aside>
 <div class="editor">
 <div class="grid">
 <label class="wide"><span>标题</span><input bind:value={fields.title}/></label>
@@ -479,4 +484,10 @@ onMount(()=>{
  .layout.docked .image-upload{display:none}
 }
 
+
+.post-list-filter{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.35rem;margin:.65rem 0 .45rem}
+.post-list-filter button{border:1px solid var(--line-divider);border-radius:.65rem;padding:.55rem .15rem;min-height:2.25rem;font-size:.7rem;font-weight:650;transition:background .15s,border-color .15s;white-space:nowrap}
+.post-list-filter button:hover{background:color-mix(in srgb,var(--primary) 9%,transparent)}
+.post-list-filter button.active{color:var(--primary);background:color-mix(in srgb,var(--primary) 11%,var(--card-bg));border-color:color-mix(in srgb,var(--primary) 36%,var(--line-divider))}
+@media(max-width:760px){.post-list-filter{margin:.45rem 0}.post-list-filter button{min-height:2.55rem;font-size:.76rem}}
 </style>
