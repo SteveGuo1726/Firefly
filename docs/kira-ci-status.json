@@ -1,0 +1,88 @@
+{
+  "checked_at": "2026-10-11T10:52:39.637287+00:00",
+  "runs": {
+    "kira-v6-qa.yml": [
+      {
+        "run_id": 38132847349,
+        "status": "completed",
+        "conclusion": "failure",
+        "url": "https://github.com/SteveGuo1726/Firefly/actions/runs/38132847349",
+        "jobs": [
+          {
+            "name": "real-gallery",
+            "conclusion": "failure",
+            "steps": [
+              {
+                "name": "Run local server and test gallery / viewer / jump",
+                "conclusion": "failure"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "run_id": 38132436923,
+        "status": "completed",
+        "conclusion": "failure",
+        "url": "https://github.com/SteveGuo1726/Firefly/actions/runs/38132436923",
+        "jobs": [
+          {
+            "name": "real-gallery",
+            "conclusion": "failure",
+            "steps": [
+              {
+                "name": "Run local server and test gallery / viewer / jump",
+                "conclusion": "failure"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "kira-v6-static-check.yml": [
+      {
+        "run_id": 38133037924,
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/SteveGuo1726/Firefly/actions/runs/38133037924",
+        "jobs": [
+          {
+            "name": "fast-check",
+            "conclusion": "success",
+            "steps": []
+          }
+        ]
+      }
+    ],
+    "kira-v6-live-check.yml": [
+      {
+        "run_id": 38132650386,
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/SteveGuo1726/Firefly/actions/runs/38132650386",
+        "jobs": [
+          {
+            "name": "verify",
+            "conclusion": "success",
+            "steps": []
+          }
+        ]
+      }
+    ],
+    "kira-pixiv-palette.yml": [
+      {
+        "run_id": 38132736656,
+        "status": "completed",
+        "conclusion": "success",
+        "url": "https://github.com/SteveGuo1726/Firefly/actions/runs/38132736656",
+        "jobs": [
+          {
+            "name": "color",
+            "conclusion": "success",
+            "steps": []
+          }
+        ]
+      }
+    ]
+  }
+}
