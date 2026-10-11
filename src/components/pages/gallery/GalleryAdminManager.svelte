@@ -16,6 +16,7 @@ import {
 	deleteImageBedAlbum,
 	deleteImageBedFile,
 	fetchGalleryAdminState,
+	isIsolatedPreviewGallery,
 	renameImageBedAlbum,
 	renameImageBedFile,
 	saveGalleryManifest,
@@ -40,6 +41,31 @@ let draggedAlbumId = $state("");
 let draggedPhotoKey = $state("");
 let stateLoadGeneration = 0;
 let showIntegrity = $state(false);
+let localGalleryDraftRestored=$state(false);
+const localDraftKey="firefly.gallery.preview.local-draft.v1";
+const previewReadOnly=$derived(state?.readOnly===true);
+function localDraftRecord(){
+ try{
+  const raw=localStorage.getItem(localDraftKey);
+  if(!raw)return null;
+  const parsed=JSON.parse(raw) as {manifest?: GalleryManifest; savedAt?: string; base?: string};
+  if(parsed.manifest?.version!==1||!Array.isArray(parsed.manifest.albums))return null;
+  return parsed;
+ }catch{return null;}
+}
+function persistLocalGalleryDraft():void{
+ if(!previewReadOnly)throw new Error("无法保存本机相册草稿：不是预览隔离模式。");
+ const baseline=state?.manifest;
+ const payload={manifest:cloneManifest(manifest),base:JSON.stringify(baseline?.albums||[]),savedAt:new Date().toISOString()};
+ localStorage.setItem(localDraftKey,JSON.stringify(payload));
+}
+function clearLocalGalleryDraft(){
+ if(!previewReadOnly||!confirm("清除当前浏览器中的相册草稿并恢复图床公开数据？此操作不影响图床。"))return;
+ localStorage.removeItem(localDraftKey);
+ dirty=false;localGalleryDraftRestored=false;
+ void loadState(selectedId);
+}
+
 const integrity = $derived(inspectGalleryManifest(manifest,state));
 
 const selectedAlbum = $derived(
@@ -133,7 +159,12 @@ async function loadState(preferredId = selectedId) {
 		const incoming = await fetchGalleryAdminState();
 		if (generation !== stateLoadGeneration || !session) return;
 		state = incoming;
-		manifest = cloneManifest(incoming.manifest);
+		const localDraft=incoming.readOnly?localDraftRecord():null;
+		manifest = cloneManifest(localDraft?.manifest||incoming.manifest);
+		localGalleryDraftRestored=Boolean(localDraft);
+		if(localDraft && localDraft.base!==JSON.stringify(incoming.manifest.albums)){
+		 setMessage("本机草稿来源的相册数据已发生变化，请先导出备份并核对，再应用到新画廊。",true);
+		}
 		selectedId =
 			manifest.albums.find((album) => album.id === preferredId)?.id ||
 			manifest.albums[0]?.id ||
@@ -172,7 +203,7 @@ function createAlbum(sourceDir = "") {
 	];
 	selectedId = id;
 	dirty = true;
-	setMessage("已在本地新增相册，上传图片并保存后公开页即可显示。");
+	setMessage(previewReadOnly?"已添加到浏览器编辑草稿；不会创建图床目录或发布新相册。":"已在本地新增相册，上传图片并保存后公开页即可显示。");
 }
 
 function moveAlbum(id: string, offset: number) {
@@ -226,6 +257,14 @@ async function saveAll() {
 	saving = true;
 	errorMessage = "";
 	try {
+		if(previewReadOnly){
+		 const report=inspectGalleryManifest(manifest,state);
+		 if(report.errorCount)throw new Error(`清单有 ${report.errorCount} 项结构错误，请先修复后再保存本机草稿。`);
+		 persistLocalGalleryDraft();
+		 dirty=false;localGalleryDraftRestored=true;
+		 setMessage("相册编辑已保存到此浏览器本机草稿；未修改图床或公开画廊。可下载完整清单备份。");
+		 return;
+		}
 		const saved = await saveGalleryManifest(manifest);
 		manifest = cloneManifest(saved);
 		dirty = false;
@@ -239,6 +278,7 @@ async function saveAll() {
 }
 
 async function uploadFiles(event: Event) {
+ if(previewReadOnly){setMessage("图床正在改造独立画廊：实验站暂不上传文件，请在图床后台管理图片。",true);return;}
  if (uploading || saving) return;
  const input=event.currentTarget as HTMLInputElement;
  const files=Array.from(input.files||[]);
@@ -269,6 +309,7 @@ async function uploadFiles(event: Event) {
 }
 
 async function removePhoto(photo: ManagedGalleryPhoto) {
+ if(previewReadOnly){setMessage("该操作会修改真实图床文件，实验站已禁止。",true);return;}
 	if (
 		!selectedAlbum ||
 		!confirm(`确定删除 ${photo.name}？图床原文件会被永久删除。`)
@@ -292,6 +333,7 @@ async function removePhoto(photo: ManagedGalleryPhoto) {
 }
 
 async function renamePhoto(photo: ManagedGalleryPhoto) {
+ if(previewReadOnly){setMessage("该操作会修改真实图床文件，实验站已禁止。",true);return;}
 	if (!selectedAlbum) return;
 	const nextName = prompt("输入新文件名", photo.name)?.trim();
 	if (!nextName || nextName === photo.name || nextName.includes("/")) return;
@@ -315,6 +357,7 @@ async function renamePhoto(photo: ManagedGalleryPhoto) {
 }
 
 async function renameDirectory() {
+ if(previewReadOnly){setMessage("该操作会修改真实图床文件，实验站已禁止。",true);return;}
 	if (!selectedAlbum || saving || uploading || loading) return;
 	if (dirty) {
 		setMessage("请先保存当前相册修改，再重命名图床目录。", true);
@@ -375,7 +418,7 @@ async function removeAlbum() {
 	if (!selectedAlbum) return;
 	const album = selectedAlbum;
 	if (!confirm(`确定移除相册“${album.name}”？`)) return;
-	const deleteFiles = confirm(
+	const deleteFiles = previewReadOnly ? false : confirm(
 		"同时永久删除图床目录内的全部图片？\n选择“取消”只移除公开相册记录。",
 	);
 	try {
@@ -440,19 +483,21 @@ onMount(() => {
 	<div class="admin-toolbar card-base">
 		<div>
 			<strong>图床相册</strong>
-			<span>{manifest.albums.length} 个相册 · 拖动后统一保存，不触发博客构建</span>
+			<span>{manifest.albums.length} 个相册 · {previewReadOnly ? "只读同步正式图床；编辑结果保存在本机，不会发布" : "拖动后统一保存，不触发博客构建"}</span>
 		</div>
 		<div class="toolbar-actions">
+            {#if previewReadOnly}<button type="button" onclick={clearLocalGalleryDraft} disabled={loading||saving||!localGalleryDraftRestored}>清除本机草稿</button>{/if}
             <button type="button" onclick={() => (showIntegrity = !showIntegrity)} disabled={loading}>{showIntegrity ? "收起校验" : "检查清单"}{integrity.errorCount ? " ⚠" : ""}</button>
             <button type="button" onclick={downloadManifestBackup} disabled={loading || uploading}>下载清单备份</button>
 			<button type="button" onclick={() => loadState()} disabled={loading || saving || uploading}>刷新</button>
 			<button type="button" onclick={() => createAlbum()} disabled={loading || saving}>新建相册</button>
 			<button class="primary" type="button" onclick={saveAll} disabled={!dirty || loading || saving || uploading}>
-				{saving ? "保存中..." : "保存更改"}
+				{saving ? "保存中..." : previewReadOnly ? "保存本机草稿" : "保存更改"}
 			</button>
 		</div>
 	</div>
 
+	{#if previewReadOnly}<div class="gallery-preview-notice card-base" role="note"><strong>相册实验编辑 · 安全隔离</strong><span>读取正式图床的公开相册与图片地址；可本机调整名称、封面、顺序等并导出清单。不会修改图床照片、上传、删除，也不会自动同步新画廊。{localGalleryDraftRestored?"已恢复此浏览器保存的相册编辑草稿。":"尚未保存本机草稿。"}</span></div>{/if}
 	{#if errorMessage}<div class="message error">{errorMessage}</div>{/if}
 	{#if successMessage}<div class="message success">{successMessage}</div>{/if}
 
@@ -521,7 +566,7 @@ onMount(() => {
 						<p>{selectedAlbum.sourceDir}</p>
 					</div>
 					<div class="toolbar-actions">
-						<button type="button" onclick={renameDirectory}>重命名目录</button>
+						<button type="button" onclick={renameDirectory} disabled={previewReadOnly}>重命名目录</button>
 						<button class="danger" type="button" onclick={removeAlbum}>删除相册</button>
 					</div>
 				</div>
@@ -544,7 +589,7 @@ onMount(() => {
 					</div>
 					<label class="upload-button">
 						{uploading ? "上传中..." : "批量上传"}
-						<input type="file" accept="image/*" multiple disabled={uploading} onchange={uploadFiles} />
+						<input type="file" accept="image/*" multiple disabled={uploading || previewReadOnly} onchange={uploadFiles} />
 					</label>
 				</div>
 
@@ -567,8 +612,8 @@ onMount(() => {
 									<button type="button" onclick={() => updateAlbum({ cover: photo.key })}>{selectedAlbum.cover === photo.key ? "封面" : "设封面"}</button>
 									<button title="前移" aria-label="前移" type="button" onclick={() => movePhoto(photo.key, -1)} disabled={index === 0}>↑</button>
 									<button title="后移" aria-label="后移" type="button" onclick={() => movePhoto(photo.key, 1)} disabled={index === orderedPhotos.length - 1}>↓</button>
-									<button type="button" onclick={() => renamePhoto(photo)}>重命名</button>
-									<button class="danger" type="button" onclick={() => removePhoto(photo)}>删除</button>
+									<button type="button" onclick={() => renamePhoto(photo)} disabled={previewReadOnly}>重命名</button>
+									<button class="danger" type="button" onclick={() => removePhoto(photo)} disabled={previewReadOnly}>删除</button>
 								</div>
 							</article>
 						{/each}
@@ -583,6 +628,12 @@ onMount(() => {
 
 <style>
 	:global(*) { box-sizing: border-box; }
+	.gallery-preview-notice{display:grid;gap:.4rem;padding:.85rem 1rem;border:1px solid var(--line-divider);border-left:3px solid var(--primary);margin:.65rem 0;font-size:.8rem;line-height:1.6;min-width:0;overflow-wrap:anywhere}
+	.gallery-preview-notice strong{font-weight:750}
+	.admin-layout,.album-panel,.editor-panel,.metadata-grid,.photo-list,.photo-item{min-width:0;max-width:100%}
+	.photo-preview img{max-width:100%;height:auto;object-fit:cover}
+	@media(max-width:680px){.admin-toolbar{flex-direction:column;align-items:stretch}.admin-toolbar .toolbar-actions{justify-content:flex-start;flex-wrap:wrap}.admin-layout{display:flex;flex-direction:column}.album-panel,.editor-panel{width:100%;max-width:100%;min-width:0}}
+
 	button, input, textarea { font: inherit; color: inherit; }
 	button { cursor: pointer; }
 	button:disabled { cursor: not-allowed; opacity: 0.45; }
