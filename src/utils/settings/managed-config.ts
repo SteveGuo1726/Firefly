@@ -17,8 +17,8 @@ function copyValid(defaults:unknown,override:unknown,path:string,depth=0):unknow
  if(depth>16)throw new Error(`站点设置嵌套过深：${path}`);
  if(Array.isArray(defaults)){
   if(!Array.isArray(override))throw new Error(`站点设置 ${path} 应为数组`);
-  const model=defaults[0];
-  if(model!==undefined)override.forEach((value,index)=>copyValid(model,value,`${path}[${index}]`,depth+1));
+  // Lists may contain heterogeneous component schemas; keep their entries.
+  // Their array shape is checked here; feature-specific rules remain with the owning module.
   return override;
  }
  if(isObject(defaults)){
