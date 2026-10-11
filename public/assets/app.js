@@ -34,6 +34,7 @@ function normalizeSnapshot(snapshot){
     const tagSet=new Set([group]),facets=facet(tags,tagSet);
     records.set(id,{
       id,pid:a.pid,title:String(a.title||'无标题').slice(0,140),artist:String(a.author||'未知画师').slice(0,100),
+      imageWidth:Math.max(1,Number(a.width)||0),imageHeight:Math.max(1,Number(a.height)||0),
       tags,facets,character:facets.character,mood:facets.mood,color:/^(蓝|紫|粉|红|金|绿|黑|白|灰|暖)$/.test(a.dominant_tone||'')?a.dominant_tone:facets.color,
       dominantHex:/^#[a-fA-F0-9]{6}$/.test(a.dominant_hex||'')?a.dominant_hex:null,
       artistKey:Number.isSafeInteger(a.uid)&&a.uid>0?'pixiv:'+a.uid:'name:'+String(a.author||'未知画师'),
@@ -196,17 +197,20 @@ function fitMedia(nw,nh){
  image.style.width=width+'px';image.style.height=height+'px';
  image.dataset.baseWidth=String(width);image.dataset.baseHeight=String(height);
 }
-function setVisibleImage(candidate){
- const im=$('viewerImage');
- im.referrerPolicy='no-referrer';
- im.src=candidate.url;
- im.dataset.naturalWidth=String(candidate.naturalWidth);
- im.dataset.naturalHeight=String(candidate.naturalHeight);
- fitMedia(candidate.naturalWidth,candidate.naturalHeight);
- im.classList.add('loaded');
- im.style.opacity='';
- // If the browser refuses to paint the preloaded URL, make the failure obvious.
- im.onerror=()=>{if(state.focus){im.classList.remove('loaded');markMedia('failed');}};
+
+function setVisibleImage(candidate,work=null,quality='full'){
+ const image=$('viewerImage');
+ image.referrerPolicy='no-referrer';
+ image.src=candidate.url;
+ // Fixed intrinsic artwork frame prevents cropping/layout jumps on progressive upgrades.
+ const nw=work?.imageWidth||candidate.naturalWidth,nh=work?.imageHeight||candidate.naturalHeight;
+ image.dataset.naturalWidth=String(nw);
+ image.dataset.naturalHeight=String(nh);
+ fitMedia(nw,nh);
+ image.classList.toggle('low-quality',quality==='thumb');
+ image.classList.add('loaded');
+ image.style.opacity='';
+ image.onerror=()=>{if(state.focus){image.classList.remove('loaded');markMedia('failed');}};
 }
 
 async function loadWorkPreview(w,{force=false,source=null}={}){
@@ -222,7 +226,7 @@ async function loadWorkPreview(w,{force=false,source=null}={}){
   if(!stillCurrent())return;
   if(quality==='thumb'&&full)return;
   if(quality==='full')full=candidate;else thumb=candidate;
-  setVisibleImage(candidate);revealed=true;state.original=false;
+  setVisibleImage(candidate,w,quality);revealed=true;state.original=false;
   $('btnOriginal').disabled=false;$('btnOriginal').classList.remove('on');
   $('btnOriginal').querySelector('span').textContent='查看原图';
   if(quality==='thumb'){
@@ -230,7 +234,7 @@ async function loadWorkPreview(w,{force=false,source=null}={}){
    markMedia('loading','已显示缩略图，高清加载中…','');
   }else{
    stage.classList.remove('preview-upgrade');markMedia('idle');
-   resetZoom(false);
+   applyZoom(false);
    prefetchNeighbors(w);
   }
   if(quality==='thumb'&&source&&!prefersReduced.matches){
@@ -438,8 +442,8 @@ async function toggleOriginal(){
  try{
   const candidate=await imageWithFailover(target,next?9800:7500);
   if(seq!==originalRequestSequence||viewSeq!==mediaSequence||state.focus?.id!==w.id)return;
-  setVisibleImage(candidate);markMedia('idle');
-  state.original=next;resetZoom();
+  setVisibleImage(candidate,w,'full');markMedia('idle');
+  state.original=next;applyZoom(false);
   $('btnOriginal').classList.toggle('on',next);
   $('btnOriginal').querySelector('span').textContent=next?'已查看原图':'查看原图';
   alertOriginal(next?'原图已加载 · 可以独立调整宽高':'已切回轻量预览');
