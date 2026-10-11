@@ -115,20 +115,80 @@ function renderRanks(){
 
 function setRoute(route){state.route=route;state.main='推荐';state.filter='全部';state.search='';$('search').value='';draw();toast({all:'重新连接全部频道 ✦',character:'角色同频频道已连接 ⚡',color:'色彩共振频道已连接 ✦',mood:'氛围感应频道已连接 ✧'}[route]||'频道已切换')}
 function setMain(main){state.main=main;draw();window.scrollTo({top:0,behavior:'smooth'})}
-function pickNew(){const ids=(state.shown.length?state.shown:WORKS).filter(w=>w.id!==state.focus?.id);const chosen=ids[Math.floor(Math.random()*ids.length)]||WORKS[0];openReader(chosen.id,null);toast('跃迁成功！发现了新的作品 ✳')}
+function pickNew(){const ids=(state.shown.length?state.shown:WORKS).filter(w=>w.id!==state.focus?.id);const chosen=ids[Math.floor(Math.random()*ids.length)]||WORKS[0];if(!chosen){toast('作品正在加载中');return}openReader(chosen.id,null);toast('跃迁成功！发现了新的作品 ✳')}
 function motionClone(fromEl,toEl,reverse=false){if(prefersReduced.matches||!fromEl||!toEl)return;const a=fromEl.getBoundingClientRect();const b=toEl.getBoundingClientRect();if(!a.width||!a.height||!b.width||!b.height)return;const clone=document.createElement('img');clone.src=fromEl.currentSrc||fromEl.src;clone.alt='';clone.style.cssText='position:fixed;z-index:125;object-fit:cover;pointer-events:none;box-shadow:0 25px 70px #08061770;will-change:top,left,width,height,border-radius;';document.body.append(clone);const first=reverse?b:a,last=reverse?a:b;const style=(r,rad)=>({top:r.top+'px',left:r.left+'px',width:r.width+'px',height:r.height+'px',borderRadius:rad});const anim=clone.animate([style(first,'12px'),style(last,'5px')],{duration:380,easing:'cubic-bezier(.2,.76,.17,1)',fill:'both'});anim.finished.catch(()=>{}).finally(()=>clone.remove())}
 function openReader(id,source){const w=byId(id);if(!w)return;const wasOpen=$('reader').classList.contains('open');state.anchor=w.id;const sourceImg=source?.querySelector('img')||null;state.lastCard=source||null;state.focus=w;if(location.hash!=='#art-'+w.id)try{history.replaceState(history.state,'','#art-'+w.id)}catch{};state.original=false;state.relatedPath='character';resetZoom(false);$('reader').classList.add('open');$('reader').setAttribute('aria-hidden','false');document.body.style.overflow='hidden';fillReader();if(!wasOpen&&sourceImg){$('viewerImage').style.opacity='0';const show=()=>{requestAnimationFrame(()=>{requestAnimationFrame(()=>{motionClone(sourceImg,$('viewerImage'));setTimeout(()=>$('viewerImage').style.opacity='',250)})})};if($('viewerImage').complete)show();else $('viewerImage').addEventListener('load',show,{once:true})}else{$('viewerImage').style.opacity='';if(wasOpen){$('viewerImage').animate([{opacity:.25,transform:'translateY(8px)'},{opacity:1,transform:'translateY(0)'}],{duration:240,easing:'ease-out'})}}}
 function closeReader(){if(!$('reader').classList.contains('open'))return;const start=$('viewerImage');const card=state.lastCard&&document.body.contains(state.lastCard)?state.lastCard.querySelector('img'):document.querySelector(`[data-view="${state.focus.id}"] img`);if(card&&card.getBoundingClientRect().top<innerHeight&&card.getBoundingClientRect().bottom>0)motionClone(card,start,true);$('reader').classList.remove('open');$('reader').setAttribute('aria-hidden','true');document.body.style.overflow='';resetZoom(false);state.focus=null;if(location.hash.startsWith('#art-'))try{history.replaceState(history.state,'',location.pathname+location.search)}catch{};}
-function related(w,path){return WORKS.filter(x=>x.id!==w.id).sort((a,b)=>score(b)-score(a)||b.likes-a.likes).slice(0,3);function score(x){if(path==='character')return (x.character===w.character?8:0)+(x.color===w.color?2:0);if(path==='color')return(x.color===w.color?8:0)+(x.mood===w.mood?2:0);return(x.mood===w.mood?8:0)+(x.tags.some(t=>w.tags.includes(t))?2:0)}}
-function relatedDraw(){const w=state.focus;if(!w)return;document.querySelectorAll('[data-path]').forEach(b=>b.classList.toggle('on',b.dataset.path===state.relatedPath));$('relatedWorks').innerHTML=related(w,state.relatedPath).map(x=>`<button class="related-item" data-related="${x.id}" aria-label="前往 ${x.title}"><img src="${x.card}" alt="" loading="lazy"><span>${x.title}</span></button>`).join('')}
-function fillReader(){const w=state.focus;if(!w)return;$('viewerImage').src=w.preview;$('viewerImage').alt=w.title;$('ambient').style.backgroundImage=`url('${w.card}')`;$('readerCrumb').textContent=w.title;$('readerTitle').textContent=w.title;$('readerKind').textContent=w.tags.join(' / ').toUpperCase();$('artistName').textContent=w.artist;$('artistFace').textContent=w.artist[0];$('artistFace').style.background=colorFor(w);$('readerDesc').textContent=w.desc;$('readerTags').innerHTML=[w.character,w.mood,w.color+'系',...w.tags].map(tag=>`<button data-term="${tag}"># ${tag}</button>`).join('');$('favArt').classList.toggle('faved',state.liked.has(w.id));$('favArt').querySelector('span').textContent=state.liked.has(w.id)?'已收藏':'收藏作品';$('btnOriginal').classList.remove('on');$('btnOriginal').querySelector('span').textContent='查看原图';const shown=state.shown.length?state.shown:WORKS;const i=shown.findIndex(x=>x.id===w.id);$('stageCounter').textContent=String(i+1||1).padStart(2,'0')+' / '+String(shown.length).padStart(2,'0');relatedDraw();for(const next of related(w,state.relatedPath).slice(0,2)){const i=new Image();i.src=next.preview}}
+
+function related(w,path){
+ const score=x=>{const overlap=shared(x,w);
+   if(path==='character')return (x.character===w.character?10:0)+overlap*3+(x.kind===w.kind?1:0);
+   if(path==='color')return (w.color!=='未分类'&&x.color===w.color?12:0)+overlap*2;
+   return (x.mood===w.mood?10:0)+overlap*2;};
+ return WORKS.filter(x=>x.id!==w.id).sort((a,b)=>score(b)-score(a)).slice(0,4);
+}
+function relatedDraw(){
+ const w=state.focus;if(!w)return;
+ document.querySelectorAll('[data-path]').forEach(b=>b.classList.toggle('on',b.dataset.path===state.relatedPath));
+ $('relatedWorks').innerHTML=related(w,state.relatedPath).map(x=>
+ '<button class="related-item" data-related="'+x.id+'" aria-label="前往 '+esc(x.title)+'">'+
+ '<img src="'+esc(x.card)+'" referrerpolicy="no-referrer" alt="" loading="lazy"><span>'+esc(x.title)+'</span></button>').join('');
+}
+function fillReader(){
+ const w=state.focus;if(!w)return;
+ const image=$('viewerImage');image.referrerPolicy='no-referrer';
+ image.onerror=()=>{image.style.opacity='1';alertOriginal('第三方图片暂时无法加载，可查看 Pixiv 原作');};
+ image.src=w.preview;image.alt=w.title;
+ $('ambient').style.backgroundImage='url("'+w.card+'")';
+ $('readerCrumb').textContent=w.title;$('readerTitle').textContent=w.title;
+ $('readerKind').textContent='PIXIV / EXTERNAL ARTWORK';
+ $('artistName').textContent=w.artist;$('artistFace').textContent=w.artist.slice(0,1);
+ $('artistFace').style.background=colorFor(w);
+ document.querySelector('.artist-info small').textContent='PIXIV · 原作者保留版权';
+ $('readerDesc').textContent=w.desc;
+ const ordered=[w.character,w.mood,...w.tags].filter((x,i,a)=>x&&a.indexOf(x)===i).slice(0,14);
+ $('readerTags').innerHTML=ordered.map(tag=>'<button data-term="'+esc(tag)+'"># '+esc(tag)+'</button>').join('');
+ $('favArt').classList.toggle('faved',state.liked.has(w.id));
+ $('favArt').querySelector('span').textContent=state.liked.has(w.id)?'已收藏':'收藏作品';
+ $('followArtist').textContent=state.followed.has(w.artist)?'✓ 已关注':'＋ 关注';
+ if($('pixivSource'))$('pixivSource').href=w.pixivUrl;
+ $('btnOriginal').classList.remove('on');$('btnOriginal').querySelector('span').textContent='查看原图';$('btnOriginal').disabled=false;
+ const shown=state.shown.length?state.shown:WORKS;
+ const i=shown.findIndex(x=>x.id===w.id);
+ $('stageCounter').textContent=String(i+1||1).padStart(2,'0')+' / '+String(shown.length).padStart(2,'0');
+ relatedDraw();for(const next of related(w,state.relatedPath).slice(0,2)){const img=new Image();img.referrerPolicy='no-referrer';img.src=next.preview}
+}
+
 function swapArt(direction){const arr=state.shown.length?state.shown:WORKS;const idx=arr.findIndex(w=>w.id===state.focus?.id);const next=arr[(idx+direction+arr.length)%arr.length];if(next)openReader(next.id,null)}
 function resetZoom(animate=true){state.zoom=1;state.panX=0;state.panY=0;applyZoom(animate)}
 function applyZoom(animate=true){const image=$('viewerImage');if(!animate)image.classList.add('dragging');else image.classList.remove('dragging');image.style.setProperty('--zoom',state.zoom);image.style.setProperty('--pan-x',state.panX+'px');image.style.setProperty('--pan-y',state.panY+'px');$('zoomValue').textContent=Math.round(state.zoom*100)+'%';$('readerStage').classList.toggle('canpan',state.zoom>1.01);if(!animate)requestAnimationFrame(()=>image.classList.remove('dragging'))}
 function changeZoom(next){state.zoom=Math.min(5,Math.max(1,Math.round(next*100)/100));if(state.zoom===1){state.panX=0;state.panY=0}applyZoom()}
 function alertOriginal(text){const a=$('originalAlert');a.textContent=text;a.classList.add('show');clearTimeout(window._originalAlertTimer);window._originalAlertTimer=setTimeout(()=>a.classList.remove('show'),2400)}
-function toggleOriginal(){const w=state.focus;if(!w)return;state.original=!state.original;const image=$('viewerImage');image.style.opacity='.55';image.src=state.original?w.original:w.preview;image.onload=()=>{image.style.opacity='1'};$('btnOriginal').classList.toggle('on',state.original);$('btnOriginal').querySelector('span').textContent=state.original?'正在查看原图':'查看原图';resetZoom();alertOriginal(state.original?'已经在站内切换到原始文件 · 可继续放大或保存':'已切回高清预览')}
-function savedDemo(){const w=state.focus;if(!w)return;const a=document.createElement('a');a.href=w.original;a.download=`KIRA-demo-${w.id}.jpg`;document.body.append(a);a.click();a.remove();toast('已请求保存本地示意图片；真实原图将从独立图片域名获取')}
+
+function toggleOriginal(){
+ const w=state.focus;if(!w)return;
+ const image=$('viewerImage'),next=!state.original,target=next?w.original:w.preview,id=w.id;
+ if(image.src===target)return;
+ $('btnOriginal').disabled=true;
+ $('btnOriginal').querySelector('span').textContent=next?'原图加载中…':'预览加载中…';
+ const preload=new Image();preload.referrerPolicy='no-referrer';
+ preload.onload=()=>{
+  if(state.focus?.id!==id)return;
+  image.src=target;image.style.opacity='1';state.original=next;resetZoom();
+  $('btnOriginal').disabled=false;$('btnOriginal').classList.toggle('on',next);
+  $('btnOriginal').querySelector('span').textContent=next?'正在查看原图':'查看原图';
+  alertOriginal(next?'原图已在站内载入，可单独缩放':'已切回高清预览');
+ };
+ preload.onerror=()=>{
+  if(state.focus?.id!==id)return;
+  $('btnOriginal').disabled=false;
+  $('btnOriginal').querySelector('span').textContent=state.original?'正在查看原图':'查看原图';
+  alertOriginal('外部原图无法载入，可通过 Pixiv 原作确认');
+ };
+ preload.src=target;
+}
+function saveArtwork(){if(state.focus)alertOriginal('可以长按或右键图片保存；本站不代理跨域原图文件');}
+
 function clickFromWall(e){const v=e.target.closest('[data-view]');if(v)openReader(v.dataset.view,v)}
 $('artWall').addEventListener('click',clickFromWall);
 $('miniRank').addEventListener('click',e=>{const b=e.target.closest('[data-rank]');if(b)openReader(b.dataset.rank,null)});
@@ -144,12 +204,12 @@ $('closeReader').onclick=closeReader;$('btnCloseIcon').onclick=closeReader;$('pr
 $('zoomIn').onclick=()=>changeZoom(state.zoom+.35);$('zoomOut').onclick=()=>changeZoom(state.zoom-.35);$('zoomReset').onclick=()=>resetZoom();$('btnFit').onclick=()=>resetZoom();$('btnOriginal').onclick=toggleOriginal;
 $('viewerImage').addEventListener('dblclick',()=>resetZoom());
 $('viewerImage').addEventListener('click',e=>{if(state.moving)return;changeZoom(state.zoom===1?1.8:1)});
-$('favArt').onclick=()=>{const w=state.focus;if(!w)return;if(state.liked.has(w.id)){state.liked.delete(w.id);toast('已取消收藏')}else{state.liked.add(w.id);toast('已收藏这张作品 ♡')}try{localStorage.setItem('kira.likes.v1',JSON.stringify([...state.liked]))}catch{};fillFav()};
+$('favArt').onclick=()=>{const w=state.focus;if(!w)return;if(state.liked.has(w.id)){state.liked.delete(w.id);toast('已取消收藏')}else{state.liked.add(w.id);toast('已收藏这张作品 ♡')}try{localStorage.setItem('kira.likes.v2',JSON.stringify([...state.liked]))}catch{};fillFav()};
 function fillFav(){const active=state.liked.has(state.focus.id);$('favArt').classList.toggle('faved',active);$('favArt').querySelector('span').textContent=active?'已收藏':'收藏作品'}
-$('followArtist').onclick=e=>{const b=e.currentTarget;b.textContent=b.textContent.includes('＋')?'✓ 已关注':'＋ 关注';toast('关注为本地交互演示')};
-$('copyArt').onclick=async()=>{const w=state.focus;const u=new URL(window.location.href);u.hash='art-'+w.id;try{await navigator.clipboard.writeText(u.href);toast('已复制作品演示链接')}catch{toast('作品演示编号：'+w.id)}};
-$('saveOriginal').onclick=savedDemo;
-$('readerTags').addEventListener('click',e=>{const b=e.target.closest('[data-term]');if(!b)return;const term=b.dataset.term;closeReader();state.search=term;state.filter='全部';state.route='all';$('search').value=term;draw();window.scrollTo({top:0,behavior:'smooth'})});
+$('followArtist').onclick=()=>{const w=state.focus;if(!w)return;if(state.followed.has(w.artist)){state.followed.delete(w.artist);toast('已取消关注 '+w.artist)}else{state.followed.add(w.artist);toast('已关注画师 '+w.artist)}try{localStorage.setItem('kira.follows.v2',JSON.stringify([...state.followed]))}catch{}$('followArtist').textContent=state.followed.has(w.artist)?'✓ 已关注':'＋ 关注';if(state.main==='关注')draw()};
+$('copyArt').onclick=async()=>{const w=state.focus;const u=new URL(window.location.href);u.hash='art-'+w.id;try{await navigator.clipboard.writeText(u.href);toast('已复制 KIRA 作品链接')}catch{toast('Pixiv 编号：'+w.pid)}};
+$('saveOriginal').onclick=saveArtwork;
+$('readerTags').addEventListener('click',e=>{const b=e.target.closest('[data-term]');if(!b)return;const term=b.dataset.term;closeReader();state.search=term;state.filter='全部';state.route='all';state.main='推荐';$('search').value=term;draw();window.scrollTo({top:0,behavior:'smooth'})});
 $('reader').addEventListener('click',e=>{const path=e.target.closest('[data-path]');const suggestion=e.target.closest('[data-related]');if(path){state.relatedPath=path.dataset.path;relatedDraw()}else if(suggestion){openReader(suggestion.dataset.related,null)}});
 window.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(state.focus)closeReader();$('search').focus();return}if(!state.focus)return;if(e.key==='Escape')closeReader();else if(e.key==='ArrowRight')swapArt(1);else if(e.key==='ArrowLeft')swapArt(-1);else if(e.key==='+'||e.key==='=')changeZoom(state.zoom+.25);else if(e.key==='-'||e.key==='_')changeZoom(state.zoom-.25);else if(e.key==='0')resetZoom()});
 $('readerStage').addEventListener('wheel',e=>{if(!state.focus)return;e.preventDefault();changeZoom(state.zoom+(e.deltaY<0?.18:-.18))},{passive:false});
@@ -161,5 +221,27 @@ $('readerStage').addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId
 function pointerEnd(e){if(!pointers.has(e.pointerId))return;const dx=anchor?e.clientX-anchor.x:0;pointers.delete(e.pointerId);if(pointers.size===0){if(state.zoom<=1.01&&Math.abs(dx)>75&&state.moving){swapArt(dx<0?1:-1)}if(state.zoom<1.02)resetZoom(false);anchor=null;setTimeout(()=>state.moving=false,50)}else if(pointers.size===1){const p=[...pointers.values()][0];anchor={x:p.x,y:p.y,panX:state.panX,panY:state.panY}}}
 $('readerStage').addEventListener('pointerup',pointerEnd);$('readerStage').addEventListener('pointercancel',pointerEnd);
 let prevCols=innerWidth<=650?2:innerWidth<=850?3:4;window.addEventListener('resize',()=>{const n=innerWidth<=650?2:innerWidth<=850?3:4;if(n!==prevCols){prevCols=n;draw()}});
+
 renderRanks();draw();
-if(/^#art-\d+$/.test(location.hash)){const w=byId(location.hash.replace('#art-',''));if(w)openReader(w.id,null)}
+async function hydrateRealPixiv(){
+ try{
+  const response=await fetch('/assets/pixiv-feed.json',{cache:'force-cache'});
+  if(!response.ok)throw Error('status '+response.status);
+  const snap=await response.json(),works=normalizeSnapshot(snap);
+  if(!works.length)throw Error('没有通过校验的 Pixiv 作品');
+  WORKS=works;pixivSnapshotDate=snap.generated_at||null;state.anchor=WORKS[0].id;
+  renderRanks();draw();
+  const foot=document.querySelector('.foot-note span');
+  if(foot)foot.textContent='PIXIV / '+WORKS.length+' VERIFIED METADATA / EXTERNAL MEDIA';
+  const pulse=document.querySelector('.pulse-right');
+  if(pulse)pulse.textContent='PIXIV / '+WORKS.length+' ARTS · EXTERNAL SOURCE';
+  if(/^#art-\d+$/.test(location.hash)){const w=byId(Number(location.hash.slice(5)));if(w)openReader(w.id,null);}
+ }catch(error){
+  console.error('Pixiv metadata snapshot unavailable',error);
+  $('feedTitle').textContent='Pixiv 作品源暂不可用';
+  $('artWall').innerHTML='<div class="empty-feed"><strong>图片源暂时无法连接</strong>刷新页面再试。不会用假图冒充真实作品。</div>';
+  $('feedCount').textContent='· 0 张';
+  $('miniRank').textContent='等待图片源恢复';
+ }
+}
+hydrateRealPixiv();
