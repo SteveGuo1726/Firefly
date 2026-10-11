@@ -27,6 +27,16 @@ Keep current blog and `img.casto.top` file URLs unchanged. Avoid any EdgeOne/dom
 
 独立体验：https://kira-pixiv-feed-dev.guojunyang666666.workers.dev/
 
-代码：`pixiv/`。Lolicon API v2（免费，未登录），GitHub Actions 标准 runner 低频产生插画元数据快照，CF 只读加载快照，原图经第三方 URL 直接显示。当前已采样 48 张真实作品（全年龄，排除标记 AI），无需 D1、R2 或付费服务。更多见 `pixiv/README.md`。
+代码：`pixiv/`。Lolicon API v2（免费，未登录），GitHub Actions 标准 runner 低频产生插画元数据快照，CF 只读加载快照，原图经第三方 URL 直接显示。当前已采样 43 张经过标签过滤的真实作品（全年龄，排除标记 AI），无需 D1、R2 或付费服务。更多见 `pixiv/README.md`。
 
 先前 Openverse / Danbooru Source Lab 已从 Worker 和开发代码中删除；不使用付费 TinyFish Agent。
+
+### V6 真实 Pixiv 主界面（CF 开发路线）
+
+- 在线入口：https://kira-cf.casto.top/
+- 43 条经全年龄及显式 R-18 标签二次过滤的 Pixiv 索引；39 条已测量缩略图主色调。原图与缩略图仍由外部代理 URL 承载，未复制到图片床。
+- 浏览器里运行瀑布流、作品详情、图片专属缩放、角色／色彩／氛围跃迁、本地关注和本地收藏。没有伪造热门点赞数。
+- 构建：`node preview/build.mjs`；配置：`preview/wrangler.jsonc`，继续使用独立 Worker `kira-jump-international-preview`。
+- 色彩特征：`scripts/enrich-pixiv-palette.py`（通过免费公开仓库 GitHub Actions 分析缩略图，仅存储 HSV 主色调和 HEX 色值）。
+- 安全：图片索引拒绝带显式 R-18 标签的条目，即使上游标称 `r18=0`；刷新需要手动触发且会保留旧的成功数据，防止免费 API 429 清空图库。
+- 当前是开发预览。EdgeOne、中国大陆路由以及博客生产服务均未修改。
