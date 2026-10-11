@@ -1,15 +1,36 @@
 {
-  "date": "2026-10-11T09:53:40.220001+00:00",
+  "date": "2026-10-11T09:54:37.445388+00:00",
   "health": {
-    "error": "HTTP Error 403: Forbidden",
-    "body": "error code: 1010\n"
+    "status": 200,
+    "bytes": 221,
+    "payload": {
+      "ok": true,
+      "service": "kira-pixiv-feed-dev",
+      "version": "0.3",
+      "source": "lolicon-snapshot",
+      "generated_at": "2026-10-11T09:44:15.172453+00:00",
+      "channels": {
+        "discover": 12,
+        "miku": 12,
+        "genshin": 12,
+        "girl": 12,
+        "touhou": 0,
+        "original": 0
+      }
+    }
   },
   "feed": {
-    "error": "HTTP Error 403: Forbidden",
-    "body": "error code: 1010\n"
+    "status": 200,
+    "bytes": 8776,
+    "items": 12,
+    "has_more": true,
+    "first_pixiv": "https://www.pixiv.net/artworks/76328544"
   },
   "html": {
-    "error": "HTTP Error 403: Forbidden",
-    "body": "error code: 1010\n"
+    "status": 200,
+    "bytes": 14512,
+    "title_present": true,
+    "js_valid": true,
+    "js_error": ""
   }
 }
