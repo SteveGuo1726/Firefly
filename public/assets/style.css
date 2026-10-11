@@ -79,3 +79,11 @@
 }
 @media(max-width:370px){.reader-floatbar #retryImage{padding:6px 7px}.reader-axis-controls label{font-size:9px}.reader-axis-controls input{width:27px}}
 @media(prefers-reduced-motion:reduce){.media-spinner{animation-duration:2s}.viewer-image,.related-item,.reader-floatbar button{transition:none!important}}
+
+/* Original transfer is deliberately non-modal so the preview stays enjoyable. */
+.reader-stage.original-fetch .media-load{top:auto;bottom:81px;left:50%;transform:translateX(-50%);min-width:0;width:max-content;max-width:calc(100% - 24px);padding:10px 15px;flex-direction:row;gap:10px;border-radius:999px}
+.reader-stage.original-fetch .media-load strong{white-space:nowrap;font-size:11px}
+.reader-stage.original-fetch .media-load #mediaLoadSub{display:none}
+.reader-stage.original-fetch .media-spinner{width:16px;height:16px}
+.related-reason{display:block;font-size:9px;color:#806cd0;margin-top:4px}
+@media(max-width:650px){.reader-stage.original-fetch .media-load{bottom:73px}}
