@@ -5,6 +5,7 @@ import { markdownImage, insertMarkdownAt } from "@/utils/admin/editor-image";
 import { readDraft, writeDraft, clearDraft } from "@/utils/admin/draft-storage";
 import { siteConfig } from "@/config/siteConfig";
 import { processCoverImageSync, getApiUrlList } from "@/utils/image-utils";
+import fallbackCover from "@/assets/images/cover.avif";
 import "@/styles/markdown.css";
 import "@/styles/markdown-extend.styl";
 import "@/styles/expressive-code.css";
@@ -56,8 +57,12 @@ function previewCoverUrl(){
 function retryCover(event:Event){
  const image=event.currentTarget as HTMLImageElement;
  const candidates=getApiUrlList(fields.image,currentId||currentPath);
- const next=candidates.indexOf(image.src)+1;
- if(fields.image==="api"&&next>0&&next<candidates.length){image.src=candidates[next];return;}
+ const current=new URL(image.src,window.location.href).href;
+ const index=candidates.findIndex(candidate=>new URL(candidate,window.location.href).href===current);
+ const next=index+1;
+ if(fields.image==="api"&&index>=0&&next<candidates.length){image.src=candidates[next];return;}
+ const fallback=fallbackCover.src;
+ if(current!==new URL(fallback,window.location.href).href){image.src=fallback;return;}
  image.style.display="none";
 }
 let previewLoading=false;let previewFailure="";
