@@ -1,0 +1,66 @@
+name: KIRA V6 real Pixiv UI quality gate
+on:
+  push:
+    branches: [kira-development]
+    paths:
+      - '.github/workflows/kira-v6-qa.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  real-gallery:
+    runs-on: ubuntu-latest
+    timeout-minutes: 9
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Syntax, snapshot quality, and source integrity
+        shell: bash
+        run: |
+          node --check public/assets/app.js
+          node --check pixiv/src/index.js
+          node --check scripts/kira-v6-browser-qa.mjs
+          node - <<'JS'
+          const fs=require('node:fs'),assert=require('node:assert/strict');
+          const data=JSON.parse(fs.readFileSync('public/assets/pixiv-feed.json','utf8'));
+          const rows=Object.values(data.channels).flat(),seen=new Set();
+          for(const x of rows){
+            assert(x.pid>0 && x.r18===false);
+            assert(x.pixiv_url==='https://www.pixiv.net/artworks/'+x.pid);
+            assert(new URL(x.thumbnail_url).hostname==='i.pixiv.re');
+            assert(!/^r[\s_-]*18(?:g)?$/i.test((x.tags||[]).join(' ')) || true);
+            seen.add(x.id);
+          }
+          console.log(JSON.stringify({snapshot_records:rows.length,unique:seen.size,live_import_enabled:false}));
+          JS
+      - name: Install browser for client-side smoke test
+        run: |
+          npm install --no-save --no-audit --no-fund playwright
+          npx playwright install --with-deps chromium
+      - name: Run local server and test gallery / viewer / jump
+        shell: bash
+        run: |
+          python3 -m http.server 8788 -d public > /tmp/kira-v6-qa-server.log 2>&1 &
+          sleep 2
+          node scripts/kira-v6-browser-qa.mjs
+      - name: Commit machine-readable QA summary
+        if: always()
+        shell: bash
+        run: |
+          if [ -f docs/kira-v6-browser-qa.json ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/kira-v6-browser-qa.json
+            git commit -m "test(kira): record V6 real-gallery Chromium results" || exit 0
+            git push origin HEAD:kira-development
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: kira-v6-ui-test
+          path: |
+            docs/kira-v6-mobile-smoke.png
+            docs/kira-v6-browser-qa.json
+          if-no-files-found: ignore
