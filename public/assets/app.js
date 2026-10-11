@@ -56,7 +56,7 @@ let pixivSnapshotDate=null;
 function storedLikes(){try{const a=JSON.parse(localStorage.getItem('kira.likes.v2')||'[]');return Array.isArray(a)?a.filter(Number.isSafeInteger):[]}catch{return []}}
 function storedFollows(){try{const a=JSON.parse(localStorage.getItem('kira.follows.v2')||'[]');return Array.isArray(a)?a.filter(x=>typeof x==='string'):[]}catch{return []}}
 
-const state={main:'推荐',route:'all',filter:'全部',search:'',shown:[],focus:null,anchor:null,relatedPath:'character',zoom:1,panX:0,panY:0,original:false,liked:new Set(storedLikes()),followed:new Set(storedFollows()),lastCard:null,moving:false};
+const state={refreshNonce:0,main:'推荐',route:'all',filter:'全部',search:'',shown:[],focus:null,anchor:null,relatedPath:'character',zoom:1,panX:0,panY:0,original:false,liked:new Set(storedLikes()),followed:new Set(storedFollows()),lastCard:null,moving:false};
 const byId=id=>WORKS.find(w=>w.id===Number(id));
 const prefersReduced=window.matchMedia('(prefers-reduced-motion: reduce)');
 const count=n=>typeof n==='number'?(n>=10000?(n/10000).toFixed(1)+'万':String(n)):'PIXIV';
@@ -72,7 +72,11 @@ function baseList(){
       .sort((a,b)=>relationScore(seed,b,state.route)-relationScore(seed,a,state.route));
   }
   if(state.main==='精选')list.sort((a,b)=>b.tags.length-a.tags.length);
-  if(state.main==='换一批')list.reverse();
+  if(state.main==='换一批'){
+    const seed=state.refreshNonce||1;
+    const hash=id=>{let x=(id^Math.imul(seed,2654435761))>>>0;x^=x>>>16;x=Math.imul(x,2246822519)>>>0;x^=x>>>13;return x>>>0};
+    list.sort((a,b)=>hash(a.id)-hash(b.id));
+  }
   if(state.main==='关注')list=list.filter(w=>state.followed.has(w.artistKey));
   if(state.filter!=='全部')list=list.filter(w=>w.kind===state.filter||w.tags.includes(state.filter)||w.mood===state.filter);
   const q=state.search.trim().toLowerCase();
@@ -84,7 +88,7 @@ function baseList(){
 function card(w,i){
   return '<article class="art-card" style="--delay:'+Math.min(i,14)*26+'ms">'+
     '<button class="art-cover" data-view="'+w.id+'" aria-label="查看作品：'+esc(w.title)+'" style="--ratio:'+w.ratio+'">'+
-    '<img src="'+esc(w.card)+'" referrerpolicy="no-referrer" alt="'+esc(w.title)+'" loading="'+(i<7?'eager':'lazy')+'" decoding="async">'+
+    '<img src="'+esc(w.card)+'" data-card-art="'+w.id+'" referrerpolicy="no-referrer" alt="'+esc(w.title)+'" loading="'+(i<7?'eager':'lazy')+'" decoding="async">'+
     '<span class="art-cover-label">PIXIV</span><span class="art-peek">发现原作者 ↗</span></button>'+
     '<div class="art-copy"><div class="art-name" title="'+esc(w.title)+'">'+esc(w.title)+'</div>'+
     '<div class="art-meta"><span class="mini-face" style="background:'+colorFor(w)+'">'+esc(w.artist.slice(0,1))+'</span>'+
@@ -104,6 +108,12 @@ function draw(){
   list.forEach((w,i)=>{const c=heights.indexOf(Math.min(...heights));cols[c].push(card(w,i));heights[c]+=w.ratio+.32});
   $('artWall').innerHTML=list.length?cols.map(a=>'<div class="art-col">'+a.join('')+'</div>').join('')
     :'<div class="empty-feed"><strong>'+(!WORKS.length?'正在连接 Pixiv 作品流…':'这里还没有对应作品 ✳')+'</strong>'+(!WORKS.length?'':state.main==='关注'?'打开作品详情关注画师，作品会出现在这里。':'试试其他标签或清除搜索。')+'</div>';
+  // Thumbnail fallback is lazy, never load giant originals merely to populate the wall.
+  document.querySelectorAll('[data-card-art]').forEach(img=>img.addEventListener('error',()=>{
+    const w=byId(img.dataset.cardArt);
+    if(img.dataset.fallback==='preview'||!w){img.style.opacity='.13';img.alt='外部图源加载失败，点击卡片可重试';return}
+    img.dataset.fallback='preview';img.src=w.preview;
+  }));
   document.querySelectorAll('[data-route]').forEach(b=>b.classList.toggle('on',b.dataset.route===state.route));
   document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('on',b.dataset.filter===state.filter));
   document.querySelectorAll('[data-main]').forEach(b=>b.classList.toggle('active',b.dataset.main===state.main));
@@ -113,7 +123,7 @@ function renderRanks(){
 }
 
 function setRoute(route){state.route=route;state.main='推荐';state.filter='全部';state.search='';$('search').value='';draw();toast({all:'重新连接全部频道 ✦',character:'角色同频频道已连接 ⚡',color:'色彩共振频道已连接 ✦',mood:'氛围感应频道已连接 ✧'}[route]||'频道已切换')}
-function setMain(main){state.main=main;draw();window.scrollTo({top:0,behavior:'smooth'})}
+function setMain(main){if(main==='换一批')state.refreshNonce++;state.main=main;draw();window.scrollTo({top:0,behavior:'smooth'})}
 function pickNew(){const ids=(state.shown.length?state.shown:WORKS).filter(w=>w.id!==state.focus?.id);const chosen=ids[Math.floor(Math.random()*ids.length)]||WORKS[0];if(!chosen){toast('作品正在加载中');return}openReader(chosen.id,null);toast('跃迁成功！发现了新的作品 ✳')}
 function motionClone(fromEl,toEl,reverse=false){if(prefersReduced.matches||!fromEl||!toEl)return;const a=fromEl.getBoundingClientRect();const b=toEl.getBoundingClientRect();if(!a.width||!a.height||!b.width||!b.height)return;const clone=document.createElement('img');clone.src=fromEl.currentSrc||fromEl.src;clone.alt='';clone.style.cssText='position:fixed;z-index:125;object-fit:cover;pointer-events:none;box-shadow:0 25px 70px #08061770;will-change:top,left,width,height,border-radius;';document.body.append(clone);const first=reverse?b:a,last=reverse?a:b;const style=(r,rad)=>({top:r.top+'px',left:r.left+'px',width:r.width+'px',height:r.height+'px',borderRadius:rad});const anim=clone.animate([style(first,'12px'),style(last,'5px')],{duration:380,easing:'cubic-bezier(.2,.76,.17,1)',fill:'both'});anim.finished.catch(()=>{}).finally(()=>clone.remove())}
 
