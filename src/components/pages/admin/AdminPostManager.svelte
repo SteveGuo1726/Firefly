@@ -298,8 +298,16 @@ onMount(()=>{
  <button type="button" class:active={listFilter==="published"} aria-pressed={listFilter==="published"} onclick={()=>listFilter="published"}>已发布 {rows.filter(row=>!row.draft).length}</button>
 </div><div class="list">{#if loading}<p>读取中...</p>{:else}{#each filtered(rows,query,listFilter) as row}<button class:active={row.id===currentId} onclick={()=>open(row)}><strong>{row.title}</strong><span>{row.draft?"草稿 · ":"已发布 · "}{row.category||"未分类"} · {row.live?"实时":"Git"}</span><small>{row.path}</small></button>{/each}{/if}</div>{#if deletedRows.length}<div class="deleted-entries"><strong>已删除 ({deletedRows.length})</strong>{#each deletedRows as item}<button type="button" onclick={()=>openDeleted(item)} title="查看历史并恢复">{item.id} · 恢复</button>{/each}</div>{/if}</aside>
 <div class="editor">
+<div class="editor-intro">
+ <label class="editor-title"><span>文章标题</span><input bind:value={fields.title} placeholder="给文章起一个标题"/></label>
+ <div class="editor-intro-actions">
+  <label class="draft-quick-toggle"><input type="checkbox" bind:checked={fields.draft}/><span>设为草稿</span></label>
+  <button type="button" class="quick-preview-button" onclick={toggleDockedPreview}>{dockedPreview?"退出贴近预览":"贴近预览 ⇄"}</button>
+ </div>
+</div>
+<details class="post-metadata">
+ <summary><span>文章信息与其他设置</span><small>文件路径 · 时间 · 分类 · 标签 · 描述 · 封面</small></summary>
 <div class="grid">
-<label class="wide"><span>标题</span><input bind:value={fields.title}/></label>
 <label class="wide"><span>文件路径</span><input bind:value={currentPath}/></label>
 <label><span>发布时间</span><input bind:value={fields.published}/></label><label><span>更新时间</span><input bind:value={fields.updated}/></label>
 <label><span>分类</span><input bind:value={fields.category}/></label>
@@ -318,9 +326,10 @@ onMount(()=>{
  </div>
 </details>
 </div>
-<div class="checks"><label><input type="checkbox" bind:checked={fields.draft}/>草稿</label><label><input type="checkbox" bind:checked={fields.pinned}/>置顶</label><label><input type="checkbox" bind:checked={fields.comment}/>评论</label></div>
+<div class="checks"><label><input type="checkbox" bind:checked={fields.pinned}/>置顶</label><label><input type="checkbox" bind:checked={fields.comment}/>评论</label></div>
+</details>
+<label class="body"><span>正文 Markdown / MDX</span><textarea bind:this={editorTextarea} bind:value={body} oninput={schedulePreview} onscroll={()=>syncDockedScroll("source")} spellcheck="false"></textarea></label>
 <label class="image-upload"><span>插入图片</span><input type="file" accept="image/*" onchange={uploadEditorImage} disabled={imageUploading}/>{#if imageUploading}<small>上传中，请勿关闭页面...</small>{/if}</label>
-<label class="body"><span>正文 Markdown / MDX</span><textarea bind:this={editorTextarea} bind:value={body} oninput={schedulePreview} onscroll={()=>syncDockedScroll("source")}></textarea></label>
 {#if needsStaticSecurityRebuild()}
 <div class="security-warning">这篇文章已经存在于当前静态构建中。实时层可以立刻把它从索引隐藏并让正常浏览跳转 404，但旧 HTML 仍可能被直接缓存或读取；密码保护/真正下线需要后续 Git 归档并重新构建后才彻底生效。</div>
 {/if}
@@ -490,4 +499,75 @@ onMount(()=>{
 .post-list-filter button:hover{background:color-mix(in srgb,var(--primary) 9%,transparent)}
 .post-list-filter button.active{color:var(--primary);background:color-mix(in srgb,var(--primary) 11%,var(--card-bg));border-color:color-mix(in srgb,var(--primary) 36%,var(--line-divider))}
 @media(max-width:760px){.post-list-filter{margin:.45rem 0}.post-list-filter button{min-height:2.55rem;font-size:.76rem}}
+
+/* Writing-first workspace. The article's primary field stays prominent while
+   metadata can be expanded without occupying the whole first viewport. */
+.manager,.layout,.layout>aside,.layout>.editor,.layout>.preview{max-width:100%;min-width:0;box-sizing:border-box}
+.editor-intro{display:flex;flex-direction:column;gap:.65rem;min-width:0;margin-bottom:.85rem}
+.editor-title{display:grid;gap:.35rem;min-width:0;font-size:.76rem;font-weight:750}
+.editor-title input{width:100%;max-width:100%;min-width:0;box-sizing:border-box;border:1px solid var(--line-divider);border-radius:.65rem;padding:.75rem .85rem;background:var(--card-bg);color:inherit;font:inherit;font-size:1rem;font-weight:600}
+.editor-title input:focus-visible,.body textarea:focus-visible{outline:2px solid var(--primary);outline-offset:1px}
+.editor-intro-actions{display:flex;flex-wrap:wrap;align-items:center;gap:.6rem}
+.draft-quick-toggle{display:inline-flex;align-items:center;gap:.45rem;border-radius:.55rem;font-size:.8rem;cursor:pointer}
+.draft-quick-toggle input{accent-color:var(--primary);width:1rem;height:1rem}
+.quick-preview-button{display:none;color:var(--primary);border-color:color-mix(in srgb,var(--primary) 30%,var(--line-divider))}
+.post-metadata{margin-bottom:.9rem;min-width:0;border:1px solid var(--line-divider);border-radius:.8rem;background:color-mix(in srgb,var(--card-bg) 94%,var(--primary) 6%)}
+.post-metadata>summary{cursor:pointer;list-style:none;display:flex;align-items:center;justify-content:space-between;gap:.7rem;flex-wrap:wrap;padding:.85rem .9rem;font-weight:700;font-size:.83rem}
+.post-metadata>summary::-webkit-details-marker{display:none}
+.post-metadata>summary:after{content:"＋";color:var(--primary);font-size:1rem;margin-left:auto}
+.post-metadata[open]>summary:after{content:"−"}
+.post-metadata>summary small{font-size:.68rem;font-weight:450;color:var(--text-muted,#888);overflow-wrap:anywhere}
+.post-metadata>.grid{padding:.2rem .85rem .85rem;min-width:0}
+.post-metadata>.checks{padding:0 .9rem .85rem;margin:0;flex-wrap:wrap}
+.editor .grid label,.editor .grid input,.editor .grid textarea{min-width:0;max-width:100%;box-sizing:border-box}
+.editor .body{margin:0;min-width:0}
+.editor .body textarea{display:block;box-sizing:border-box;min-width:0;max-width:100%;height:clamp(35rem,67vh,58rem);min-height:35rem;line-height:1.78;font-size:.89rem;padding:1rem;resize:vertical;overflow-x:auto;white-space:pre-wrap;overflow-wrap:break-word;background:var(--card-bg)}
+.editor .image-upload{margin-top:.7rem;margin-bottom:.6rem}
+.layout{grid-template-columns:minmax(11rem,14rem) minmax(0,1.3fr) minmax(0,1fr)}
+.layout:not(.docked)>.editor{min-width:0}
+.preview,.preview-viewport,.preview-viewport :global(.markdown-content){min-width:0;max-width:100%;overflow-wrap:anywhere}
+.preview-viewport :global(img),.preview-viewport :global(video),.preview-viewport :global(iframe){max-width:100%}
+@media (max-width:1350px){
+ .layout:not(.docked){grid-template-columns:minmax(11rem,13rem) minmax(0,1fr)}
+ .layout:not(.docked)>.preview{grid-column:2}
+}
+@media (max-width:900px){
+ .layout:not(.docked){display:flex;flex-direction:column}
+ .layout:not(.docked)>aside{width:100%;border-right:0;border-bottom:1px solid var(--line-divider)}
+ .layout:not(.docked)>.editor,.layout:not(.docked)>.preview{width:100%;border-right:0;box-sizing:border-box}
+ .layout:not(.docked) .list{display:flex;overflow-x:auto;overflow-y:hidden;max-height:none;scroll-snap-type:x proximity}
+ .layout:not(.docked) .list button{flex:0 0 auto;max-width:min(15rem,75vw);min-width:min(11rem,65vw)}
+ .editor .body textarea{height:clamp(32rem,65vh,48rem);min-height:32rem}
+}
+@media (max-width:640px){
+ .manager{width:100%;max-width:100%;overflow-x:clip}
+ .manager>header{padding:.75rem .7rem;gap:.5rem}
+ .manager>header>div:first-child{min-width:0;max-width:100%}
+ .manager>header p{overflow-wrap:anywhere}
+ .layout:not(.docked)>aside,.layout:not(.docked)>.editor,.layout:not(.docked)>.preview{padding:.7rem;min-width:0;max-width:100%}
+ .editor-intro{gap:.5rem;margin-bottom:.7rem}
+ .editor-intro-actions{justify-content:space-between}
+ .quick-preview-button{display:inline-flex;align-items:center;justify-content:center;min-height:2.5rem}
+ .post-metadata>summary{padding:.72rem;gap:.28rem}
+ .post-metadata>summary small{width:100%;order:3}
+ .post-metadata>.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:.5rem;padding:.45rem .6rem .75rem}
+ .post-metadata>.grid>label.wide{grid-column:span 2}
+ .post-metadata .grid input,.post-metadata .grid textarea{font-size:16px}
+ .editor .body textarea{width:100%;height:max(63dvh,29rem);min-height:29rem;padding:.8rem;line-height:1.72;font-size:16px;overflow-wrap:anywhere}
+ .editor .image-upload{width:100%;overflow-wrap:anywhere}
+ .editor .image-upload input{max-width:100%}
+ .preview-viewport :global(pre),.preview-viewport :global(table){max-width:100%;overflow-x:auto}
+ /* On phones, preserve a readable full-width source editor even when
+    synchronized comparison is enabled. Desktop/tablet keep side-by-side. */
+ .layout.docked{display:flex;flex-direction:column;min-height:0;height:auto;max-width:100%;overflow:visible}
+ .layout.docked>.editor,.layout.docked>.preview{width:100%;max-width:100%;min-height:0;overflow:visible;padding:.65rem}
+ .layout.docked>.editor>.body{display:flex;flex-direction:column;width:100%;min-height:0;flex:auto}
+ .layout.docked>.editor>.body textarea{height:46dvh;min-height:max(21rem,40dvh);max-height:65dvh;flex:none;resize:vertical;white-space:pre-wrap;font-size:15px;padding:.65rem}
+ .layout.docked>.preview>.preview-viewport{height:43dvh;min-height:17rem;max-height:65dvh;flex:none;overflow-y:auto;overflow-x:hidden}
+ .layout.docked>.preview>.preview-heading{display:flex;position:static}
+ .layout.docked>.preview>.preview-heading strong{display:block;width:auto}
+ .layout.docked>.preview .preview-switch{display:none}
+}
+@media (max-width:360px){.post-metadata>.grid{grid-template-columns:minmax(0,1fr)}.post-metadata>.grid>label.wide{grid-column:span 1}.post-metadata>summary small{font-size:.63rem}}
+
 </style>
