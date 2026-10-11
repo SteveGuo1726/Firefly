@@ -1,0 +1,10 @@
+import fs from 'node:fs/promises';
+const dir=new URL('.',import.meta.url);
+const files=['public/index.html','src/index.js','data/feed.json'];
+const [html,api,data]=await Promise.all(files.map(p=>fs.readFile(new URL(p,dir),'utf8')));
+const snap=JSON.parse(data);
+if(!snap.channels?.discover?.length)throw new Error('No verified Pixiv metadata');
+const js='const PAGE='+JSON.stringify(html)+';\nconst SNAPSHOT='+JSON.stringify(snap)+';\n'+api;
+await fs.mkdir(new URL('dist/',dir),{recursive:true});
+await fs.writeFile(new URL('dist/index.mjs',dir),js);
+console.log('Built KIRA Pixiv:',Object.entries(snap.channels).map(([k,v])=>k+':'+v.length).join(', '));
