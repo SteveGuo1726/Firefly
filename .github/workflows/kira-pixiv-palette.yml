@@ -1,0 +1,30 @@
+name: KIRA Pixiv palette enrichment
+on:
+  push:
+    branches: [kira-development]
+    paths:
+      - '.github/workflows/kira-pixiv-palette.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  color:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install light image analysis dependency
+        run: python -m pip install --quiet Pillow
+      - name: Compute real thumbnail color histogram
+        run: python scripts/enrich-pixiv-palette.py
+      - name: Save metadata only, no image bytes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add pixiv/data/feed.json public/assets/pixiv-feed.json
+          git commit -m "data(kira): attach computed artwork dominant colors" || exit 0
+          git pull --rebase origin kira-development
+          git push origin HEAD:kira-development
