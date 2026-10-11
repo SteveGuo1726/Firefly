@@ -24,4 +24,4 @@ jobs:
           node-version: '22'
       - name: Deploy preview to EdgeOne Pages
         if: steps.credential.outputs.available == 'true'
-        run: npx --yes edgeone pages deploy ./kira-edgeone -n kira-jump-preview -e preview -t "$EDGEONE_API_TOKEN"
+        run: npx --yes edgeone makers deploy ./kira-edgeone -n kira-jump-preview -e preview -t "$EDGEONE_API_TOKEN"
