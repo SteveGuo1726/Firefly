@@ -22,9 +22,8 @@ export async function proxyGalleryManagement(request,{env=process.env,fetcher=fe
  if(request.method!=="GET"&&request.headers.get("Origin")!==url.origin){
   return new Response("Forbidden",{status:403});
  }
- if(!env.FIREFLY_OAUTH_CLIENT_ID||!env.FIREFLY_OAUTH_CLIENT_SECRET||!env.FIREFLY_OAUTH_CALLBACK_URL ||
-    !env.FIREFLY_GALLERY_SERVICE_SECRET||env.FIREFLY_GALLERY_SERVICE_SECRET.length<32){
-  return new Response("OAuth gallery proxy is not configured",{status:503});
+ if(!env.FIREFLY_GALLERY_SERVICE_SECRET||env.FIREFLY_GALLERY_SERVICE_SECRET.length<32){
+  return new Response("Gallery service secret is not configured",{status:503});
  }
  const raw=storeFactory();
  await assertEdgeOneAtomicWrites(raw);

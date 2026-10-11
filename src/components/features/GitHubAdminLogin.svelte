@@ -55,7 +55,7 @@ async function submitLogin() {
 }
 
 async function logout() {
- if(session?.oauth){
+ if(session?.oauth || (typeof window !== "undefined" && window.location.hostname === "blog.casto.top")){
   try{await logoutOAuthAdmin();}
   catch(error){errorMessage=error instanceof Error?error.message:"退出失败";return;}
  }else{
@@ -131,7 +131,7 @@ onMount(() => {
 			<div class="dialog-header">
 				<div>
 					<h2 id="github-login-title">登录 GitHub 管理账号</h2>
-					<p>Token 仅保留在当前标签页；关闭标签页后自动退出。</p>
+					<p>Token 仅保留在当前标签页；正式站同时创建 8 小时的 HttpOnly 管理会话，可随时主动退出。</p>
 				</div>
 				<button type="button" class="close-button" aria-label="关闭" onclick={closeLogin}>×</button>
 			</div>

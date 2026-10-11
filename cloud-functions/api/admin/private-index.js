@@ -16,7 +16,7 @@ export default async function onRequest(context){
   if(!user)return new Response(JSON.stringify({error:"Unauthorized"}),{status:401,headers:{"Cache-Control":"no-store","Content-Type":"application/json"}});
   const owner=process.env.FIREFLY_GITHUB_OWNER||"SteveGuo1726";
   const repo=process.env.FIREFLY_GITHUB_REPO||"Firefly";
-  const branch=process.env.FIREFLY_GITHUB_BRANCH||"ai/preview-test";
+  const branch=process.env.FIREFLY_GITHUB_BRANCH||"master";
   const githubToken=process.env.FIREFLY_GITHUB_CONTENT_READ_TOKEN||"";
   const result=await buildPrivatePostIndex({token:githubToken,owner,repo,branch});
   return new Response(JSON.stringify(result),{headers:{"Cache-Control":"private, no-store","Content-Type":"application/json","Vary":"Cookie"}});

@@ -8,12 +8,11 @@ import { readAdminSessionId } from "../../../src/server/admin-auth/controller.js
 const STORE_NAME = "firefly-content-live";
 const blob = getStore({ name: STORE_NAME, consistency: "strong" });
 
-const oauthConfigured = Boolean(process.env.FIREFLY_OAUTH_CLIENT_ID && process.env.FIREFLY_OAUTH_CLIENT_SECRET && process.env.FIREFLY_OAUTH_CALLBACK_URL);
-const oauthRawBlob = oauthConfigured ? getStore({name:"firefly-auth-live",consistency:"strong"}) : null;
-const oauthSessions = oauthConfigured ? createAdminSessionService({
+const oauthRawBlob = getStore({name:"firefly-auth-live",consistency:"strong"});
+const oauthSessions = createAdminSessionService({
  store:edgeOneAtomicAuthStore(oauthRawBlob),
  adminLogin:process.env.FIREFLY_ADMIN_LOGIN||"SteveGuo1726",
-}) : null;
+});
 
 const handle = createLiveContentService({
 	distributedLock:{
@@ -22,11 +21,11 @@ const handle = createLiveContentService({
    return createDistributedContentLock(blob).acquire(keys);
   },
  },
-	authorizeSession: oauthSessions ? async request => {
+	authorizeSession: async request => {
   await assertEdgeOneAtomicWrites(oauthRawBlob);
   const session=await oauthSessions.verifySession(readAdminSessionId(request));
   return session?{ok:true,login:session.login}:{ok:false};
- } : undefined,
+ },
 	provider: "edgeone-blob",
 	storeName: STORE_NAME,
 	store: {

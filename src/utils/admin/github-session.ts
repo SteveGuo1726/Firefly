@@ -15,7 +15,7 @@ export function isOAuthSupported(): boolean { return oauthSupported; }
 export async function refreshOAuthAdminSession(): Promise<GitHubAdminSession | null> {
  try {
   const response=await fetch("/api/admin/auth/me",{cache:"no-store",credentials:"same-origin"});
-  oauthSupported=response.ok;
+  oauthSupported=response.ok && response.headers.get("X-Firefly-OAuth") !== "disabled";
   if(oauthSupported){
    // OAuth takes precedence: do not revive a previously persisted PAT session.
    try{sessionStorage.removeItem(STORAGE_KEY);}catch{}
@@ -95,7 +95,7 @@ export function getGitHubAdminSession(): GitHubAdminSession | null {
 	if (!storageAvailable()) return null;
 	discardLegacyPersistentToken();
 	const raw = sessionStorage.getItem(STORAGE_KEY);
-	if (!raw) return null;
+	if (!raw) return oauthCachedSession && oauthCachedSession.expiresAt>Date.now() ? oauthCachedSession : null;
 
 	try {
 		const session = JSON.parse(raw) as GitHubAdminSession;
@@ -175,6 +175,21 @@ export async function loginWithGitHubToken(
 	if (repository.permissions?.push !== true) {
 		throw new Error("当前 Token 没有仓库写入权限。");
 	}
+
+    // On the production EdgeOne site, authenticate the PAT server-side and
+    // issue a SameSite, HttpOnly session for private API calls. This is required
+    // for gallery, private post index, and live content cookie authorization.
+    if (typeof window !== "undefined" && window.location.hostname === "blog.casto.top") {
+        const bridge = await fetch("/api/admin/auth/pat-login", {
+            method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token }),
+        });
+        if (!bridge.ok) {
+            const result = await bridge.json().catch(() => ({}));
+            throw new Error(result?.error || "EdgeOne 后台会话创建失败，未登录。");
+        }
+    }
 
 	const session: GitHubAdminSession = {
 		login: user.login,
