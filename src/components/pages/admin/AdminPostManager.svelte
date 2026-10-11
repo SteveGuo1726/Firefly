@@ -291,7 +291,7 @@ onMount(()=>{
 <section class="manager card-base">
 <header><div><h2>文章管理</h2><p>列表轻量合并静态索引和 Blob 覆盖；打开单篇时才读取 Git 基线。</p></div><div class="actions"><button onclick={()=>refresh()} disabled={loading}>刷新</button><button class="primary" onclick={createNew}>新建</button></div></header>
 <div class="layout" class:docked={dockedPreview}>
-<aside><input class="search" type="search" bind:value={query} placeholder="搜索文章"/><div class="list">{#if loading}<p>读取中...</p>{:else}{#each filtered() as row}<button class:active={row.id===currentId} onclick={()=>open(row)}><strong>{row.title}</strong><span>{row.category||"未分类"} · {row.live?"实时":"Git"}</span><small>{row.path}</small></button>{/each}{/if}</div>{#if deletedRows.length}<div class="deleted-entries"><strong>已删除 ({deletedRows.length})</strong>{#each deletedRows as item}<button type="button" onclick={()=>openDeleted(item)} title="查看历史并恢复">{item.id} · 恢复</button>{/each}</div>{/if}</aside>
+<aside><input class="search" type="search" bind:value={query} placeholder="搜索文章"/><div class="list">{#if loading}<p>读取中...</p>{:else}{#each filtered() as row}<button class:active={row.id===currentId} onclick={()=>open(row)}><strong>{row.title}</strong><span>{row.draft?"草稿 · ":"已发布 · "}{row.category||"未分类"} · {row.live?"实时":"Git"}</span><small>{row.path}</small></button>{/each}{/if}</div>{#if deletedRows.length}<div class="deleted-entries"><strong>已删除 ({deletedRows.length})</strong>{#each deletedRows as item}<button type="button" onclick={()=>openDeleted(item)} title="查看历史并恢复">{item.id} · 恢复</button>{/each}</div>{/if}</aside>
 <div class="editor">
 <div class="grid">
 <label class="wide"><span>标题</span><input bind:value={fields.title}/></label>
@@ -319,7 +319,7 @@ onMount(()=>{
 {#if needsStaticSecurityRebuild()}
 <div class="security-warning">这篇文章已经存在于当前静态构建中。实时层可以立刻把它从索引隐藏并让正常浏览跳转 404，但旧 HTML 仍可能被直接缓存或读取；密码保护/真正下线需要后续 Git 归档并重新构建后才彻底生效。</div>
 {/if}
-{#if limitedGitIndex}<p role="status" class="security-warning">GitHub 私有索引暂时不可用，当前仅列出已公开文章；未发布草稿不会显示。请勿在恢复索引前覆盖不确定的旧文章路径。</p>{/if}
+{#if limitedGitIndex}<p role="status" class="security-warning">GitHub 实时索引暂时不可用；如看到草稿，来自实验站的已验证 Git 快照，可能不是最新版本。打开或保存前请核对文章内容与路径。</p>{/if}
 <div class="history-controls">
  <button type="button" onclick={loadHistory} disabled={!currentId||historyLoading}>{historyLoading?"读取历史中...":"查看历史版本"}</button>
  {#if deletedGitSha && currentId && deletedRows.some(row=>row.id===currentId)}<button type="button" onclick={undoGitDelete} disabled={saving||deleting}>撤销 Git 内容删除</button>{/if}
