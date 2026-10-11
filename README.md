@@ -22,3 +22,11 @@ There are deliberately no write endpoints yet. D1 begins empty so demo creators/
 ## Guardrails
 
 Keep current blog and `img.casto.top` file URLs unchanged. Avoid any EdgeOne/domestic site deployment during this development phase. Real media variants, uploader authentication, moderation, ownership and licensing have not been implemented yet. The demo images are generated imagery for UI validation.
+
+## 真正的 Pixiv 免费图源（开发）
+
+独立体验：https://kira-pixiv-feed-dev.guojunyang666666.workers.dev/
+
+代码：`pixiv/`。Lolicon API v2（免费，未登录），GitHub Actions 标准 runner 低频产生插画元数据快照，CF 只读加载快照，原图经第三方 URL 直接显示。当前已采样 48 张真实作品（全年龄，排除标记 AI），无需 D1、R2 或付费服务。更多见 `pixiv/README.md`。
+
+先前 Openverse / Danbooru Source Lab 已从 Worker 和开发代码中删除；不使用付费 TinyFish Agent。
