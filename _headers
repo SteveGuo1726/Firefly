@@ -1,0 +1,10 @@
+/all.json
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=3600, s-maxage=3600, stale-while-revalidate=3600
+
+/all.js
+  Access-Control-Allow-Origin: *
+  Cache-Control: public, max-age=3600, s-maxage=3600, stale-while-revalidate=3600
+
+/index.html
+  Cache-Control: no-cache
