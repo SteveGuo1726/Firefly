@@ -93,3 +93,6 @@
 .reader-stage.preview-upgrade .media-load #mediaLoadSub{display:none}
 .reader-stage.preview-upgrade .media-spinner{width:15px;height:15px}
 @media(max-width:650px){.reader-stage.preview-upgrade .media-load{bottom:70px}}
+
+.viewer-image.low-quality{object-fit:cover;filter:blur(.3px);transition:opacity .2s ease,filter .2s ease,transform .16s cubic-bezier(.2,.8,.2,1)}
+.viewer-image.loaded:not(.low-quality){object-fit:contain;filter:none}
