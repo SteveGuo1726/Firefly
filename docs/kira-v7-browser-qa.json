@@ -1,5 +1,5 @@
 {
-  "checked_at": "2026-10-11T13:20:49.565Z",
+  "checked_at": "2026-10-11T13:24:13.439Z",
   "checks": [
     {
       "label": "Load real SFW Pixiv image gallery with no fake popularity",
@@ -58,8 +58,18 @@
     },
     {
       "label": "Failed next-image load never leaves a stale previous image",
-      "pass": false,
-      "error": "TimeoutError: page.waitForFunction: Timeout 20000ms exceeded."
+      "pass": true,
+      "recovered": true
+    },
+    {
+      "label": "Local follows and mobile contain image without overflow",
+      "pass": true,
+      "document": 390,
+      "width": 390,
+      "stageW": 390,
+      "stageH": 540,
+      "imageW": 356,
+      "imageH": 200
     }
   ],
   "errors": []
