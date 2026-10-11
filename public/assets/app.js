@@ -308,33 +308,81 @@ function fillReader(){
 }
 
 function swapArt(direction){const arr=state.shown.length?state.shown:WORKS;const idx=arr.findIndex(w=>w.id===state.focus?.id);const next=arr[(idx+direction+arr.length)%arr.length];if(next)openReader(next.id,null)}
-function resetZoom(animate=true){state.zoom=1;state.panX=0;state.panY=0;applyZoom(animate)}
-function applyZoom(animate=true){const image=$('viewerImage');if(!animate)image.classList.add('dragging');else image.classList.remove('dragging');image.style.setProperty('--zoom',state.zoom);image.style.setProperty('--pan-x',state.panX+'px');image.style.setProperty('--pan-y',state.panY+'px');$('zoomValue').textContent=Math.round(state.zoom*100)+'%';$('readerStage').classList.toggle('canpan',state.zoom>1.01);if(!animate)requestAnimationFrame(()=>image.classList.remove('dragging'))}
-function changeZoom(next){state.zoom=Math.min(5,Math.max(1,Math.round(next*100)/100));if(state.zoom===1){state.panX=0;state.panY=0}applyZoom()}
+
+/* Unlocked, image-only zoom: X and Y can be adjusted independently. */
+function resetZoom(animate=true){
+ state.zoomX=1;state.zoomY=1;state.zoom=1;state.panX=0;state.panY=0;applyZoom(animate);
+}
+function clampPan(){
+ const img=$('viewerImage'),stage=$('readerStage');
+ const w=(Number(img.dataset.baseWidth)||img.offsetWidth)*state.zoomX;
+ const h=(Number(img.dataset.baseHeight)||img.offsetHeight)*state.zoomY;
+ const maxX=Math.max(0,(w-stage.clientWidth)/2+24);
+ const maxY=Math.max(0,(h-stage.clientHeight)/2+24);
+ state.panX=Math.min(maxX,Math.max(-maxX,state.panX));
+ state.panY=Math.min(maxY,Math.max(-maxY,state.panY));
+}
+function applyZoom(animate=true){
+ const image=$('viewerImage');
+ if(!animate)image.classList.add('dragging');else image.classList.remove('dragging');
+ state.zoomX=Math.min(5,Math.max(1,Number(state.zoomX)||1));
+ state.zoomY=Math.min(5,Math.max(1,Number(state.zoomY)||1));
+ state.zoom=Math.max(state.zoomX,state.zoomY);
+ clampPan();
+ image.style.setProperty('--zoom-x',state.zoomX);
+ image.style.setProperty('--zoom-y',state.zoomY);
+ image.style.setProperty('--pan-x',state.panX+'px');
+ image.style.setProperty('--pan-y',state.panY+'px');
+ $('zoomValue').textContent='宽'+Math.round(state.zoomX*100)+'% × 高'+Math.round(state.zoomY*100)+'%';
+ $('zoomX').value=String(state.zoomX);$('zoomY').value=String(state.zoomY);
+ $('readerStage').classList.toggle('canpan',state.zoom>1.01);
+ if(!animate)requestAnimationFrame(()=>image.classList.remove('dragging'));
+}
+function changeZoom(next,axis='both'){
+ const n=Math.min(5,Math.max(1,Math.round(next*100)/100));
+ if(axis==='both'){state.zoomX=n;state.zoomY=n}
+ else if(axis==='x')state.zoomX=n;
+ else if(axis==='y')state.zoomY=n;
+ if(Math.max(state.zoomX,state.zoomY)<=1.001)state.panX=state.panY=0;
+ applyZoom();
+}
+function changeAxis(delta,axis){
+ const current=axis==='x'?state.zoomX:state.zoomY;
+ changeZoom(current+delta,axis);
+}
+
 function alertOriginal(text){const a=$('originalAlert');a.textContent=text;a.classList.add('show');clearTimeout(window._originalAlertTimer);window._originalAlertTimer=setTimeout(()=>a.classList.remove('show'),2400)}
 
-function toggleOriginal(){
+
+let originalRequestSequence=0;
+async function toggleOriginal(){
  const w=state.focus;if(!w)return;
- const image=$('viewerImage'),next=!state.original,target=next?w.original:w.preview,id=w.id;
- if(image.src===target)return;
+ const next=!state.original,target=next?w.original:w.preview,seq=++originalRequestSequence,viewSeq=mediaSequence;
+ if(!target||target===w.preview&&next){
+   alertOriginal('第三方接口没有提供比当前预览更高清的资源');return;
+ }
  $('btnOriginal').disabled=true;
- $('btnOriginal').querySelector('span').textContent=next?'原图加载中…':'预览加载中…';
- const preload=new Image();preload.referrerPolicy='no-referrer';
- preload.onload=()=>{
-  if(state.focus?.id!==id)return;
-  image.src=target;image.style.opacity='1';state.original=next;resetZoom();
-  $('btnOriginal').disabled=false;$('btnOriginal').classList.toggle('on',next);
-  $('btnOriginal').querySelector('span').textContent=next?'正在查看原图':'查看原图';
-  alertOriginal(next?'原图已在站内载入，可单独缩放':'已切回高清预览');
- };
- preload.onerror=()=>{
-  if(state.focus?.id!==id)return;
-  $('btnOriginal').disabled=false;
-  $('btnOriginal').querySelector('span').textContent=state.original?'正在查看原图':'查看原图';
-  alertOriginal('外部原图无法载入，可通过 Pixiv 原作确认');
- };
- preload.src=target;
+ $('btnOriginal').querySelector('span').textContent=next?'原图读取中…':'返回预览中…';
+ // The displayed image never disappears while the large original transfers.
+ markMedia('loading',next?'原图正在传输…':'切换预览尺寸…','保留当前图片，下载完成后无缝替换');
+ try{
+  const candidate=await pictureRequest(target,next?16000:8500);
+  if(seq!==originalRequestSequence||viewSeq!==mediaSequence||state.focus?.id!==w.id)return;
+  setVisibleImage(candidate);markMedia('idle');
+  state.original=next;resetZoom();
+  $('btnOriginal').classList.toggle('on',next);
+  $('btnOriginal').querySelector('span').textContent=next?'已查看原图':'查看原图';
+  alertOriginal(next?'原图已加载 · 可以独立调整宽高':'已切回轻量预览');
+ }catch(error){
+  if(seq!==originalRequestSequence||viewSeq!==mediaSequence||state.focus?.id!==w.id)return;
+  markMedia('idle');
+  $('btnOriginal').querySelector('span').textContent=next?'重试原图':'查看原图';
+  alertOriginal('原图源响应过慢或失败，已保留当前图片 · 可重试');
+ }finally{
+  if(seq===originalRequestSequence&&viewSeq===mediaSequence)$('btnOriginal').disabled=false;
+ }
 }
+
 function saveArtwork(){if(state.focus)alertOriginal('可以长按或右键图片保存；本站不代理跨域原图文件');}
 
 function clickFromWall(e){const v=e.target.closest('[data-view]');if(v)openReader(v.dataset.view,v)}
@@ -349,7 +397,11 @@ $('surprise').onclick=pickNew;$('jumpNow').onclick=pickNew;$('sideJump').onclick
 document.querySelectorAll('[data-rail]').forEach(b=>b.onclick=()=>{const type=b.dataset.rail;if(type==='jump')pickNew();else if(type==='rank')setMain('精选');else if(type==='follow')setMain('关注');else setMain('推荐')});
 document.querySelectorAll('[data-mobile]').forEach(b=>b.onclick=()=>{const type=b.dataset.mobile;if(type==='jump')pickNew();else if(type==='rank')setMain('热门');else if(type==='follow')setMain('关注');else if(type==='upload')toast('这里会是账户 / 投稿页面');else setMain('推荐')});
 $('closeReader').onclick=closeReader;$('btnCloseIcon').onclick=closeReader;$('prevArt').onclick=()=>swapArt(-1);$('nextArt').onclick=()=>swapArt(1);
-$('zoomIn').onclick=()=>changeZoom(state.zoom+.35);$('zoomOut').onclick=()=>changeZoom(state.zoom-.35);$('zoomReset').onclick=()=>resetZoom();$('btnFit').onclick=()=>resetZoom();$('btnOriginal').onclick=toggleOriginal;
+$('zoomIn').onclick=()=>changeZoom(state.zoom+.25);$('zoomOut').onclick=()=>changeZoom(state.zoom-.25);$('zoomReset').onclick=()=>resetZoom();$('btnFit').onclick=()=>resetZoom();$('btnOriginal').onclick=toggleOriginal;
+$('zoomX').addEventListener('input',e=>changeZoom(+e.target.value,'x'));
+$('zoomY').addEventListener('input',e=>changeZoom(+e.target.value,'y'));
+$('retryImage').onclick=()=>{if(state.focus)loadWorkPreview(state.focus,{force:true})};
+$('mediaRetry').onclick=()=>{if(state.focus)loadWorkPreview(state.focus,{force:true})};
 $('viewerImage').addEventListener('dblclick',()=>resetZoom());
 $('viewerImage').addEventListener('click',e=>{if(state.moving)return;changeZoom(state.zoom===1?1.8:1)});
 $('favArt').onclick=()=>{const w=state.focus;if(!w)return;if(state.liked.has(w.id)){state.liked.delete(w.id);toast('已取消收藏')}else{state.liked.add(w.id);toast('已收藏这张作品 ♡')}try{localStorage.setItem('kira.likes.v2',JSON.stringify([...state.liked]))}catch{};fillFav()};
@@ -360,15 +412,47 @@ $('saveOriginal').onclick=saveArtwork;
 $('readerTags').addEventListener('click',e=>{const b=e.target.closest('[data-term]');if(!b)return;const term=b.dataset.term;closeReader();state.search=term;state.filter='全部';state.route='all';state.main='推荐';$('search').value=term;draw();window.scrollTo({top:0,behavior:'smooth'})});
 $('reader').addEventListener('click',e=>{const path=e.target.closest('[data-path]');const suggestion=e.target.closest('[data-related]');if(path){state.relatedPath=path.dataset.path;relatedDraw()}else if(suggestion){openReader(suggestion.dataset.related,null)}});
 window.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(state.focus)closeReader();$('search').focus();return}if(!state.focus)return;if(e.key==='Escape')closeReader();else if(e.key==='ArrowRight')swapArt(1);else if(e.key==='ArrowLeft')swapArt(-1);else if(e.key==='+'||e.key==='=')changeZoom(state.zoom+.25);else if(e.key==='-'||e.key==='_')changeZoom(state.zoom-.25);else if(e.key==='0')resetZoom()});
-$('readerStage').addEventListener('wheel',e=>{if(!state.focus)return;e.preventDefault();changeZoom(state.zoom+(e.deltaY<0?.18:-.18))},{passive:false});
+$('readerStage').addEventListener('wheel',e=>{if(!state.focus)return;e.preventDefault();const axis=e.shiftKey?'x':e.altKey?'y':'both';const n=axis==='x'?state.zoomX:axis==='y'?state.zoomY:state.zoom;changeZoom(n+(e.deltaY<0?.15:-.15),axis)},{passive:false});
 // Pointer Events support mouse dragging, swipe-to-next and pinch-to-zoom on mobile.
-const pointers=new Map();let anchor=null,pinchDistance=0,pinchStartZoom=1;
-function distance(){const p=[...pointers.values()];return Math.hypot(p[0].x-p[1].x,p[0].y-p[1].y)}
-$('readerStage').addEventListener('pointerdown',e=>{if(e.target.closest('button'))return;state.moving=false;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===1)anchor={x:e.clientX,y:e.clientY,panX:state.panX,panY:state.panY};if(pointers.size===2){pinchDistance=distance();pinchStartZoom=state.zoom;anchor=null}try{$('readerStage').setPointerCapture(e.pointerId)}catch{}});
-$('readerStage').addEventListener('pointermove',e=>{if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});if(pointers.size===2){state.zoom=Math.min(5,Math.max(1,pinchStartZoom*distance()/Math.max(1,pinchDistance)));applyZoom(false);state.moving=true;return}if(!anchor)return;const dx=e.clientX-anchor.x,dy=e.clientY-anchor.y;if(Math.abs(dx)+Math.abs(dy)>8)state.moving=true;if(state.zoom>1.01){state.panX=anchor.panX+dx;state.panY=anchor.panY+dy;applyZoom(false)}});
-function pointerEnd(e){if(!pointers.has(e.pointerId))return;const dx=anchor?e.clientX-anchor.x:0;pointers.delete(e.pointerId);if(pointers.size===0){if(state.zoom<=1.01&&Math.abs(dx)>75&&state.moving){swapArt(dx<0?1:-1)}if(state.zoom<1.02)resetZoom(false);anchor=null;setTimeout(()=>state.moving=false,50)}else if(pointers.size===1){const p=[...pointers.values()][0];anchor={x:p.x,y:p.y,panX:state.panX,panY:state.panY}}}
-$('readerStage').addEventListener('pointerup',pointerEnd);$('readerStage').addEventListener('pointercancel',pointerEnd);
-let prevCols=innerWidth<=650?2:innerWidth<=850?3:4;window.addEventListener('resize',()=>{const n=innerWidth<=650?2:innerWidth<=850?3:4;if(n!==prevCols){prevCols=n;draw()}});
+
+const pointers=new Map();let anchor=null,pinchDistance=0,pinchX=0,pinchY=0,pinchStartX=1,pinchStartY=1;
+function distance(){const v=[...pointers.values()];return Math.hypot(v[0].x-v[1].x,v[0].y-v[1].y)}
+$('readerStage').addEventListener('pointerdown',e=>{
+ if(e.target.closest('button,input,label')||!state.focus)return;
+ state.moving=false;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(pointers.size===1)anchor={x:e.clientX,y:e.clientY,panX:state.panX,panY:state.panY};
+ if(pointers.size===2){const p=[...pointers.values()];pinchDistance=distance();pinchX=Math.abs(p[0].x-p[1].x);pinchY=Math.abs(p[0].y-p[1].y);pinchStartX=state.zoomX;pinchStartY=state.zoomY;anchor=null}
+ try{$('readerStage').setPointerCapture(e.pointerId)}catch{}
+});
+$('readerStage').addEventListener('pointermove',e=>{
+ if(!pointers.has(e.pointerId))return;
+ pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
+ if(pointers.size===2){
+  const p=[...pointers.values()],scale=distance()/Math.max(1,pinchDistance);
+  const dx=Math.abs(p[0].x-p[1].x),dy=Math.abs(p[0].y-p[1].y);
+  state.zoomX=Math.min(5,Math.max(1,pinchStartX*(pinchX>24?dx/pinchX:scale)));
+  state.zoomY=Math.min(5,Math.max(1,pinchStartY*(pinchY>24?dy/pinchY:scale)));
+  applyZoom(false);state.moving=true;return;
+ }
+ if(!anchor)return;
+ const dx=e.clientX-anchor.x,dy=e.clientY-anchor.y;
+ if(Math.abs(dx)+Math.abs(dy)>8)state.moving=true;
+ if(state.zoom>1.01){state.panX=anchor.panX+dx;state.panY=anchor.panY+dy;applyZoom(false)}
+});
+function pointerEnd(e){
+ if(!pointers.has(e.pointerId))return;
+ const dx=anchor?e.clientX-anchor.x:0;
+ pointers.delete(e.pointerId);
+ if(pointers.size===0){
+  if(state.zoom<=1.01&&Math.abs(dx)>85&&state.moving)swapArt(dx<0?1:-1);
+  if(state.zoom<1.02)resetZoom(false);
+  anchor=null;setTimeout(()=>state.moving=false,60);
+ }else if(pointers.size===1){const p=[...pointers.values()][0];anchor={x:p.x,y:p.y,panX:state.panX,panY:state.panY}}
+}
+$('readerStage').addEventListener('pointerup',pointerEnd);
+$('readerStage').addEventListener('pointercancel',pointerEnd);
+
+let prevCols=innerWidth<=650?2:innerWidth<=850?3:4;window.addEventListener('resize',()=>{const n=innerWidth<=650?2:innerWidth<=850?3:4;if(n!==prevCols){prevCols=n;draw()}if(state.focus&&$('viewerImage').classList.contains('loaded'))fitMedia(+$('viewerImage').dataset.naturalWidth,+$('viewerImage').dataset.naturalHeight);});
 
 renderRanks();draw();
 async function hydrateRealPixiv(){
