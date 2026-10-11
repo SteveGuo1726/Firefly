@@ -303,7 +303,7 @@ async function getExpressiveCodeRenderer(): Promise<ExpressiveCodeRenderer> {
 				},
 			},
 			shiki: {
-				engine: "javascript",
+				engine: "oniguruma",
 			},
 			styleOverrides: {
 				borderRadius: "0.75rem",
