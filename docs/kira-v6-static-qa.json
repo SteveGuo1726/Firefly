@@ -1,9 +1,9 @@
 {
   "syntax_valid": true,
-  "records": 48,
-  "unique": 48,
-  "color_extracted": 44,
-  "explicit_r18_tags_found": 5,
+  "records": 43,
+  "unique": 43,
+  "color_extracted": 39,
+  "explicit_r18_tags_found": 0,
   "front_has_pixiv_source": true,
   "app_hydrates_json": true,
   "app_filters_explicit_rating": true,
