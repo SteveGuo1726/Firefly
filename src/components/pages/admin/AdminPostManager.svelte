@@ -305,7 +305,7 @@ onMount(()=>{
  </div>
  <div class="preview-viewport" class:mobile-preview={previewViewport==="mobile"}>
  {#if previewPresentation==="article"}
-  <article class="article-preview" aria-label="文章正式版式预览">
+  <article class="article-preview card-base relative w-full" aria-label="文章正式版式预览">
    <header class="article-preview-header">
     <h1 class="transition w-full block font-bold mb-3 text-3xl md:text-[2.25rem]/[2.75rem] text-black/90 dark:text-white/90">{fields.title || "未命名文章"}</h1>
     {#if fields.description}<p class="article-excerpt">{fields.description}</p>{/if}
