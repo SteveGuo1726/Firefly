@@ -16,9 +16,12 @@ export default async function onRequest(context){
  const clientId=process.env.FIREFLY_OAUTH_CLIENT_ID||"";
  const clientSecret=process.env.FIREFLY_OAUTH_CLIENT_SECRET||"";
  const callbackUrl=process.env.FIREFLY_OAUTH_CALLBACK_URL||"";
+ let phase="storage";
  try{
   const raw=cachedAuthBlob||(cachedAuthBlob=getStore({name:"firefly-auth-live",consistency:"strong"}));
+  phase="atomic-write";
   await assertEdgeOneAtomicWrites(raw);
+  phase="session";
   const store=edgeOneAtomicAuthStore(raw);
   const sessions=createAdminSessionService({store,adminLogin:process.env.FIREFLY_ADMIN_LOGIN||"SteveGuo1726"});
   const pathname=new URL(request.url).pathname;
@@ -37,7 +40,9 @@ export default async function onRequest(context){
   if(pathname==="/api/admin/auth/logout" && request.method==="POST")return auth.logout(request);
   return new Response("Not Found",{status:404,headers:{"Cache-Control":"no-store"}});
  }catch(error){
-  console.error("[Firefly OAuth] request failed",error instanceof Error?error.name:"Error");
-  return new Response("Authentication unavailable",{status:503,headers:{"Cache-Control":"no-store"}});
+  console.error("[Firefly auth] request failed",phase,error instanceof Error?error.name:"Error");
+  return new Response(JSON.stringify({error:"Authentication unavailable",phase}),{
+   status:503,headers:{"Content-Type":"application/json","Cache-Control":"no-store"}
+  });
  }
 }
