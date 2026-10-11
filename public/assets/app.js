@@ -2,32 +2,117 @@
 /* KIRA! JUMP V5 — client-only design prototype. No backend, telemetry or third-party JS. */
 const $=id=>document.getElementById(id);
 const ico=name=>`<svg aria-hidden="true"><use href="#ico-${name}"></use></svg>`;
-const WORKS=[
-{title:'银河尽头的蝶光',artist:'Lunaria',character:'银发少女',mood:'梦幻',color:'紫',tags:['同人','幻想'],likes:12524,ratio:1.34,series:4,desc:'在离银河最近的地方，遇见闪闪发光的你。'},
-{title:'粉红频段 · 23:47',artist:'pink_soda',character:'粉发少女',mood:'都市',color:'粉',tags:['原创','赛博'],likes:9442,ratio:1.09,desc:'耳机里正在播放属于夏夜的电波。'},
-{title:'夜色代码 404',artist:'Kano_77',character:'蓝发少女',mood:'赛博',color:'蓝',tags:['同人','赛博'],likes:14370,ratio:1.44,series:3,desc:'让霓虹在今天的夜里多停留一秒。'},
-{title:'窗边的秘密约定',artist:'Shio',character:'黑发少女',mood:'日常',color:'粉',tags:['原创','日常'],likes:7685,ratio:1.15,desc:'樱花落在窗前，时间刚好。'},
-{title:'日蚀前的誓言',artist:'Nyx_works',character:'金发骑士',mood:'史诗',color:'金',tags:['同人','幻想'],likes:23358,ratio:1.48,series:2,desc:'最后一缕光，为战场留下了温度。'},
-{title:'赤狐的祈愿',artist:'Reika',character:'狐耳少女',mood:'暖光',color:'红',tags:['原创','幻想'],likes:18574,ratio:1.35,desc:'狐狸耳朵轻轻摇动时，夏天就来了。'},
-{title:'你和毛茸茸的午后',artist:'Nomi',character:'猫耳少女',mood:'日常',color:'暖',tags:['原创','日常'],likes:12642,ratio:1.16,desc:'这一秒的可爱值得全部收藏。'},
-{title:'天台之上是晚霞',artist:'Haru_F',character:'少年',mood:'都市',color:'金',tags:['原创','日常'],likes:11573,ratio:1.4,desc:'放学后的城市是橘子汽水味的。'},
-{title:'月下魔女的星轨',artist:'Miyu.exe',character:'紫发魔女',mood:'魔法',color:'紫',tags:['原创','幻想'],likes:17441,ratio:1.25,series:5,desc:'她说，每个人的秘密都是一颗星星。'},
-{title:'樱色回忆手帖',artist:'Yuki',character:'黑发少女',mood:'日常',color:'粉',tags:['原创','日常'],likes:16643,ratio:1.04,desc:'那天风很轻，花落得很好看。'},
-{title:'海底的第二封信',artist:'Mizu_C',character:'蓝发少女',mood:'梦幻',color:'蓝',tags:['原创','幻想'],likes:10284,ratio:1.44,desc:'深海也会开出一片天空。'},
-{title:'白羽与终焉之城',artist:'Tenki',character:'银发少女',mood:'史诗',color:'白',tags:['同人','幻想'],likes:20563,ratio:1.32,series:2,desc:'在破碎的神殿，光最终落在她的肩上。'}
-].map((w,i)=>({...w,id:i+1,card:`/assets/img/art-${String(i+1).padStart(2,'0')}-card.webp`,preview:`/assets/img/art-${String(i+1).padStart(2,'0')}-preview.webp`,original:`/assets/img/art-${String(i+1).padStart(2,'0')}-original.jpg`}));
-function storedLikes(){try{const a=JSON.parse(localStorage.getItem('kira.likes.v1')||'[]');return Array.isArray(a)?a.filter(x=>Number.isInteger(x)&&x>=1&&x<=12):[]}catch{return []}}
-const state={main:'推荐',route:'all',filter:'全部',search:'',shown:[],focus:null,anchor:1,relatedPath:'character',zoom:1,panX:0,panY:0,original:false,liked:new Set(storedLikes()),lastCard:null,moving:false};
+
+/* KIRA! JUMP V6 — real Pixiv metadata snapshot; artwork remains owned by creators. */
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const allowedImage=u=>{try{const v=new URL(u);return v.protocol==='https:'&&['i.pixiv.re','i.pixiv.cat','i.pximg.net','i-cf.pximg.net','i.pixiv.moe'].includes(v.hostname)?v.href:null}catch{return null}};
+const SOURCE_TAGS={miku:'初音未来',genshin:'原神',girl:'少女',discover:'Pixiv'};
+const DENY_TAG=/^(?:r[\s_-]*18(?:g)?|nsfw|explicit|成人向|adult|18禁)$/i;
+const COMMON_TAG=/^(?:女の子|女孩子|girl|girls|オリジナル|原创|original|イラスト|illustration|pixiv|r[\s_-]*18(?:g)?)$/i;
+function facet(w,tagSet){
+  const has=re=>w.some(x=>re.test(x));
+  const character=w.find(t=>/^(初音ミク|初音未来|刻晴|Keqing|甘雨|Ganyu|雷電将軍|Raiden Shogun|胡桃|Hu Tao|フリーナ|芙宁娜|ディシア|迪希雅|八重神子|宵宮|旅行者|钟离)$/i.test(t))||
+    (has(/原神|Genshin/) ? '原神' : has(/初音/) ? '初音未来' : tagSet.has('miku')?'初音未来':tagSet.has('genshin')?'原神':'原创角色');
+  const mood=has(/夜|night|夜景/i)?'夜景':has(/夏|水着|海|summer/i)?'夏日':has(/空|風景|景色|sky|landscape/i)?'风景':has(/魔法|ファンタジー|fantasy|魔女/i)?'幻想':has(/サイバー|cyber|近未来/i)?'赛博':has(/花|桜|樱|春/i)?'花季':'插画';
+  const color=has(/青|蓝|蒼|蓝色|blue|cyan/i)?'蓝':has(/紫|violet|purple/i)?'紫':has(/桜|樱|粉|pink/i)?'粉':has(/赤|紅|红|red/i)?'红':has(/黄|金|gold|sun/i)?'金':has(/白|white|銀|银/i)?'白':has(/黒|黑|black/i)?'黑':'未分类';
+  const kind=has(/オリジナル|原创|original/i)?'原创':'同人';
+  return {character,mood,color,kind};
+}
+function normalizeSnapshot(snapshot){
+  if(!snapshot?.channels||typeof snapshot.channels!=='object')return [];
+  const records=new Map();
+  const order=['discover','miku','genshin','girl'];
+  for(const group of order)for(const a of (Array.isArray(snapshot.channels[group])?snapshot.channels[group]:[])){
+    if(!a||a.r18!==false||!Number.isSafeInteger(a.pid)||!Array.isArray(a.tags))continue;
+    const tags=a.tags.filter(t=>typeof t==='string').map(t=>t.slice(0,48));
+    if(tags.some(t=>DENY_TAG.test(t)))continue;
+    const card=allowedImage(a.thumbnail_url),preview=allowedImage(a.preview_url),original=allowedImage(a.original_url);
+    if(!card||!preview||!original)continue;
+    const id=a.pid*1000+Number(a.page||0);
+    if(!Number.isSafeInteger(id)||id<=0)continue;
+    if(records.has(id)){records.get(id)._groups.add(group);continue;}
+    const tagSet=new Set([group]),facets=facet(tags,tagSet);
+    records.set(id,{
+      id,pid:a.pid,title:String(a.title||'无标题').slice(0,140),artist:String(a.author||'未知画师').slice(0,100),
+      tags,facets,character:facets.character,mood:facets.mood,color:facets.color,
+      kinds:[facets.kind],likes:null,series:0,ratio:Math.max(.62,Math.min(2.35,Number(a.height)/Math.max(1,Number(a.width))||1.3)),
+      desc:'来自 Pixiv 的外部作品 · 原作者保留版权，详情请查看 Pixiv 原作。',
+      card,preview,original,pixivUrl:'https://www.pixiv.net/artworks/'+a.pid,
+      artistUrl:Number.isSafeInteger(a.uid)&&a.uid>0?'https://www.pixiv.net/users/'+a.uid:null,
+      _groups:tagSet
+    });
+  }
+  for(const w of records.values()){
+    w.kind=w.facets.kind;
+    w.tags=[...new Set([...w.tags, ...[...w._groups].map(x=>SOURCE_TAGS[x]||'Pixiv')])];
+    delete w._groups;
+  }
+  return [...records.values()];
+}
+let WORKS=[];
+let pixivSnapshotDate=null;
+function storedLikes(){try{const a=JSON.parse(localStorage.getItem('kira.likes.v2')||'[]');return Array.isArray(a)?a.filter(Number.isSafeInteger):[]}catch{return []}}
+function storedFollows(){try{const a=JSON.parse(localStorage.getItem('kira.follows.v2')||'[]');return Array.isArray(a)?a.filter(x=>typeof x==='string'):[]}catch{return []}}
+
+const state={main:'推荐',route:'all',filter:'全部',search:'',shown:[],focus:null,anchor:null,relatedPath:'character',zoom:1,panX:0,panY:0,original:false,liked:new Set(storedLikes()),followed:new Set(storedFollows()),lastCard:null,moving:false};
 const byId=id=>WORKS.find(w=>w.id===Number(id));
 const prefersReduced=window.matchMedia('(prefers-reduced-motion: reduce)');
-const count=n=>n>=10000?(n/10000).toFixed(1)+'万':String(n);
+const count=n=>typeof n==='number'?(n>=10000?(n/10000).toFixed(1)+'万':String(n)):'PIXIV';
 let toastTimer;
 function toast(msg){const node=$('toast');node.textContent=msg;node.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>node.classList.remove('show'),2200)}
-function baseList(){let list=WORKS.slice();if(state.route!=='all'){const seed=byId(state.anchor||1);const score=w=>state.route==='character'?(w.character===seed.character?100:0)+(w.color===seed.color?12:0):state.route==='color'?(w.color===seed.color?100:0)+(w.mood===seed.mood?15:0):(w.mood===seed.mood?100:0)+(w.tags.some(t=>seed.tags.includes(t))?10:0);list.sort((a,b)=>score(b)-score(a)||b.likes-a.likes)};if(state.main==='热门')list.sort((a,b)=>b.likes-a.likes);if(state.main==='最新')list.reverse();if(state.main==='关注')list=list.filter(w=>w.id%2===1);if(state.filter!=='全部')list=list.filter(w=>w.tags.includes(state.filter)||w.mood===state.filter);const q=state.search.trim().toLowerCase();if(q)list=list.filter(w=>[w.title,w.artist,w.character,w.mood,w.color,...w.tags].join(' ').toLowerCase().includes(q));return list}
-function card(w,i){const badge=w.series?`<span class="art-cover-label">▤ ${w.series}P</span>`:(w.likes>19000?'<span class="art-cover-label hot">HOT ✦</span>':'');return `<article class="art-card" style="--delay:${Math.min(i,14)*26}ms"><button class="art-cover" data-view="${w.id}" aria-label="查看作品：${w.title}" style="--ratio:${w.ratio}"><img src="${w.card}" alt="${w.title}" loading="${i<7?'eager':'lazy'}" decoding="async">${badge}<span class="art-peek">点击进入作品 ↗</span></button><div class="art-copy"><div class="art-name" title="${w.title}">${w.title}</div><div class="art-meta"><span class="mini-face" style="background:${colorFor(w)}">${w.artist[0]}</span><span class="art-author">${w.artist}</span><span class="art-likes">${ico('heart')} ${count(w.likes)}</span></div><div class="art-tags"><span># ${w.character}</span><span># ${w.mood}</span></div></div></article>`}
+
+function shared(a,b){const tags=new Set(a.tags.map(t=>t.toLowerCase()));return b.tags.reduce((n,t)=>n+(tags.has(t.toLowerCase())&&!COMMON_TAG.test(t)?1:0),0)}
+function baseList(){
+  let list=WORKS.slice();
+  const seed=byId(state.anchor)||WORKS[0];
+  if(state.route!=='all'&&seed){
+    const route=state.route;
+    const score=w=> route==='character'?(w.character===seed.character?100:0)+shared(w,seed)*12
+     :route==='color'?(seed.color!=='未分类'&&w.color===seed.color?100:0)+shared(w,seed)*6
+     :(w.mood===seed.mood?100:0)+shared(w,seed)*6;
+    list.sort((a,b)=>score(b)-score(a));
+  }
+  if(state.main==='精选')list.sort((a,b)=>b.tags.length-a.tags.length);
+  if(state.main==='换一批')list.reverse();
+  if(state.main==='关注')list=list.filter(w=>state.followed.has(w.artist));
+  if(state.filter!=='全部')list=list.filter(w=>w.kind===state.filter||w.tags.includes(state.filter)||w.mood===state.filter);
+  const q=state.search.trim().toLowerCase();
+  if(q)list=list.filter(w=>[w.title,w.artist,w.character,w.mood,w.color,...w.tags].join(' ').toLowerCase().includes(q));
+  return list;
+}
+
+
+function card(w,i){
+  return '<article class="art-card" style="--delay:'+Math.min(i,14)*26+'ms">'+
+    '<button class="art-cover" data-view="'+w.id+'" aria-label="查看作品：'+esc(w.title)+'" style="--ratio:'+w.ratio+'">'+
+    '<img src="'+esc(w.card)+'" referrerpolicy="no-referrer" alt="'+esc(w.title)+'" loading="'+(i<7?'eager':'lazy')+'" decoding="async">'+
+    '<span class="art-cover-label">PIXIV</span><span class="art-peek">发现原作者 ↗</span></button>'+
+    '<div class="art-copy"><div class="art-name" title="'+esc(w.title)+'">'+esc(w.title)+'</div>'+
+    '<div class="art-meta"><span class="mini-face" style="background:'+colorFor(w)+'">'+esc(w.artist.slice(0,1))+'</span>'+
+    '<span class="art-author">'+esc(w.artist)+'</span><span class="art-likes">✦ Pixiv</span></div>'+
+    '<div class="art-tags"><span># '+esc(w.character)+'</span><span># '+esc(w.mood)+'</span></div></div></article>';
+}
+
 function colorFor(w){return {蓝:'#6a91e9',紫:'#9876e9',粉:'#f879aa',金:'#e0a45f',红:'#eb7782',白:'#a9abd5',暖:'#d5a468'}[w.color]||'#7368b8'}
-function draw(){const list=baseList();state.shown=list;$('feedCount').textContent=`· ${list.length} 张作品`;const titles={all:'为你发现',character:'追随角色的闪光',color:'让色彩带路',mood:'和气氛同频'};$('feedTitle').textContent=state.main==='推荐'?(state.route==='all'?titles.all:titles[state.route]+' · '+({character:byId(state.anchor).character,color:byId(state.anchor).color+'色系',mood:byId(state.anchor).mood}[state.route]||'')):state.main==='热门'?'本周人气最高':state.main==='最新'?'最新传送过来':state.main==='关注'?'关注画师的作品':'为你发现';const colNum=window.innerWidth<=650?2:window.innerWidth<=850?3:4;const cols=Array.from({length:colNum},()=>[]);const heights=Array(colNum).fill(0);list.forEach((w,i)=>{let c=heights.indexOf(Math.min(...heights));cols[c].push(card(w,i));heights[c]+=w.ratio+.32});$('artWall').innerHTML=list.length?cols.map(c=>`<div class="art-col">${c.join('')}</div>`).join(''):'<div class="empty-feed"><strong>这边暂时没有信号 ✳</strong>试试换个角色、标签，或者清除搜索。</div>';document.querySelectorAll('[data-route]').forEach(b=>b.classList.toggle('on',b.dataset.route===state.route));document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('on',b.dataset.filter===state.filter));document.querySelectorAll('[data-main]').forEach(b=>b.classList.toggle('active',b.dataset.main===state.main));}
-function renderRanks(){$('miniRank').innerHTML=WORKS.slice().sort((a,b)=>b.likes-a.likes).slice(0,4).map((w,i)=>`<button class="rank-item" data-rank="${w.id}"><span class="rank-no ${i<3?'top':''}">${i+1}</span><img src="${w.card}" loading="lazy" alt=""><span><strong>${w.title}</strong><small>♡ ${count(w.likes)} 喜欢</small></span></button>`).join('')}
+
+function draw(){
+  const list=baseList();state.shown=list;
+  $('feedCount').textContent='· '+list.length+' 张 Pixiv 作品';
+  const seed=byId(state.anchor)||WORKS[0];
+  const names={all:'全部发现',character:'角色同频',color:'色彩共振',mood:'氛围感应'};
+  $('feedTitle').textContent=state.main==='推荐'?(state.route==='all'?'Pixiv 插画发现':names[state.route]+' · '+(seed?state.route==='character'?seed.character:state.route==='color'?seed.color:seed.mood:'')) :state.main==='精选'?'从标签中发现':state.main==='换一批'?'换个顺序看看':state.main==='关注'?'已关注的画师':'Pixiv 插画发现';
+  const columns=window.innerWidth<=650?2:window.innerWidth<=850?3:4,cols=Array.from({length:columns},()=>[]),heights=Array(columns).fill(0);
+  list.forEach((w,i)=>{const c=heights.indexOf(Math.min(...heights));cols[c].push(card(w,i));heights[c]+=w.ratio+.32});
+  $('artWall').innerHTML=list.length?cols.map(a=>'<div class="art-col">'+a.join('')+'</div>').join('')
+    :'<div class="empty-feed"><strong>'+(!WORKS.length?'正在连接 Pixiv 作品流…':'这里还没有对应作品 ✳')+'</strong>'+(!WORKS.length?'':state.main==='关注'?'打开作品详情关注画师，作品会出现在这里。':'试试其他标签或清除搜索。')+'</div>';
+  document.querySelectorAll('[data-route]').forEach(b=>b.classList.toggle('on',b.dataset.route===state.route));
+  document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('on',b.dataset.filter===state.filter));
+  document.querySelectorAll('[data-main]').forEach(b=>b.classList.toggle('active',b.dataset.main===state.main));
+}
+function renderRanks(){
+  $('miniRank').innerHTML=WORKS.slice(0,4).map((w,i)=>'<button class="rank-item" data-rank="'+w.id+'"><span class="rank-no '+(i<3?'top':'')+'">'+(i+1)+'</span><img src="'+esc(w.card)+'" referrerpolicy="no-referrer" loading="lazy" alt=""><span><strong>'+esc(w.title)+'</strong><small>↗ '+esc(w.artist)+'</small></span></button>').join('');
+}
+
 function setRoute(route){state.route=route;state.main='推荐';state.filter='全部';state.search='';$('search').value='';draw();toast({all:'重新连接全部频道 ✦',character:'角色同频频道已连接 ⚡',color:'色彩共振频道已连接 ✦',mood:'氛围感应频道已连接 ✧'}[route]||'频道已切换')}
 function setMain(main){state.main=main;draw();window.scrollTo({top:0,behavior:'smooth'})}
 function pickNew(){const ids=(state.shown.length?state.shown:WORKS).filter(w=>w.id!==state.focus?.id);const chosen=ids[Math.floor(Math.random()*ids.length)]||WORKS[0];openReader(chosen.id,null);toast('跃迁成功！发现了新的作品 ✳')}
@@ -53,7 +138,7 @@ $('search').addEventListener('input',e=>{state.search=e.target.value;draw()});
 document.querySelectorAll('[data-main]').forEach(b=>b.addEventListener('click',()=>setMain(b.dataset.main)));
 $('home').onclick=e=>{e.preventDefault();setRoute('all');window.scrollTo({top:0,behavior:'smooth'})};
 $('surprise').onclick=pickNew;$('jumpNow').onclick=pickNew;$('sideJump').onclick=()=>setRoute('character');$('upload').onclick=()=>toast('投稿服务将由 Workers API + 审核流程接入，当前仅为 UI 演示');
-document.querySelectorAll('[data-rail]').forEach(b=>b.onclick=()=>{const type=b.dataset.rail;if(type==='jump')pickNew();else if(type==='rank')setMain('热门');else if(type==='follow')setMain('关注');else setMain('推荐')});
+document.querySelectorAll('[data-rail]').forEach(b=>b.onclick=()=>{const type=b.dataset.rail;if(type==='jump')pickNew();else if(type==='rank')setMain('精选');else if(type==='follow')setMain('关注');else setMain('推荐')});
 document.querySelectorAll('[data-mobile]').forEach(b=>b.onclick=()=>{const type=b.dataset.mobile;if(type==='jump')pickNew();else if(type==='rank')setMain('热门');else if(type==='follow')setMain('关注');else if(type==='upload')toast('这里会是账户 / 投稿页面');else setMain('推荐')});
 $('closeReader').onclick=closeReader;$('btnCloseIcon').onclick=closeReader;$('prevArt').onclick=()=>swapArt(-1);$('nextArt').onclick=()=>swapArt(1);
 $('zoomIn').onclick=()=>changeZoom(state.zoom+.35);$('zoomOut').onclick=()=>changeZoom(state.zoom-.35);$('zoomReset').onclick=()=>resetZoom();$('btnFit').onclick=()=>resetZoom();$('btnOriginal').onclick=toggleOriginal;
