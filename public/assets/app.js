@@ -68,11 +68,8 @@ function baseList(){
   let list=WORKS.slice();
   const seed=byId(state.anchor)||WORKS[0];
   if(state.route!=='all'&&seed){
-    const route=state.route;
-    const score=w=> route==='character'?(w.character===seed.character?100:0)+shared(w,seed)*12
-     :route==='color'?(seed.color!=='未分类'&&w.color===seed.color?100:0)+shared(w,seed)*6
-     :(w.mood===seed.mood?100:0)+shared(w,seed)*6;
-    list.sort((a,b)=>score(b)-score(a));
+    list=list.filter(w=>w.id!==seed.id&&relationScore(seed,w,state.route)>0)
+      .sort((a,b)=>relationScore(seed,b,state.route)-relationScore(seed,a,state.route));
   }
   if(state.main==='精选')list.sort((a,b)=>b.tags.length-a.tags.length);
   if(state.main==='换一批')list.reverse();
@@ -238,43 +235,76 @@ function closeReader(){
  if(location.hash.startsWith('#art-'))try{history.replaceState(history.state,'',location.pathname+location.search)}catch{}
 }
 
+
+/* Conservative, explainable facets. Never pad a recommendation category with unrelated art. */
+function relationScore(source,candidate,axis){
+ if(source.id===candidate.id)return 0;
+ const overlap=shared(source,candidate);
+ const generic=new Set(['原创角色','插画','未分类']);
+ if(axis==='character'){
+  if(!generic.has(source.character)&&candidate.character===source.character)return 110+overlap*9;
+  // Fallback to genuinely shared named character, copyright/IP or uncommon tag.
+  if(overlap>=2)return overlap*12;
+  if(overlap===1&&source.kind==='同人'&&candidate.kind==='同人')return 12;
+  return 0;
+ }
+ if(axis==='color'){
+  if(!source.dominantHex||!candidate.dominantHex)return 0;
+  const parts=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));
+  const a=parts(source.dominantHex),b=parts(candidate.dominantHex);
+  const dist=Math.hypot(a[0]-b[0],a[1]-b[1],a[2]-b[2]);
+  const sameTone=source.color===candidate.color;
+  if(!sameTone&&dist>96)return 0;
+  return Math.round((sameTone?90:35)+Math.max(0,100-dist)+overlap*4);
+ }
+ if(axis==='mood'){
+  if(!generic.has(source.mood)&&source.mood===candidate.mood)return 100+overlap*7;
+  const moodTags=/夜|night|夏|summer|空|sky|風景|景色|landscape|魔法|fantasy|海|sea|花|桜|春|cyber|赛博|水着|樱|夕焼け|sunset/i;
+  const same=(source.tags||[]).filter(t=>moodTags.test(t)).some(t=>(candidate.tags||[]).includes(t));
+  return same?55+overlap*7:0;
+ }
+ return 0;
+}
 function related(w,path){
- const score=x=>{const overlap=shared(x,w);
-   if(path==='character')return (w.character!=='原创角色'&&x.character===w.character?10:0)+overlap*3+(x.kind===w.kind?1:0);
-   if(path==='color')return (w.color!=='未分类'&&x.color===w.color?12:0)+overlap*2;
-   return (w.mood!=='插画'&&x.mood===w.mood?10:0)+overlap*2;};
- return WORKS.filter(x=>x.id!==w.id).sort((a,b)=>score(b)-score(a)).slice(0,4);
+ return WORKS.filter(x=>x.id!==w.id).map(x=>({work:x,score:relationScore(w,x,path)}))
+ .filter(x=>x.score>0).sort((a,b)=>b.score-a.score||a.work.id-b.work.id).slice(0,12).map(x=>x.work);
 }
 function relatedDraw(){
  const w=state.focus;if(!w)return;
  document.querySelectorAll('[data-path]').forEach(b=>b.classList.toggle('on',b.dataset.path===state.relatedPath));
- $('relatedWorks').innerHTML=related(w,state.relatedPath).map(x=>
- '<button class="related-item" data-related="'+x.id+'" aria-label="前往 '+esc(x.title)+'">'+
- '<img src="'+esc(x.card)+'" referrerpolicy="no-referrer" alt="" loading="lazy"><span>'+esc(x.title)+'</span></button>').join('');
+ const list=related(w,state.relatedPath),axisLabel={character:'角色',color:'色彩',mood:'氛围'}[state.relatedPath]||'同频';
+ const container=$('relatedWorks');
+ container.innerHTML=list.map(x=>
+  '<button class="related-item" data-related="'+x.id+'" aria-label="查看相关作品：'+esc(x.title)+'">'+
+  '<img src="'+esc(x.card)+'" referrerpolicy="no-referrer" alt="" loading="lazy">'+
+  '<span>'+esc(x.title)+'<small class="related-reason">'+esc(state.relatedPath==='character'?x.character:state.relatedPath==='color'?x.color+'色调':x.mood)+'</small></span></button>'
+ ).join('');
+ let desc=$('relatedCount');
+ if(!desc){desc=document.createElement('p');desc.id='relatedCount';desc.className='reader-related-count';container.before(desc)}
+ desc.textContent=list.length?'严格匹配 '+list.length+' 张'+axisLabel+'相关作品 · 按关联度排序':'当前作品没有足够的'+axisLabel+'匹配项 · 试试其他跃迁频道';
+ if(!list.length)container.innerHTML='<p class="reader-related-count">本批作品暂无可靠关联，不以无关图片填充。</p>';
 }
 function fillReader(){
  const w=state.focus;if(!w)return;
- const image=$('viewerImage');image.referrerPolicy='no-referrer';
- image.onerror=()=>{image.style.opacity='1';alertOriginal('第三方图片暂时无法加载，可查看 Pixiv 原作');};
- image.src=w.preview;image.alt=w.title;
- $('ambient').style.backgroundImage='url("'+w.card+'")';
- $('readerCrumb').textContent=w.title;$('readerTitle').textContent=w.title;
- $('readerKind').textContent='PIXIV / EXTERNAL ARTWORK';
- $('artistName').textContent=w.artist;$('artistFace').textContent=w.artist.slice(0,1);
+ $('readerCrumb').textContent=w.title;
+ $('readerTitle').textContent=w.title;
+ $('readerKind').textContent='PIXIV / '+(w.kind==='原创'?'ORIGINAL':'FAN ART');
+ $('artistName').textContent=w.artist;
+ $('artistFace').textContent=w.artist.slice(0,1);
  $('artistFace').style.background=colorFor(w);
  document.querySelector('.artist-info small').textContent='PIXIV · 原作者保留版权';
  $('readerDesc').textContent=w.desc;
- const ordered=[w.character,w.mood,...w.tags].filter((x,i,a)=>x&&a.indexOf(x)===i).slice(0,14);
- $('readerTags').innerHTML=ordered.map(tag=>'<button data-term="'+esc(tag)+'"># '+esc(tag)+'</button>').join('');
+ const tags=[w.character,w.mood,w.color+'系',...w.tags].filter((x,i,a)=>x&&a.indexOf(x)===i).slice(0,15);
+ $('readerTags').innerHTML=tags.map(tag=>'<button data-term="'+esc(tag)+'"># '+esc(tag)+'</button>').join('');
  $('favArt').classList.toggle('faved',state.liked.has(w.id));
  $('favArt').querySelector('span').textContent=state.liked.has(w.id)?'已收藏':'收藏作品';
  $('followArtist').textContent=state.followed.has(w.artistKey)?'✓ 已关注':'＋ 关注';
  if($('pixivSource'))$('pixivSource').href=w.pixivUrl;
- $('btnOriginal').classList.remove('on');$('btnOriginal').querySelector('span').textContent='查看原图';$('btnOriginal').disabled=false;
- const shown=state.shown.length?state.shown:WORKS;
- const i=shown.findIndex(x=>x.id===w.id);
+ $('btnOriginal').disabled=false;$('btnOriginal').classList.remove('on');
+ $('btnOriginal').querySelector('span').textContent='查看原图';
+ const shown=state.shown.length?state.shown:WORKS,i=shown.findIndex(x=>x.id===w.id);
  $('stageCounter').textContent=String(i+1||1).padStart(2,'0')+' / '+String(shown.length).padStart(2,'0');
- relatedDraw();for(const next of related(w,state.relatedPath).slice(0,2)){const img=new Image();img.referrerPolicy='no-referrer';img.src=next.preview}
+ relatedDraw();
 }
 
 function swapArt(direction){const arr=state.shown.length?state.shown:WORKS;const idx=arr.findIndex(w=>w.id===state.focus?.id);const next=arr[(idx+direction+arr.length)%arr.length];if(next)openReader(next.id,null)}
