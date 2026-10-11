@@ -74,7 +74,10 @@ export async function createGalleryManifestBackup(
   format: "firefly-gallery-manifest",
   schemaVersion: 1,
   exportedAt: new Date().toISOString(),
-  note: "Manifest metadata only. Photo files and comments are not included.",
+  note: state?.readOnly ? "PUBLIC-ONLY DRAFT: This backup comes from the existing public imagebed gallery and might omit private/unlisted albums. NEVER replace a full gallery manifest with it." : "Manifest metadata only. Photo files and comments are not included.",
+  source: state?.source || "imagebed-admin",
+  scope: state?.readOnly ? "public-only-local-draft" : "full-gallery-manifest",
+  safeToReplaceFullManifest: state?.readOnly !== true,
   manifest,
   integrity: report,
  },null,2) + "\n";
