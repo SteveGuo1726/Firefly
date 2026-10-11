@@ -5,7 +5,7 @@ settings:
   excludeLinksFromLockfile: false
 
 patchedDependencies:
-  '@expressive-code/plugin-shiki@0.44.2': 93257247038e7946ca88dd32d7d0050d63377f6b37d8bee46bbd7a9ed68562bb
+  '@expressive-code/plugin-shiki@0.44.2': 55255964fe9fb29878b193e1e6ddc78ca6e50500c9e4f272abad9dfa09e81aeb
 
 importers:
 
