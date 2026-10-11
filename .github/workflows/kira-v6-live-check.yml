@@ -1,0 +1,52 @@
+name: KIRA V6 Cloudflare live verification
+on:
+  push:
+    branches: [kira-development]
+    paths:
+      - '.github/workflows/kira-v6-live-check.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v4
+      - name: Probe deployed CF frontend and metadata with browser headers
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import urllib.request,urllib.error,json,datetime,pathlib
+          base="https://kira-cf.casto.top"
+          paths={"/": "text/html","/assets/style.css":"text/css","/assets/app.js":"application/javascript","/assets/pixiv-feed.json":"application/json","/health":"application/json"}
+          report={"date":datetime.datetime.now(datetime.timezone.utc).isoformat(),"checks":{}}
+          for path,want in paths.items():
+            result={}
+            try:
+              req=urllib.request.Request(base+path,headers={"User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36","Accept":"text/html,application/json;q=0.9,*/*;q=0.8"})
+              with urllib.request.urlopen(req,timeout=12) as r:
+                body=r.read()
+                result={"http_status":r.status,"bytes":len(body),"mime":r.headers.get('content-type')}
+                if path=="/assets/pixiv-feed.json":
+                  j=json.loads(body);result["works_in_snapshot"]=sum(len(a) for a in j["channels"].values());result["channels"]={k:len(v) for k,v in j["channels"].items()}
+                if path=="/assets/app.js":result["v6_loader"]="hydrateRealPixiv" in body.decode()
+                if path=="/health":result["server"]=json.loads(body)
+            except urllib.error.HTTPError as e: result={"error":str(e),"body":e.read(100).decode(errors="replace")}
+            except Exception as e:result={"error":str(e)}
+            print(path,result)
+            report["checks"][path]=result
+          pathlib.Path("docs").mkdir(exist_ok=True)
+          pathlib.Path("docs/kira-v6-live-check.json").write_text(json.dumps(report,ensure_ascii=False,indent=2))
+          PY
+      - name: Record report
+        if: always()
+        shell: bash
+        run: |
+          if [ -f docs/kira-v6-live-check.json ]; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add docs/kira-v6-live-check.json
+            git commit -m "test(kira): save V6 Cloudflare live route report" || exit 0
+            git push origin HEAD:kira-development
+          fi
