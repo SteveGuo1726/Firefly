@@ -18,6 +18,19 @@ function facet(w,tagSet){
   const kind=has(/オリジナル|原创|original/i)?'原创':'同人';
   return {character,mood,color,kind};
 }
+/* Named IPs only: derived from explicit source tags, not inferred from image pixels. */
+const SERIES_INDEX=[
+ ['genshin','原神',/^(?:原神|Genshin|Genshin Impact)$/i],
+ ['vocaloid','VOCALOID',/^(?:VOCALOID|初音ミク|初音未来|Hatsune Miku|鏡音リン|鏡音レン|巡音ルカ|ボーカロイド)$/i],
+ ['blue-archive','蔚蓝档案',/^(?:ブルーアーカイブ|Blue Archive|蔚蓝档案|碧蓝档案)$/i],
+ ['arknights','明日方舟',/^(?:アークナイツ|Arknights|明日方舟)$/i],
+ ['touhou','东方Project',/^(?:東方Project|東方|东方Project|Touhou Project)$/i],
+ ['fate','Fate',/^(?:Fate\/Grand Order|FGO|Fate\/stay night)$/i]
+];
+function findSeries(tags){
+ const matched=SERIES_INDEX.find(([, ,test])=>tags.some(t=>test.test(t.trim())));
+ return matched?{key:matched[0],label:matched[1]}:null;
+}
 function normalizeSnapshot(snapshot){
   if(!snapshot?.channels||typeof snapshot.channels!=='object')return [];
   const records=new Map();
@@ -31,12 +44,13 @@ function normalizeSnapshot(snapshot){
     const id=a.pid*1000+Number(a.page||0);
     if(!Number.isSafeInteger(id)||id<=0)continue;
     if(records.has(id)){records.get(id)._groups.add(group);continue;}
-    const tagSet=new Set([group]),facets=facet(tags,tagSet);
+    const tagSet=new Set([group]),facets=facet(tags,tagSet),series=findSeries(tags);
     records.set(id,{
       id,pid:a.pid,title:String(a.title||'无标题').slice(0,140),artist:String(a.author||'未知画师').slice(0,100),
       imageWidth:Number(a.width)>0?Number(a.width):null,imageHeight:Number(a.height)>0?Number(a.height):null,
       tags,facets,character:facets.character,mood:facets.mood,color:/^(蓝|紫|粉|红|金|绿|黑|白|灰|暖)$/.test(a.dominant_tone||'')?a.dominant_tone:facets.color,
       dominantHex:/^#[a-fA-F0-9]{6}$/.test(a.dominant_hex||'')?a.dominant_hex:null,
+       seriesKey:series?.key||null,seriesLabel:series?.label||null,
       artistKey:Number.isSafeInteger(a.uid)&&a.uid>0?'pixiv:'+a.uid:'name:'+String(a.author||'未知画师'),
       kinds:[facets.kind],likes:null,series:0,ratio:Math.max(.62,Math.min(2.35,Number(a.height)/Math.max(1,Number(a.width))||1.3)),
       desc:'来自 Pixiv 的外部作品 · 原作者保留版权，详情请查看 Pixiv 原作。',
@@ -308,6 +322,8 @@ function relationScore(source,candidate,axis){
   if(overlap===1&&source.kind==='同人'&&candidate.kind==='同人')return 12;
   return 0;
  }
+ if(axis==='series')return source.seriesKey&&source.seriesKey===candidate.seriesKey?95+overlap*7:0;
+ if(axis==='artist')return source.artistKey.startsWith('pixiv:')&&source.artistKey===candidate.artistKey?125+overlap*4:0;
  if(axis==='color'){
   if(!source.dominantHex||!candidate.dominantHex)return 0;
   const parts=h=>[1,3,5].map(i=>parseInt(h.slice(i,i+2),16)/255);
@@ -346,12 +362,12 @@ function related(w,path){
 function relatedDraw(){
  const w=state.focus;if(!w)return;
  document.querySelectorAll('[data-path]').forEach(b=>b.classList.toggle('on',b.dataset.path===state.relatedPath));
- const list=related(w,state.relatedPath),axisLabel={character:'角色',color:'色彩',mood:'氛围'}[state.relatedPath]||'同频';
+ const list=related(w,state.relatedPath),axisLabel={character:'角色',series:'系列',artist:'画师',color:'色彩',mood:'氛围'}[state.relatedPath]||'同频';
  const container=$('relatedWorks');
  container.innerHTML=list.map(x=>
   '<button class="related-item" data-related="'+x.id+'" aria-label="查看相关作品：'+esc(x.title)+'">'+
   '<img src="'+esc(x.card)+'" referrerpolicy="no-referrer" alt="" loading="lazy">'+
-  '<span>'+esc(x.title)+'<small class="related-reason">'+esc(state.relatedPath==='character'?x.character:state.relatedPath==='color'?(x.color===w.color?x.color+'同色':x.color+'邻近色系'):x.mood)+'</small></span></button>'
+  '<span>'+esc(x.title)+'<small class="related-reason">'+esc(state.relatedPath==='character'?x.character:state.relatedPath==='series'?x.seriesLabel:state.relatedPath==='artist'?'同一画师 · '+x.artist:state.relatedPath==='color'?(x.color===w.color?x.color+'同色':x.color+'邻近色系'):x.mood)+'</small></span></button>'
  ).join('');
  let desc=$('relatedCount');
  if(!desc){desc=document.createElement('p');desc.id='relatedCount';desc.className='reader-related-count';container.before(desc)}
@@ -470,7 +486,7 @@ document.querySelectorAll('[data-main]').forEach(b=>b.addEventListener('click',(
 $('home').onclick=e=>{e.preventDefault();setRoute('all');window.scrollTo({top:0,behavior:'smooth'})};
 $('surprise').onclick=pickNew;$('jumpNow').onclick=pickNew;$('sideJump').onclick=()=>setRoute('character');$('upload').onclick=()=>toast('投稿服务将由 Workers API + 审核流程接入，当前仅为 UI 演示');
 document.querySelectorAll('[data-rail]').forEach(b=>b.onclick=()=>{const type=b.dataset.rail;if(type==='jump')pickNew();else if(type==='rank')setMain('精选');else if(type==='follow')setMain('关注');else setMain('推荐')});
-document.querySelectorAll('[data-mobile]').forEach(b=>b.onclick=()=>{const type=b.dataset.mobile;if(type==='jump')pickNew();else if(type==='rank')setMain('热门');else if(type==='follow')setMain('关注');else if(type==='upload')toast('这里会是账户 / 投稿页面');else setMain('推荐')});
+document.querySelectorAll('[data-mobile]').forEach(b=>b.onclick=()=>{const type=b.dataset.mobile;if(type==='jump')pickNew();else if(type==='rank')setMain('精选');else if(type==='follow')setMain('关注');else if(type==='upload')toast('这里会是账户 / 投稿页面');else setMain('推荐')});
 $('closeReader').onclick=closeReader;$('btnCloseIcon').onclick=closeReader;$('prevArt').onclick=()=>swapArt(-1);$('nextArt').onclick=()=>swapArt(1);
 $('zoomIn').onclick=()=>changeZoom(state.zoom+.25);$('zoomOut').onclick=()=>changeZoom(state.zoom-.25);$('zoomReset').onclick=()=>resetZoom();$('btnFit').onclick=()=>resetZoom();$('btnOriginal').onclick=toggleOriginal;
 $('zoomX').addEventListener('input',e=>changeZoom(+e.target.value,'x'));
