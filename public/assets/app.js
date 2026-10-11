@@ -290,6 +290,7 @@ function closeReader(){
  const card=state.lastCard&&document.body.contains(state.lastCard)?state.lastCard.querySelector('img'):document.querySelector('[data-view="'+(focused?.id||'')+'"] img');
  if(card&&start.classList.contains('loaded')&&card.getBoundingClientRect().top<innerHeight&&card.getBoundingClientRect().bottom>0)motionClone(card,start,true);
  $('reader').classList.remove('open');$('reader').setAttribute('aria-hidden','true');
+ $('viewerImage').classList.remove('loaded');$('viewerImage').removeAttribute('src');
  document.body.style.overflow='';markMedia('idle');resetZoom(false);state.focus=null;
  if(location.hash.startsWith('#art-'))try{history.replaceState(history.state,'',location.pathname+location.search)}catch{}
 }
