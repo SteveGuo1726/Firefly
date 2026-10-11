@@ -68,13 +68,23 @@ try{
  });
  await test('Recommendations are truly matched, with no random padding',async()=>{
   const r=await page.evaluate(()=>({
-    all:['character','color','mood'].map(axis=>({
+    all:['character','series','artist','color','mood'].map(axis=>({
       axis,count:related(state.focus,axis).length,
       valid:related(state.focus,axis).every(w=>relationScore(state.focus,w,axis)>0)
     }))
   }));
   for(const v of r.all){assert(v.valid);assert(v.count<=12)}
-  await page.locator('[data-path="color"]').click();
+  const actual=await page.evaluate(()=>{
+    const seriesSource=WORKS.find(x=>x.seriesKey&&related(x,'series').length>0);
+    const artistSource=WORKS.find(x=>x.artistKey.startsWith('pixiv:')&&related(x,'artist').length>0);
+    return {seriesExists:!!seriesSource,seriesMatches:seriesSource?related(seriesSource,'series').every(x=>x.seriesKey===seriesSource.seriesKey):false,
+      artistExists:!!artistSource,artistMatches:artistSource?related(artistSource,'artist').every(x=>x.artistKey===artistSource.artistKey):false};
+  });
+  assert(actual.seriesExists&&actual.seriesMatches,'no valid Pixiv franchise graph');
+  assert(actual.artistExists&&actual.artistMatches,'no valid same-artist graph');
+  await page.locator('[data-path="series"]').click();
+  await page.locator('[data-path="artist"]').click();
+    await page.locator('[data-path="color"]').click();
   assert((await page.locator('#relatedCount').innerText()).includes('匹配')||(await page.locator('#relatedCount').innerText()).includes('足够'));
   return r;
  });
@@ -122,6 +132,10 @@ try{
   assert(sizes.document<=sizes.width+2,JSON.stringify(sizes));
   assert(sizes.imageW<=sizes.stageW&&sizes.imageH<=sizes.stageH,JSON.stringify(sizes));
   await page.screenshot({path:'docs/kira-v7-mobile-smoke.png',fullPage:false});
+  await page.locator('#closeReader').click();
+  await page.locator('[data-mobile="rank"]').click();
+  const selected=await page.evaluate(()=>state.main);
+  assert.equal(selected,'精选','mobile featured button must select the existing channel');
   return sizes;
  });
  assert.deepEqual(report.errors,[],'page JS errors');
