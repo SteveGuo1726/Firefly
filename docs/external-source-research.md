@@ -54,3 +54,10 @@ Read-only development backend: https://kira-gallery-api-dev.guojunyang666666.wor
 3. Respect source rate limits, removals, and opt-outs; add cache invalidation and an abuse-report workflow.
 4. Benchmark real network performance and media caching independently; the free API is not a CDN to serve large original images.
 5. Treat any Pixiv URL found in Booru tags/metadata as a **link to creator/source**, never a license to copy the file.
+
+### Additional candidates (evaluated, not deployed)
+
+- **Wallhaven**: documented public SFW `GET https://wallhaven.cc/api/v1/search?categories=010&purity=100&q=anime`, no key required for basic search; tags, colors, resolutions, preview thumbnails and source URLs are useful for studying recommendations. As a community wallpaper index it does not grant rights to reproduce or cache the original artists' files; its About page states images remain the property of their owners. Treat as an optional **offsite metadata link** until embedding permission is checked. Official docs: https://www.whvn.cc/help/api and rights: https://www.whvn.cc/about
+- **DeviantArt**: an official developer API and oEmbed display mechanism exists; requires registering an app and agreeing to its API License. Better long-term option for opt-in artist content than unofficial Pixiv crawling, but registration, scopes, and rights checks are needed. Docs: https://deviantart.readme.io/docs/getting-started
+
+The existence of image CDN links in these APIs is not permission to hotlink high-resolution assets on a separate public service.
