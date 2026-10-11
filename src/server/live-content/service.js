@@ -16,11 +16,11 @@ function json(data, status = 200) {
 	});
 }
 
-function sameOriginAllowed(request) {
+function sameOriginAllowed(request, trustedBrowserOrigin = null) {
 	const origin = request.headers.get("Origin");
 	if (!origin) return true;
 	try {
-		return origin === new URL(request.url).origin;
+		return origin === new URL(request.url).origin || (Boolean(trustedBrowserOrigin) && origin === trustedBrowserOrigin);
 	} catch {
 		return false;
 	}
@@ -149,6 +149,7 @@ export function createLiveContentService({
 	provider,
 	storeName,
 	routePrefix = "/api/live-content",
+	trustedBrowserOrigin = null,
 	region,
 	authorize,
 	authorizeSession = null,
@@ -818,7 +819,7 @@ export function createLiveContentService({
 	}
 
 	return async function handleLiveContent(request, context = {}) {
-		if (!sameOriginAllowed(request)) {
+		if (!sameOriginAllowed(request, trustedBrowserOrigin)) {
 			return json({ error: "Origin not allowed." }, 403);
 		}
 		const url = new URL(request.url);

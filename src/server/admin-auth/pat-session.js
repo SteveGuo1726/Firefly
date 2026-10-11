@@ -17,8 +17,9 @@ function json(value, status=200, headers={}) {
  });
 }
 function allowed(request) {
- const url=new URL(request.url);
- return url.origin===ORIGIN && request.headers.get("Origin")===ORIGIN;
+ const browserOrigin=request.headers.get("Origin");
+ const fetchSite=request.headers.get("Sec-Fetch-Site");
+ return browserOrigin===ORIGIN && (!fetchSite || fetchSite==="same-origin");
 }
 export function createPatSessionController({sessions,fetcher=fetch}={}) {
  if(!sessions)throw new Error("Admin session service required");

@@ -18,6 +18,7 @@ const oauthSessions = oauthEnabled ? createAdminSessionService({
 }) : null;
 
 const handle = createLiveContentService({
+ trustedBrowserOrigin:"https://blog.casto.top",
 	distributedLock:{
   async acquire(keys){
    await assertEdgeOneAtomicWrites(blob);

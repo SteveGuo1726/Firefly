@@ -20,7 +20,8 @@ const allowedMethods=new Set(["GET","POST","PUT"]);
 export async function proxyGalleryManagement(request,{env=process.env,fetcher=fetch,storeFactory=()=>cachedBlob||(cachedBlob=getStore({name:"firefly-auth-live",consistency:"strong"}))}={}){
  const url=new URL(request.url);
  if(!routes.has(url.pathname)||!allowedMethods.has(request.method))return new Response("Not Found",{status:404});
- if(request.method!=="GET"&&request.headers.get("Origin")!==url.origin){
+ if(request.method!=="GET"&&request.headers.get("Origin")!==url.origin &&
+    request.headers.get("Origin")!=="https://blog.casto.top"){
   return new Response("Forbidden",{status:403});
  }
  if(!env.FIREFLY_GALLERY_SERVICE_SECRET||env.FIREFLY_GALLERY_SERVICE_SECRET.length<32){
