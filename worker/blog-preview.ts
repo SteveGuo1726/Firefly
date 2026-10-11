@@ -83,6 +83,13 @@ export default {
             return new Response('{"error":"图床公开数据暂不可用，未修改任何图床文件。"}',{status:502,headers});
           }
         }
+        // Never forward gallery/imagebed mutations to an independent gallery backend.
+        if(path.startsWith("/api/admin/gallery/")||path.startsWith("/api/admin/imagebed/")){
+          const auth=await authorizePreviewSession(request,env);
+          const headers={"Content-Type":"application/json; charset=utf-8","Cache-Control":"no-store","X-Robots-Tag":"noindex"};
+          if(!auth.ok)return new Response('{"error":"Unauthorized"}',{status:401,headers});
+          return new Response('{"error":"实验站禁止修改真实图床；请保存本机相册草稿，并通过图床独立后台操作。"}',{status:403,headers});
+        }
         if(path==="/api/admin/private-index"){
           if(request.method!=="GET")return new Response("Method Not Allowed",{status:405});
           const auth=await authorizePreviewSession(request,env);
