@@ -16,7 +16,7 @@ try{
     const count=await page.locator('.art-card').count();
     assert(count>=25,'expected >=25 real artworks, got '+count);
     assert.equal(await page.locator('.art-card .art-likes').first().innerText(),'✦ Pixiv');
-    assert.equal(await page.locator('.art-name').first().innerText().includes('银河尽头的蝶光'),false);
+    assert.equal((await page.locator('.art-name').first().innerText()).includes('银河尽头的蝶光'),false);
     return {works:count};
   });
   await check('Image opens within an unscaled reader',async()=>{
