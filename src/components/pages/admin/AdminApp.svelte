@@ -86,17 +86,19 @@ function exitDemo(){
 
 
 
-type Section="dashboard"|"posts"|"dynamic"|"gallery"|"backup";
+type Section="dashboard"|"posts"|"dynamic"|"gallery"|"settings"|"backup";
 type DashboardComponentType=typeof import("./AdminDashboard.svelte").default;
 type BackupComponentType=typeof import("./AdminBackup.svelte").default;
 type PostComponentType=typeof import("./AdminPostManager.svelte").default;
 type DynamicComponentType=typeof import("./AdminDynamicManager.svelte").default;
 type GalleryComponentType=typeof import("../gallery/GalleryAdminManager.svelte").default;
+type SettingsComponentType=typeof import("./AdminSiteSettings.svelte").default;
 let DashboardComponent:DashboardComponentType|null=null;
 let BackupComponent:BackupComponentType|null=null;
 let PostComponent:PostComponentType|null=null;
 let DynamicComponent:DynamicComponentType|null=null;
 let GalleryComponent:GalleryComponentType|null=null;
+let SettingsComponent:SettingsComponentType|null=null;
 let sectionLoading=false;
 let sectionError="";
 let loadGeneration=0;
@@ -106,7 +108,7 @@ let section:Section="dashboard";
 function readSection():Section{
 	if(typeof window==="undefined")return"dashboard";
 	const value=new URLSearchParams(window.location.search).get("section");
-	return value==="posts"||value==="dynamic"||value==="gallery"||value==="dashboard"||value==="backup"?value:"dashboard";
+	return value==="posts"||value==="dynamic"||value==="gallery"||value==="settings"||value==="dashboard"||value==="backup"?value:"dashboard";
 }
 function choose(next:Section){
 	section=next;
@@ -120,12 +122,13 @@ async function ensureSectionLoaded(){
  const generation=++loadGeneration;
  if(!session){sectionLoading=false;sectionError="";return;}
  sectionError="";
- if((section==="posts"&&PostComponent)||(section==="dynamic"&&DynamicComponent)||(section==="gallery"&&GalleryComponent)||(section==="dashboard"&&DashboardComponent)||(section==="backup"&&BackupComponent)){sectionLoading=false;return;}
+ if((section==="posts"&&PostComponent)||(section==="dynamic"&&DynamicComponent)||(section==="gallery"&&GalleryComponent)||(section==="settings"&&SettingsComponent)||(section==="dashboard"&&DashboardComponent)||(section==="backup"&&BackupComponent)){sectionLoading=false;return;}
  sectionLoading=true;sectionError="";
  try{
   if(section==="posts"){const module=await import("./AdminPostManager.svelte");if(generation===loadGeneration)PostComponent=module.default;}
   else if(section==="dynamic"){const module=await import("./AdminDynamicManager.svelte");if(generation===loadGeneration)DynamicComponent=module.default;}
   else if(section==="gallery"){const module=await import("../gallery/GalleryAdminManager.svelte");if(generation===loadGeneration)GalleryComponent=module.default;}
+  else if(section==="settings"){const module=await import("./AdminSiteSettings.svelte");if(generation===loadGeneration)SettingsComponent=module.default;}
   else if(section==="dashboard"){const module=await import("./AdminDashboard.svelte");if(generation===loadGeneration)DashboardComponent=module.default;}
   else{const module=await import("./AdminBackup.svelte");if(generation===loadGeneration)BackupComponent=module.default;}
  }catch(e){if(generation===loadGeneration)sectionError=e instanceof Error?e.message:"后台模块加载失败";}
@@ -206,6 +209,7 @@ onMount(()=>{
 			<button class:active={section==="posts"} onclick={()=>choose("posts")}>文章</button>
 			<button class:active={section==="dynamic"} onclick={()=>choose("dynamic")}>动态</button>
 			<button class:active={section==="gallery"} onclick={()=>choose("gallery")}>相册</button>
+            <button class:active={section==="settings"} onclick={()=>choose("settings")}>站点设置</button>
 			<button class:active={section==="backup"} onclick={()=>choose("backup")}>备份</button>
 		</nav>
 		{#if sectionLoading}<section class="login-hint card-base" role="status">正在加载管理模块...</section>
@@ -216,6 +220,7 @@ onMount(()=>{
 		{#if PostComponent}<div hidden={section!=="posts"}><PostComponent {session}/></div>{/if}
 		{#if DynamicComponent}<div hidden={section!=="dynamic"}><DynamicComponent {session}/></div>{/if}
         {#if GalleryComponent}<div hidden={section!=="gallery"}><GalleryComponent/></div>{/if}
+        {#if SettingsComponent}<div hidden={section!=="settings"}><SettingsComponent {session}/></div>{/if}
 	{/if}
 </div>
 {/if}
