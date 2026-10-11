@@ -31,7 +31,7 @@ test("isolated preview uses a separate same-origin gallery state and disables mu
  assert.match(worker,/path==="\/api\/admin\/gallery\/state"/);
  assert.match(worker,/authorizePreviewSession\(request,env\)/);
  assert.match(manager,/localDraftKey="firefly\.gallery\.preview\.local-draft\.v1"/);
- assert.match(manager,/previewReadOnly\?\s*false\s*:\s*confirm/);
+ assert.match(manager,/previewReadOnly\s*\?\s*false\s*:\s*confirm/);
  assert.match(manager,/disabled=\{uploading \|\| previewReadOnly\}/);
  assert.match(manager,/保存本机草稿/);
 });
