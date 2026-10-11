@@ -263,7 +263,7 @@ test("private CMS post index restores unpublished Git baselines without exposing
  assert.match(privateIndex,/fetchPrivatePostIndex/);
  assert.match(privateIndex,/GitHub 文件树不完整/);
  assert.match(privateIndex,/fetchGitContentSource\(session,path\)/);
- assert.match(manager,/await fetchPrivatePostIndex\(session,base\.posts as BasePost\[\]\)/);
+ assert.match(manager,/await fetchPrivatePostIndex\(session,base\.posts as BasePost\[\],refreshGit\)/);
  assert.match(publicIndex,/!post\.data\.draft && !post\.data\.password/);
 });
 
