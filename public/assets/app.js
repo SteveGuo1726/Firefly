@@ -227,7 +227,7 @@ let prevCols=innerWidth<=650?2:innerWidth<=850?3:4;window.addEventListener('resi
 renderRanks();draw();
 async function hydrateRealPixiv(){
  try{
-  const response=await fetch('/assets/pixiv-feed.json',{cache:'force-cache'});
+  const response=await fetch('/assets/pixiv-feed.json?v=6.2',{cache:'force-cache'});
   if(!response.ok)throw Error('status '+response.status);
   const snap=await response.json(),works=normalizeSnapshot(snap);
   if(!works.length)throw Error('没有通过校验的 Pixiv 作品');
