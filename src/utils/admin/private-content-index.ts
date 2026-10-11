@@ -34,9 +34,9 @@ function asPost(path:string,source:string):PrivateBasePost {
 /** Complete Git baseline index for the authenticated CMS, including unpublished posts.
  * Public prerendered index remains filtered. GitHub access permissions still apply.
  */
-export async function fetchPrivatePostIndex(session:GitHubAdminSession,publicPosts:PrivateBasePost[]):Promise<PrivateBasePost[]>{
+export async function fetchPrivatePostIndex(session:GitHubAdminSession,publicPosts:PrivateBasePost[],refreshGit=false):Promise<PrivateBasePost[]>{
  if(session.oauth){
-  const response=await fetch("/api/admin/private-index",{credentials:"same-origin",cache:"no-store"});
+  const response=await fetch("/api/admin/private-index"+(refreshGit?"?refresh=1":""),{credentials:"same-origin",cache:"no-store"});
   if(!response.ok)throw new Error("文章索引 API 暂时不可用，请稍后刷新重试。");
   const result=await response.json() as {posts:PrivateBasePost[]};
   if(!Array.isArray(result.posts))throw new Error("私有文章索引响应无效");
