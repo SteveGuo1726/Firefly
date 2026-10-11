@@ -48,6 +48,7 @@ type ProcessorLike = {
 type MermaidModule = {
 	initialize: (config: Record<string, unknown>) => void;
 	render: (id: string, code: string) => Promise<{ svg: string }>;
+	parse: (code: string, options?: { suppressErrors: boolean }) => Promise<false | { diagramType: string }>;
 };
 
 type PreviewDeps = {
@@ -718,6 +719,24 @@ async function enhanceGitHubCards(container: HTMLElement) {
 	);
 }
 
+/* Preserve the source line on semantic Markdown blocks. The writing editor uses
+   these positions for heading/paragraph-accurate scroll synchronization. */
+function rehypePreviewSourceAnchors() {
+ return (tree: UnknownNode) => {
+  const blockNames=new Set(["h1","h2","h3","h4","h5","h6","p","pre","blockquote","ul","ol","table","figure","section","div"]);
+  const visitNode=(node: UnknownNode) => {
+   if(node.type==="element" && typeof node.tagName==="string" && blockNames.has(node.tagName)){
+    const start=(node.position as {start?: {line?: number}}|undefined)?.start?.line;
+    if(typeof start==="number" && Number.isFinite(start) && start>0){
+     node.properties={...node.properties,"data-source-line":String(start)};
+    }
+   }
+   for(const child of node.children||[])visitNode(child);
+  };
+  visitNode(tree);
+ };
+}
+
 async function enhanceMermaid(container: HTMLElement) {
 	const nodes = Array.from(container.querySelectorAll<HTMLElement>(".mermaid"));
 	if (nodes.length === 0) return;
@@ -736,14 +755,21 @@ async function enhanceMermaid(container: HTMLElement) {
 			const code = node.textContent || "";
 			if (!code.trim()) return;
 
+			const renderId=`write-preview-mermaid-${Date.now()}-${index}`;
 			try {
-				const renderResult = await mermaid.render(
-					`write-preview-mermaid-${Date.now()}-${index}`,
-					code,
-				);
+				// Invalid diagrams must not call render(): Mermaid otherwise injects a
+				// large global error SVG outside the editor's preview container.
+				const parsed=await mermaid.parse(code,{suppressErrors:true});
+				if(!parsed)throw new Error("Invalid Mermaid diagram syntax");
+				const renderResult = await mermaid.render(renderId,code);
 				node.innerHTML = renderResult.svg;
 			} catch {
-				node.innerHTML = `<pre><code>${escapeHtml(code)}</code></pre>`;
+				// Guard the render-time failure path too; never leave Mermaid's
+				// temporary error container attached to the document body.
+				document.getElementById(`d${renderId}`)?.remove();
+				const temporary=document.getElementById(renderId);
+				if(temporary && !node.contains(temporary))temporary.remove();
+				node.innerHTML = `<div class="mermaid-parse-error" role="note">Mermaid 图表语法有误，请检查源代码。</div><pre><code>${escapeHtml(code)}</code></pre>`;
 			}
 		}),
 	);
@@ -884,6 +910,7 @@ export async function renderFireflyPreview(
 				children: [{ type: "text", value: "#" }],
 			},
 		})
+		.use(rehypePreviewSourceAnchors)
 		.use(deps.rehypeStringify, { allowDangerousHtml: true });
 
 	const rendered = await processor.process(source);
