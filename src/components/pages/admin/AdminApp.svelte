@@ -125,7 +125,6 @@ async function ensureSectionLoaded(){
  try{
   if(section==="posts"){const module=await import("./AdminPostManager.svelte");if(generation===loadGeneration)PostComponent=module.default;}
   else if(section==="dynamic"){const module=await import("./AdminDynamicManager.svelte");if(generation===loadGeneration)DynamicComponent=module.default;}
-  else if(section==="gallery"&&previewPasswordLogin){sectionLoading=false;}
   else if(section==="gallery"){const module=await import("../gallery/GalleryAdminManager.svelte");if(generation===loadGeneration)GalleryComponent=module.default;}
   else if(section==="dashboard"){const module=await import("./AdminDashboard.svelte");if(generation===loadGeneration)DashboardComponent=module.default;}
   else{const module=await import("./AdminBackup.svelte");if(generation===loadGeneration)BackupComponent=module.default;}
@@ -180,7 +179,7 @@ onMount(()=>{
  <section class="demo-entry card-base">
   <span class="eyebrow">FIREFLY · CLOUDFLARE PREVIEW</span>
   <h1>实验内容后台登录</h1>
-  <p>此密码仅开启预览 KV 中的文章和动态真实编辑，不授予 GitHub 提交权限。由于相册仍使用正式图床，照片上传、移动和删除在此模式下不开放。</p>
+  <p>此密码开启隔离实验后台的文章和动态编辑，也可查看公开相册并保存本机相册编辑草稿；不会授予图床上传、移动、删除或正式发布权限。</p>
   <form onsubmit={(event)=>{event.preventDefault();void enterPreviewAdmin();}}>
    <label for="preview-real-password">预览管理密码</label>
    <input id="preview-real-password" type="password" autocomplete="off" bind:value={previewPasswordValue} placeholder="输入实验密码" disabled={previewLoginBusy}/>
@@ -216,9 +215,7 @@ onMount(()=>{
 		{#if BackupComponent}<div hidden={section!=="backup"}><BackupComponent {session}/></div>{/if}
 		{#if PostComponent}<div hidden={section!=="posts"}><PostComponent {session}/></div>{/if}
 		{#if DynamicComponent}<div hidden={section!=="dynamic"}><DynamicComponent {session}/></div>{/if}
-        {#if previewPasswordLogin && section==="gallery"}
-         <section class="login-hint card-base"><h2>相册仍使用正式图床</h2><p>为了防止实验密码删除或移动正式图片，暂不提供这里的图床写操作。相册公开页与清单检查可以继续预览；图片存储位置仍为 img.casto.top。</p><a href="/gallery/">查看公开相册</a></section>
-        {:else if GalleryComponent}<div hidden={section!=="gallery"}><GalleryComponent/></div>{/if}
+        {#if GalleryComponent}<div hidden={section!=="gallery"}><GalleryComponent/></div>{/if}
 	{/if}
 </div>
 {/if}
