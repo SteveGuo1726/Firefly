@@ -1,0 +1,66 @@
+{
+  "checked_at": "2026-10-11T13:14:59.001Z",
+  "checks": [
+    {
+      "label": "Load real SFW Pixiv image gallery with no fake popularity",
+      "pass": true,
+      "works": 43
+    },
+    {
+      "label": "No header strip and portrait/landscape images fit viewport",
+      "pass": true,
+      "stageW": 1100,
+      "stageH": 900,
+      "imageW": 1000,
+      "imageH": 562,
+      "naturalWidth": 1280,
+      "naturalHeight": 720
+    },
+    {
+      "label": "Rapid changes cannot restore an earlier image",
+      "pass": true,
+      "current": 98228689000
+    },
+    {
+      "label": "Unlocked image scaling adjusts horizontal and vertical axis separately",
+      "pass": true,
+      "zoomX": 2.3,
+      "zoomY": 1.4,
+      "viewerTransform": "matrix(2.3, 0, 0, 1.4, 0, 0)",
+      "rootTransform": "none",
+      "sidebarTransform": "none"
+    },
+    {
+      "label": "Recommendations are truly matched, with no random padding",
+      "pass": true,
+      "all": [
+        {
+          "axis": "character",
+          "count": 1,
+          "valid": true
+        },
+        {
+          "axis": "color",
+          "count": 0,
+          "valid": true
+        },
+        {
+          "axis": "mood",
+          "count": 1,
+          "valid": true
+        }
+      ]
+    },
+    {
+      "label": "Non-blocking original loads in-place without navigation",
+      "pass": true,
+      "switched": true
+    },
+    {
+      "label": "Failed next-image load never leaves a stale previous image",
+      "pass": false,
+      "error": "TimeoutError: page.waitForFunction: Timeout 20000ms exceeded."
+    }
+  ],
+  "errors": []
+}
