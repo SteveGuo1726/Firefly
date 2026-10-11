@@ -98,7 +98,7 @@ try{
   await page.locator('.art-cover').first().click();
   await page.waitForFunction(()=>document.querySelector('#viewerImage')?.classList.contains('loaded'));
   failImages=true;
-  await page.evaluate(()=>openReader(WORKS[32].id,null));
+  await page.evaluate(()=>{const target=WORKS[32];WORKS[32]={...target,preview:target.preview+'?kira_force_qa='+Date.now(),card:target.card+'?kira_force_qa='+Date.now()};openReader(WORKS[32].id,null)});
   await page.waitForFunction(()=>document.querySelector('#mediaFail')?.hidden===false,null,{timeout:20000});
   const failed=await page.evaluate(()=>({current:state.focus.id,expected:WORKS[32].id,imageLoaded:document.querySelector('#viewerImage').classList.contains('loaded'),retryVisible:!document.querySelector('#mediaFail').hidden}));
   assert.equal(failed.current,failed.expected);assert(!failed.imageLoaded);assert(failed.retryVisible);
