@@ -1,4 +1,4 @@
-name: KIRA V6 real Pixiv UI quality gate
+name: KIRA V7 real Pixiv UI quality gate
 on:
   push:
     branches: [kira-development]
@@ -49,19 +49,19 @@ jobs:
         if: always()
         shell: bash
         run: |
-          if [ -f docs/kira-v6-browser-qa.json ]; then
+          if [ -f docs/kira-v7-browser-qa.json ]; then
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add docs/kira-v6-browser-qa.json
-            git commit -m "test(kira): record V6 real-gallery Chromium results" || exit 0
+            git add docs/kira-v7-browser-qa.json
+            git commit -m "test(kira): record V7 real-gallery Chromium results" || exit 0
             git pull --rebase origin kira-development
             git push origin HEAD:kira-development
           fi
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: kira-v6-ui-test
+          name: kira-v7-ui-test
           path: |
-            docs/kira-v6-mobile-smoke.png
-            docs/kira-v6-browser-qa.json
+            docs/kira-v7-mobile-smoke.png
+            docs/kira-v7-browser-qa.json
           if-no-files-found: ignore
