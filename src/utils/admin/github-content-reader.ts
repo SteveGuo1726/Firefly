@@ -51,7 +51,7 @@ export async function fetchGitContentSource(
   // Cloudflare staging can read from the same origin, avoiding direct
   // browser-to-GitHub latency and connectivity failures on mainland networks.
   if(session.oauth && typeof window!=="undefined" &&
-    window.location.hostname==="firefly-blog-preview.guojunyang666666.workers.dev"){
+    (window.location.hostname==="firefly-blog-preview.guojunyang666666.workers.dev" || window.location.hostname==="v1-preview.casto.top")){
    const response=await fetch("/api/admin/content-source?path="+encodeURIComponent(path),{
     credentials:"same-origin",cache:"no-store",
    });
