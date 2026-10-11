@@ -6,7 +6,7 @@ const ico=name=>`<svg aria-hidden="true"><use href="#ico-${name}"></use></svg>`;
 /* KIRA! JUMP V6 — real Pixiv metadata snapshot; artwork remains owned by creators. */
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const allowedImage=u=>{try{const v=new URL(u);return v.protocol==='https:'&&['i.pixiv.re','i.pixiv.cat','i.pximg.net','i-cf.pximg.net','i.pixiv.moe'].includes(v.hostname)?v.href:null}catch{return null}};
-const SOURCE_TAGS={miku:'初音未来',genshin:'原神',girl:'少女',discover:'Pixiv'};
+const SOURCE_TAGS={miku:'初音未来',genshin:'原神',girl:'少女',discover:'Pixiv',original:'原创',touhou:'东方Project',bluearchive:'蔚蓝档案',arknights:'明日方舟',fantasy:'幻想',landscape:'风景'};
 const DENY_TAG=/^(?:r[\s_-]*18(?:g)?|nsfw|explicit|成人向|adult|18禁)$/i;
 const COMMON_TAG=/^(?:女の子|女孩子|girl|girls|オリジナル|原创|original|イラスト|illustration|pixiv|r[\s_-]*18(?:g)?)$/i;
 function facet(w,tagSet){
@@ -34,7 +34,7 @@ function findSeries(tags){
 function normalizeSnapshot(snapshot){
   if(!snapshot?.channels||typeof snapshot.channels!=='object')return [];
   const records=new Map();
-  const order=['discover','miku','genshin','girl'];
+  const order=[...new Set(['discover','miku','genshin','girl',...Object.keys(snapshot.channels)])];
   for(const group of order)for(const a of (Array.isArray(snapshot.channels[group])?snapshot.channels[group]:[])){
     if(!a||a.r18!==false||!Number.isSafeInteger(a.pid)||!Array.isArray(a.tags))continue;
     const tags=a.tags.filter(t=>typeof t==='string').map(t=>t.slice(0,48));

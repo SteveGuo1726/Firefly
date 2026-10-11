@@ -25,6 +25,10 @@ There are deliberately no write endpoints yet. D1 begins empty so demo creators/
 
 Keep current blog and `img.casto.top` file URLs unchanged. Avoid any EdgeOne/domestic site deployment during this development phase. Real media variants, uploader authentication, moderation, ownership and licensing have not been implemented yet. The demo images are generated imagery for UI validation.
 
+## 画廊更新与外部图源缓存（V7.5）
+
+KIRA 现在以 `public/` + `preview/` 为主。`kira-free-pixiv-probe.yml` 每日免费轮换少量标签、限速读取 Lolicon 后将元数据合并进 `public/assets/pixiv-feed.json`，429 时保留旧记录。`preview/build.mjs` 的独立 Worker 只在边缘缓存未命中时请求本仓库的 **公开 GitHub 原始 JSON**，设置约 20 分钟缓存并使用打包的旧快照回退。不会逐访客请求 Lolicon，也不下载或存储外部原图到本站。
+
 ## 真正的 Pixiv 免费图源（开发）
 
 独立体验：https://kira-pixiv-feed-dev.guojunyang666666.workers.dev/
