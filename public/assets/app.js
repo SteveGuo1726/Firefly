@@ -154,7 +154,7 @@ function mirrorUrl(input,index=1){
 async function imageWithFailover(url,timeout=7000,refresh=false){
  const original=new URL(url);
  const tried=new Set();
- const candidates=[url,mirrorUrl(url,1),mirrorUrl(url,2)].filter(Boolean);
+ const candidates=[url,mirrorUrl(url,1),...(refresh?[mirrorUrl(url,2)]:[])].filter(Boolean);
  let lastError=new Error('no_image_mirror');
  for(let i=0;i<candidates.length;i++){
   const candidate=candidates[i];
@@ -208,35 +208,51 @@ function setVisibleImage(candidate){
  // If the browser refuses to paint the preloaded URL, make the failure obvious.
  im.onerror=()=>{if(state.focus){im.classList.remove('loaded');markMedia('failed');}};
 }
+
 async function loadWorkPreview(w,{force=false,source=null}={}){
  const seq=++mediaSequence;
- $('readerStage').classList.remove('original-fetch');
- const im=$('viewerImage');
- im.classList.remove('loaded');im.style.opacity='';
- markMedia('loading',force?'正在刷新这张图…':'正在载入 '+w.title,'优先预览图 · 不自动下载巨大原图');
- const candidates=force?[{url:w.preview,refresh:true},{url:w.preview,refresh:false},{url:w.card,refresh:false}]:
- [{url:w.preview,refresh:false},{url:w.card,refresh:false}];
- try{
-  let chosen=null;let isThumb=false;
-  for(const c of candidates){
-   try{chosen=await imageWithFailover(c.url,c.url===w.card?4800:6600,c.refresh);isThumb=c.url===w.card;break}catch(error){console.warn('KIRA image retry',error.message);}
-   if(seq!==mediaSequence||state.focus?.id!==w.id)return;
+ const stage=$('readerStage'),image=$('viewerImage');
+ stage.classList.remove('original-fetch','preview-upgrade');
+ image.classList.remove('loaded');image.style.opacity='';
+ markMedia('loading',force?'重新加载图片…':'正在载入 '+w.title,'先显示轻量缩略图，再升级高清预览');
+ let thumb=null,full=null;
+ let revealed=false;
+ const stillCurrent=()=>seq===mediaSequence&&state.focus?.id===w.id;
+ function reveal(candidate,quality){
+  if(!stillCurrent())return;
+  if(quality==='thumb'&&full)return;
+  if(quality==='full')full=candidate;else thumb=candidate;
+  setVisibleImage(candidate);revealed=true;state.original=false;
+  $('btnOriginal').disabled=false;$('btnOriginal').classList.remove('on');
+  $('btnOriginal').querySelector('span').textContent='查看原图';
+  if(quality==='thumb'){
+   stage.classList.add('preview-upgrade');
+   markMedia('loading','已显示缩略图，高清加载中…','');
+  }else{
+   stage.classList.remove('preview-upgrade');markMedia('idle');
+   resetZoom(false);
+   prefetchNeighbors(w);
   }
-  if(seq!==mediaSequence||state.focus?.id!==w.id)return;
-  if(!chosen){im.removeAttribute('src');im.classList.remove('loaded');markMedia('failed');return;}
-  setVisibleImage(chosen);markMedia('idle');state.original=false;
-  $('btnOriginal').disabled=false;$('btnOriginal').classList.remove('on');$('btnOriginal').querySelector('span').textContent='查看原图';
-  resetZoom(false);
-  if(isThumb)alertOriginal('大图加载失败，已显示缩略图；点击刷新可以重试高清');
-  if(source&&!prefersReduced.matches){
-    const image=source.querySelector('img');
-    if(image&&image.complete&&image.naturalWidth)requestAnimationFrame(()=>motionClone(image,im));
+  if(quality==='thumb'&&source&&!prefersReduced.matches){
+   const card=source.querySelector('img');
+   if(card?.complete&&card.naturalWidth)requestAnimationFrame(()=>motionClone(card,image));
   }else if(!prefersReduced.matches){
-    im.animate([{opacity:.15,filter:'blur(7px)'},{opacity:1,filter:'blur(0px)'}],{duration:230,easing:'ease-out'});
+   image.animate([{opacity:.5},{opacity:1}],{duration:190,easing:'ease-out'});
   }
-  prefetchNeighbors(w);
- }catch(error){if(seq===mediaSequence){im.removeAttribute('src');im.classList.remove('loaded');markMedia('failed');}}
+ }
+ const thumbJob=pictureRequest(w.card,5800).then(c=>reveal(c,'thumb')).catch(()=>{});
+ const fullJob=imageWithFailover(w.preview,6400,force).then(c=>reveal(c,'full')).catch(e=>console.warn('KIRA preview unavailable',e.message));
+ await Promise.all([thumbJob,fullJob]);
+ if(!stillCurrent())return;
+ if(!revealed){
+  image.removeAttribute('src');image.classList.remove('loaded');
+  stage.classList.remove('preview-upgrade');markMedia('failed');
+ }else if(!full){
+  stage.classList.remove('preview-upgrade');markMedia('idle');
+  alertOriginal('高清图暂不可用，当前显示较小的预览。可点击刷新重试');
+ }
 }
+
 function prefetchNeighbors(w){
  const seq=++mediaPreloadSequence,arr=state.shown.length?state.shown:WORKS;
  const i=arr.findIndex(x=>x.id===w.id);
