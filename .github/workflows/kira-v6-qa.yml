@@ -24,6 +24,8 @@ jobs:
         shell: bash
         run: |
           node --check public/assets/app.js
+          node preview/build.mjs
+          node --check preview/dist/index.mjs
           node --check pixiv/src/index.js
           node --check scripts/kira-v6-browser-qa.mjs
           node - <<'JS'

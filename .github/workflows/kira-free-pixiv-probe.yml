@@ -1,8 +1,8 @@
 name: KIRA public Pixiv metadata snapshot
 on:
   workflow_dispatch:
-  schedule:
-    - cron: '17 5 * * *' # Once per day, UTC. Public GitHub Actions runner, no paid API.
+  # Scheduled workflows only run on a repository's default branch. Do not touch Firefly master.
+  # On this isolated kira-development branch, use workflow_dispatch or workflow-file push.
   push:
     branches: [kira-development]
     paths:

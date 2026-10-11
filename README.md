@@ -27,7 +27,7 @@ Keep current blog and `img.casto.top` file URLs unchanged. Avoid any EdgeOne/dom
 
 ## 画廊更新与外部图源缓存（V7.5）
 
-KIRA 现在以 `public/` + `preview/` 为主。`kira-free-pixiv-probe.yml` 每日免费轮换少量标签、限速读取 Lolicon 后将元数据合并进 `public/assets/pixiv-feed.json`，429 时保留旧记录。`preview/build.mjs` 的独立 Worker 只在边缘缓存未命中时请求本仓库的 **公开 GitHub 原始 JSON**，设置约 20 分钟缓存并使用打包的旧快照回退。不会逐访客请求 Lolicon，也不下载或存储外部原图到本站。
+KIRA 现在以 `public/` + `preview/` 为主。`kira-free-pixiv-probe.yml` 在手动执行时免费轮换少量标签、限速读取 Lolicon 后将元数据合并进 `public/assets/pixiv-feed.json`，429 时保留旧记录。`preview/build.mjs` 的独立 Worker 只在边缘缓存未命中时请求本仓库的 **公开 GitHub 原始 JSON**，设置约 20 分钟缓存并使用打包的旧快照回退。**GitHub Actions 的定时触发仅对默认分支生效，开发分支目前仍需手动调用该免费采集工作流**；不得为了定时任务擅自修改 Firefly 的 master。不会逐访客请求 Lolicon，也不下载或存储外部原图到本站。
 
 ## 真正的 Pixiv 免费图源（开发）
 
