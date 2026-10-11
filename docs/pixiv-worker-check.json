@@ -1,0 +1,12 @@
+{
+  "date": "2026-10-11T09:51:09.072581+00:00",
+  "health": {
+    "error": "HTTP Error 403: Forbidden"
+  },
+  "feed": {
+    "error": "HTTP Error 403: Forbidden"
+  },
+  "html": {
+    "error": "HTTP Error 403: Forbidden"
+  }
+}
