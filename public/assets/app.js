@@ -210,6 +210,7 @@ function setVisibleImage(candidate){
 }
 async function loadWorkPreview(w,{force=false,source=null}={}){
  const seq=++mediaSequence;
+ $('readerStage').classList.remove('original-fetch');
  const im=$('viewerImage');
  im.classList.remove('loaded');im.style.opacity='';
  markMedia('loading',force?'正在刷新这张图…':'正在载入 '+w.title,'优先预览图 · 不自动下载巨大原图');
@@ -400,6 +401,7 @@ async function toggleOriginal(){
    alertOriginal('第三方接口没有提供比当前预览更高清的资源');return;
  }
  $('btnOriginal').disabled=true;
+ $('readerStage').classList.add('original-fetch');
  $('btnOriginal').querySelector('span').textContent=next?'原图读取中…':'返回预览中…';
  // The displayed image never disappears while the large original transfers.
  markMedia('loading',next?'原图正在传输…':'切换预览尺寸…','保留当前图片，下载完成后无缝替换');
@@ -417,7 +419,7 @@ async function toggleOriginal(){
   $('btnOriginal').querySelector('span').textContent=next?'重试原图':'查看原图';
   alertOriginal('原图源响应过慢或失败，已保留当前图片 · 可重试');
  }finally{
-  if(seq===originalRequestSequence&&viewSeq===mediaSequence)$('btnOriginal').disabled=false;
+  if(seq===originalRequestSequence&&viewSeq===mediaSequence){$('btnOriginal').disabled=false;$('readerStage').classList.remove('original-fetch')}
  }
 }
 
