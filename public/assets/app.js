@@ -73,6 +73,12 @@ function storedFollows(){try{const a=JSON.parse(localStorage.getItem('kira.follo
 
 const state={refreshNonce:0,main:'推荐',route:'all',filter:'全部',search:'',shown:[],focus:null,anchor:null,relatedPath:'character',zoom:1,panX:0,panY:0,original:false,liked:new Set(storedLikes()),followed:new Set(storedFollows()),lastCard:null,moving:false};
 const byId=id=>WORKS.find(w=>w.id===Number(id));
+const discoverySeed=Math.floor(Math.random()*2147483647);
+const viewHistory=(()=>{try{const a=JSON.parse(localStorage.getItem('kira.viewed.v1')||'[]');return Array.isArray(a)?a.filter(Number.isSafeInteger).slice(-180):[]}catch{return []}})();
+function markViewed(id){const i=viewHistory.indexOf(id);if(i>=0)viewHistory.splice(i,1);viewHistory.push(id);if(viewHistory.length>180)viewHistory.shift();try{localStorage.setItem('kira.viewed.v1',JSON.stringify(viewHistory))}catch{}}
+function mixKey(id,seed){let x=(id^Math.imul(seed||1,2654435761))>>>0;x^=x>>>16;x=Math.imul(x,2246822519)>>>0;return (x^(x>>>13))>>>0}
+function freshFirst(list,seed){const seen=new Set(viewHistory);return list.sort((a,b)=>Number(seen.has(a.id))-Number(seen.has(b.id))||mixKey(a.id,seed)-mixKey(b.id,seed))}
+
 const prefersReduced=window.matchMedia('(prefers-reduced-motion: reduce)');
 const count=n=>typeof n==='number'?(n>=10000?(n/10000).toFixed(1)+'万':String(n)):'PIXIV';
 let toastTimer;
@@ -86,12 +92,8 @@ function baseList(){
     list=list.filter(w=>w.id!==seed.id&&relationScore(seed,w,state.route)>0)
       .sort((a,b)=>relationScore(seed,b,state.route)-relationScore(seed,a,state.route));
   }
-  if(state.main==='精选')list.sort((a,b)=>b.tags.length-a.tags.length);
-  if(state.main==='换一批'){
-    const seed=state.refreshNonce||1;
-    const hash=id=>{let x=(id^Math.imul(seed,2654435761))>>>0;x^=x>>>16;x=Math.imul(x,2246822519)>>>0;x^=x>>>13;return x>>>0};
-    list.sort((a,b)=>hash(a.id)-hash(b.id));
-  }
+  if(state.main==='精选')list.sort((a,b)=>b.tags.length-a.tags.length||mixKey(a.id,discoverySeed)-mixKey(b.id,discoverySeed));
+  if((state.main==='推荐'&&state.route==='all')||state.main==='换一批')freshFirst(list,discoverySeed+state.refreshNonce*41);
   if(state.main==='关注')list=list.filter(w=>state.followed.has(w.artistKey));
   if(state.filter!=='全部')list=list.filter(w=>w.kind===state.filter||w.tags.includes(state.filter)||w.mood===state.filter);
   const q=state.search.trim().toLowerCase();
@@ -115,7 +117,7 @@ function colorFor(w){if(w.dominantHex)return w.dominantHex;return {蓝:'#6a91e9'
 
 function draw(){
   const list=baseList();state.shown=list;
-  $('feedCount').textContent='· '+list.length+' 张 Pixiv 作品';
+  $('feedCount').textContent='· '+list.length+' 张 Pixiv 作品'+(state.main==='换一批'?' · 已重新排序':'');
   const seed=byId(state.anchor)||WORKS[0];
   const names={all:'全部发现',character:'角色同频',color:'色彩共振',mood:'氛围感应'};
   $('feedTitle').textContent=state.main==='推荐'?(state.route==='all'?'Pixiv 插画发现':names[state.route]+' · '+(seed?state.route==='character'?seed.character:state.route==='color'?seed.color:seed.mood:'')) :state.main==='精选'?'从标签中发现':state.main==='换一批'?'换个顺序看看':state.main==='关注'?'已关注的画师':'Pixiv 插画发现';
@@ -136,6 +138,7 @@ function draw(){
   document.querySelectorAll('[data-route]').forEach(b=>b.classList.toggle('on',b.dataset.route===state.route));
   document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('on',b.dataset.filter===state.filter));
   document.querySelectorAll('[data-main]').forEach(b=>b.classList.toggle('active',b.dataset.main===state.main));
+  document.querySelectorAll('[data-mobile]').forEach(b=>b.classList.toggle('on',b.dataset.mobile===(state.main==='精选'?'rank':state.main==='关注'?'follow':'home')));
 }
 function renderRanks(){
   $('miniRank').innerHTML=WORKS.slice(0,4).map((w,i)=>'<button class="rank-item" data-rank="'+w.id+'"><span class="rank-no '+(i<3?'top':'')+'">'+(i+1)+'</span><img src="'+esc(w.card)+'" referrerpolicy="no-referrer" loading="lazy" alt=""><span><strong>'+esc(w.title)+'</strong><small>↗ '+esc(w.artist)+'</small></span></button>').join('');
@@ -143,7 +146,7 @@ function renderRanks(){
 
 function setRoute(route){state.route=route;state.main='推荐';state.filter='全部';state.search='';$('search').value='';draw();toast({all:'重新连接全部频道 ✦',character:'角色同频频道已连接 ⚡',color:'色彩共振频道已连接 ✦',mood:'氛围感应频道已连接 ✧'}[route]||'频道已切换')}
 function setMain(main){if(main==='换一批')state.refreshNonce++;state.main=main;draw();window.scrollTo({top:0,behavior:'smooth'})}
-function pickNew(){const ids=(state.shown.length?state.shown:WORKS).filter(w=>w.id!==state.focus?.id);const chosen=ids[Math.floor(Math.random()*ids.length)]||WORKS[0];if(!chosen){toast('作品正在加载中');return}openReader(chosen.id,null);toast('跃迁成功！发现了新的作品 ✳')}
+function pickNew(){const all=(state.shown.length?state.shown:WORKS).filter(w=>w.id!==state.focus?.id);const unseen=all.filter(w=>!viewHistory.includes(w.id));const pool=unseen.length?unseen:all;const chosen=pool[Math.floor(Math.random()*pool.length)]||WORKS[0];if(!chosen){toast('作品正在加载中');return}openReader(chosen.id,null);toast('跃迁成功！发现了新的作品 ✳')}
 function motionClone(fromEl,toEl,reverse=false){if(prefersReduced.matches||!fromEl||!toEl)return;const a=fromEl.getBoundingClientRect();const b=toEl.getBoundingClientRect();if(!a.width||!a.height||!b.width||!b.height)return;const clone=document.createElement('img');clone.src=fromEl.currentSrc||fromEl.src;clone.alt='';clone.style.cssText='position:fixed;z-index:125;object-fit:cover;pointer-events:none;box-shadow:0 25px 70px #08061770;will-change:top,left,width,height,border-radius;';document.body.append(clone);const first=reverse?b:a,last=reverse?a:b;const style=(r,rad)=>({top:r.top+'px',left:r.left+'px',width:r.width+'px',height:r.height+'px',borderRadius:rad});const anim=clone.animate([style(first,'12px'),style(last,'5px')],{duration:380,easing:'cubic-bezier(.2,.76,.17,1)',fill:'both'});anim.finished.catch(()=>{}).finally(()=>clone.remove())}
 
 /* V7 image loading coordinator. An old async response must never overwrite a newer work. */
@@ -197,7 +200,9 @@ function pictureRequest(url,timeout=8500,refresh=false){
  if(!refresh){
   warmImages.set(url,p);
   p.catch(()=>{if(warmImages.get(url)===p)warmImages.delete(url)});
-  if(warmImages.size>48)warmImages.delete(warmImages.keys().next().value);
+  const originals=[...warmImages.keys()].filter(x=>x.includes('/img-original/'));
+  while(originals.length>3)warmImages.delete(originals.shift());
+  if(warmImages.size>24)warmImages.delete(warmImages.keys().next().value);
  }
  return p;
 }
@@ -250,6 +255,7 @@ async function loadWorkPreview(w,{force=false,source=null}={}){
    stage.classList.remove('preview-upgrade');markMedia('idle');
    applyZoom(false);
    prefetchNeighbors(w);
+   scheduleOriginals(w);
   }
   if(quality==='thumb'&&source&&!prefersReduced.matches){
    const card=source.querySelector('img');
@@ -271,6 +277,31 @@ async function loadWorkPreview(w,{force=false,source=null}={}){
  }
 }
 
+/* Originals are preloaded in the visitor's browser, not copied to the image bed. */
+function allowOriginalPreload(){
+ const c=navigator.connection||navigator.mozConnection||navigator.webkitConnection;
+ return !(c?.saveData||['slow-2g','2g'].includes(c?.effectiveType))&&!document.hidden;
+}
+const originalPrefetching=new Set();
+function prefetchOriginal(w){
+ if(!w?.original||w.original===w.preview||!allowOriginalPreload()||originalPrefetching.has(w.original))return;
+ originalPrefetching.add(w.original);
+ imageWithFailover(w.original,11000).catch(()=>{}).finally(()=>originalPrefetching.delete(w.original));
+}
+let originalPrefetchJob=0;
+function scheduleOriginals(w){
+ clearTimeout(originalPrefetchJob);
+ if(!allowOriginalPreload())return;
+ originalPrefetchJob=setTimeout(()=>{
+  if(state.focus?.id!==w.id)return;
+  prefetchOriginal(w);
+  const connection=navigator.connection;
+  if(!connection||connection.effectiveType==='4g'){
+   const arr=state.shown.length?state.shown:WORKS,i=arr.findIndex(x=>x.id===w.id);
+   if(i>=0&&arr.length>1)prefetchOriginal(arr[(i+1)%arr.length]);
+  }
+ },350);
+}
 function prefetchNeighbors(w){
  const seq=++mediaPreloadSequence,arr=state.shown.length?state.shown:WORKS;
  const i=arr.findIndex(x=>x.id===w.id);
@@ -286,6 +317,7 @@ function openReader(id,source){
  const wasOpen=$('reader').classList.contains('open');
  const sourceImg=source?.querySelector('img')||null;
  state.anchor=w.id;
+ markViewed(w.id);
  if(!wasOpen)state.lastCard=source||null;
  state.focus=w;state.original=false;state.relatedPath='character';
  try{if(location.hash!=='#art-'+w.id)history.replaceState(history.state,'','#art-'+w.id)}catch{}
@@ -294,11 +326,12 @@ function openReader(id,source){
  resetZoom(false);
  fillReader(); // details update to the target work before async image loading.
  loadWorkPreview(w,{source:sourceImg?source:null});
+ scheduleOriginals(w);
  if(!wasOpen&&!prefersReduced.matches){$('reader').animate([{opacity:.5},{opacity:1}],{duration:170,easing:'ease-out'})}
 }
 function closeReader(){
  if(!$('reader').classList.contains('open'))return;
- ++mediaSequence;++mediaPreloadSequence;
+ ++mediaSequence;++mediaPreloadSequence;clearTimeout(originalPrefetchJob);
  const focused=state.focus;
  const start=$('viewerImage');
  const card=state.lastCard&&document.body.contains(state.lastCard)?state.lastCard.querySelector('img'):document.querySelector('[data-view="'+(focused?.id||'')+'"] img');
@@ -400,47 +433,30 @@ function fillReader(){
 function swapArt(direction){const arr=state.shown.length?state.shown:WORKS;const idx=arr.findIndex(w=>w.id===state.focus?.id);const next=arr[(idx+direction+arr.length)%arr.length];if(next)openReader(next.id,null)}
 
 /* Unlocked, image-only zoom: X and Y can be adjusted independently. */
-function resetZoom(animate=true){
- state.zoomX=1;state.zoomY=1;state.zoom=1;state.panX=0;state.panY=0;applyZoom(animate);
-}
+/* Single image-only uniform zoom; no 500% limit or aspect distortion. */
+function resetZoom(animate=true){state.zoom=1;state.panX=0;state.panY=0;applyZoom(animate)}
 function clampPan(){
- const img=$('viewerImage'),stage=$('readerStage');
- const w=(Number(img.dataset.baseWidth)||img.offsetWidth)*state.zoomX;
- const h=(Number(img.dataset.baseHeight)||img.offsetHeight)*state.zoomY;
- const maxX=Math.max(0,(w-stage.clientWidth)/2+24);
- const maxY=Math.max(0,(h-stage.clientHeight)/2+24);
- state.panX=Math.min(maxX,Math.max(-maxX,state.panX));
- state.panY=Math.min(maxY,Math.max(-maxY,state.panY));
+ const im=$('viewerImage'),st=$('readerStage');
+ const w=(Number(im.dataset.baseWidth)||im.offsetWidth)*state.zoom,h=(Number(im.dataset.baseHeight)||im.offsetHeight)*state.zoom;
+ const mx=Math.max(0,(w-st.clientWidth)/2+24),my=Math.max(0,(h-st.clientHeight)/2+24);
+ state.panX=Math.min(mx,Math.max(-mx,state.panX));state.panY=Math.min(my,Math.max(-my,state.panY));
 }
 function applyZoom(animate=true){
- const image=$('viewerImage');
- if(!animate)image.classList.add('dragging');else image.classList.remove('dragging');
- state.zoomX=Math.min(5,Math.max(1,Number(state.zoomX)||1));
- state.zoomY=Math.min(5,Math.max(1,Number(state.zoomY)||1));
- state.zoom=Math.max(state.zoomX,state.zoomY);
- clampPan();
- image.style.setProperty('--zoom-x',state.zoomX);
- image.style.setProperty('--zoom-y',state.zoomY);
- image.style.setProperty('--pan-x',state.panX+'px');
- image.style.setProperty('--pan-y',state.panY+'px');
- $('zoomValue').textContent='宽'+Math.round(state.zoomX*100)+'% × 高'+Math.round(state.zoomY*100)+'%';
- $('zoomX').value=String(state.zoomX);$('zoomY').value=String(state.zoomY);
+ const im=$('viewerImage');im.classList.toggle('dragging',!animate);
+ if(!Number.isFinite(state.zoom)||state.zoom<1)state.zoom=1;
+ clampPan();im.style.setProperty('--zoom',String(state.zoom));
+ im.style.setProperty('--pan-x',state.panX+'px');im.style.setProperty('--pan-y',state.panY+'px');
+ const pct=Math.round(state.zoom*100);
+ $('zoomValue').textContent=pct+'%';
+ if(document.activeElement!==$('zoomPercent'))$('zoomPercent').value=String(pct);
  $('readerStage').classList.toggle('canpan',state.zoom>1.01);
- if(!animate)requestAnimationFrame(()=>image.classList.remove('dragging'));
+ if(!animate)requestAnimationFrame(()=>im.classList.remove('dragging'));
 }
-function changeZoom(next,axis='both'){
- const n=Math.min(5,Math.max(1,Math.round(next*100)/100));
- if(axis==='both'){state.zoomX=n;state.zoomY=n}
- else if(axis==='x')state.zoomX=n;
- else if(axis==='y')state.zoomY=n;
- if(Math.max(state.zoomX,state.zoomY)<=1.001)state.panX=state.panY=0;
+function changeZoom(next){
+ if(!Number.isFinite(next))return;state.zoom=Math.max(1,next);
+ if(state.zoom<=1.001)state.panX=state.panY=0;
  applyZoom();
 }
-function changeAxis(delta,axis){
- const current=axis==='x'?state.zoomX:state.zoomY;
- changeZoom(current+delta,axis);
-}
-
 function alertOriginal(text){const a=$('originalAlert');a.textContent=text;a.classList.add('show');clearTimeout(window._originalAlertTimer);window._originalAlertTimer=setTimeout(()=>a.classList.remove('show'),2400)}
 
 
@@ -463,7 +479,7 @@ async function toggleOriginal(){
   state.original=next;applyZoom(false);
   $('btnOriginal').classList.toggle('on',next);
   $('btnOriginal').querySelector('span').textContent=next?'已查看原图':'查看原图';
-  alertOriginal(next?'原图已加载 · 可以独立调整宽高':'已切回轻量预览');
+  alertOriginal(next?'原图已加载 · 保持原图比例缩放':'已切回轻量预览');
  }catch(error){
   if(seq!==originalRequestSequence||viewSeq!==mediaSequence||state.focus?.id!==w.id)return;
   markMedia('idle');
@@ -478,6 +494,14 @@ function saveArtwork(){if(state.focus)alertOriginal('可以长按或右键图片
 
 function clickFromWall(e){const v=e.target.closest('[data-view]');if(v)openReader(v.dataset.view,v)}
 $('artWall').addEventListener('click',clickFromWall);
+let hoverPreloadTimer=0;
+$('artWall').addEventListener('pointerover',e=>{
+ if(e.pointerType!=='mouse')return;
+ const cover=e.target.closest('[data-view]');if(!cover)return;
+ clearTimeout(hoverPreloadTimer);
+ hoverPreloadTimer=setTimeout(()=>prefetchOriginal(byId(cover.dataset.view)),500);
+});
+$('artWall').addEventListener('pointerout',()=>clearTimeout(hoverPreloadTimer));
 $('miniRank').addEventListener('click',e=>{const b=e.target.closest('[data-rank]');if(b)openReader(b.dataset.rank,null)});
 $('jumpchoices').addEventListener('click',e=>{const b=e.target.closest('[data-route]');if(b)setRoute(b.dataset.route)});
 $('feedFilters').addEventListener('click',e=>{const b=e.target.closest('[data-filter]');if(b){state.filter=b.dataset.filter;draw()}});
@@ -488,13 +512,13 @@ $('surprise').onclick=pickNew;$('jumpNow').onclick=pickNew;$('sideJump').onclick
 document.querySelectorAll('[data-rail]').forEach(b=>b.onclick=()=>{const type=b.dataset.rail;if(type==='jump')pickNew();else if(type==='rank')setMain('精选');else if(type==='follow')setMain('关注');else setMain('推荐')});
 document.querySelectorAll('[data-mobile]').forEach(b=>b.onclick=()=>{const type=b.dataset.mobile;if(type==='jump')pickNew();else if(type==='rank')setMain('精选');else if(type==='follow')setMain('关注');else if(type==='upload')toast('这里会是账户 / 投稿页面');else setMain('推荐')});
 $('closeReader').onclick=closeReader;$('btnCloseIcon').onclick=closeReader;$('prevArt').onclick=()=>swapArt(-1);$('nextArt').onclick=()=>swapArt(1);
-$('zoomIn').onclick=()=>changeZoom(state.zoom+.25);$('zoomOut').onclick=()=>changeZoom(state.zoom-.25);$('zoomReset').onclick=()=>resetZoom();$('btnFit').onclick=()=>resetZoom();$('btnOriginal').onclick=toggleOriginal;
-$('zoomX').addEventListener('input',e=>changeZoom(+e.target.value,'x'));
-$('zoomY').addEventListener('input',e=>changeZoom(+e.target.value,'y'));
+$('zoomIn').onclick=()=>changeZoom(state.zoom*1.25);$('zoomOut').onclick=()=>changeZoom(state.zoom/1.25);$('zoomReset').onclick=()=>resetZoom();$('btnFit').onclick=()=>resetZoom();$('btnOriginal').onclick=toggleOriginal;
+$('zoomPercent').addEventListener('change',e=>{changeZoom(Number(e.target.value)/100);e.target.value=String(Math.round(state.zoom*100))});
+$('zoomPercent').addEventListener('keydown',e=>{if(e.key==='Enter')e.currentTarget.blur()});
 $('retryImage').onclick=()=>{if(state.focus)loadWorkPreview(state.focus,{force:true})};
 $('mediaRetry').onclick=()=>{if(state.focus)loadWorkPreview(state.focus,{force:true})};
 $('viewerImage').addEventListener('dblclick',()=>resetZoom());
-$('viewerImage').addEventListener('click',e=>{if(state.moving)return;changeZoom(state.zoom===1?1.8:1)});
+$('viewerImage').addEventListener('click',e=>{if(state.moving)return;changeZoom(state.zoom===1?2:state.zoom*1.25)});
 $('favArt').onclick=()=>{const w=state.focus;if(!w)return;if(state.liked.has(w.id)){state.liked.delete(w.id);toast('已取消收藏')}else{state.liked.add(w.id);toast('已收藏这张作品 ♡')}try{localStorage.setItem('kira.likes.v2',JSON.stringify([...state.liked]))}catch{};fillFav()};
 function fillFav(){const active=state.liked.has(state.focus.id);$('favArt').classList.toggle('faved',active);$('favArt').querySelector('span').textContent=active?'已收藏':'收藏作品'}
 $('followArtist').onclick=()=>{const w=state.focus;if(!w)return;if(state.followed.has(w.artistKey)){state.followed.delete(w.artistKey);toast('已取消关注 '+w.artist)}else{state.followed.add(w.artistKey);toast('已关注画师 '+w.artist)}try{localStorage.setItem('kira.follows.v2',JSON.stringify([...state.followed]))}catch{}$('followArtist').textContent=state.followed.has(w.artistKey)?'✓ 已关注':'＋ 关注';if(state.main==='关注')draw()};
@@ -502,27 +526,34 @@ $('copyArt').onclick=async()=>{const w=state.focus;const u=new URL(window.locati
 $('saveOriginal').onclick=saveArtwork;
 $('readerTags').addEventListener('click',e=>{const b=e.target.closest('[data-term]');if(!b)return;const term=b.dataset.term;closeReader();state.search=term;state.filter='全部';state.route='all';state.main='推荐';$('search').value=term;draw();window.scrollTo({top:0,behavior:'smooth'})});
 $('reader').addEventListener('click',e=>{const path=e.target.closest('[data-path]');const suggestion=e.target.closest('[data-related]');if(path){state.relatedPath=path.dataset.path;relatedDraw()}else if(suggestion){openReader(suggestion.dataset.related,null)}});
-window.addEventListener('keydown',e=>{if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(state.focus)closeReader();$('search').focus();return}if(!state.focus)return;if(e.key==='Escape')closeReader();else if(e.key==='ArrowRight')swapArt(1);else if(e.key==='ArrowLeft')swapArt(-1);else if(e.key==='+'||e.key==='=')changeZoom(state.zoom+.25);else if(e.key==='-'||e.key==='_')changeZoom(state.zoom-.25);else if(e.key==='0')resetZoom()});
-$('readerStage').addEventListener('wheel',e=>{if(!state.focus)return;e.preventDefault();const axis=e.shiftKey?'x':e.altKey?'y':'both';const n=axis==='x'?state.zoomX:axis==='y'?state.zoomY:state.zoom;changeZoom(n+(e.deltaY<0?.15:-.15),axis)},{passive:false});
+window.addEventListener('keydown',e=>{
+ if((e.metaKey||e.ctrlKey)&&e.key.toLowerCase()==='k'){e.preventDefault();if(state.focus)closeReader();$('search').focus();return}
+ if(!state.focus)return;
+ if(e.key==='Escape'){closeReader();return}
+ if(e.target.closest?.('input,textarea,select,[contenteditable]'))return;
+ if(e.key==='ArrowRight')swapArt(1);else if(e.key==='ArrowLeft')swapArt(-1);
+ else if(e.key==='+'||e.key==='=')changeZoom(state.zoom*1.25);
+ else if(e.key==='-'||e.key==='_')changeZoom(state.zoom/1.25);
+ else if(e.key==='0')resetZoom();else if(e.key.toLowerCase()==='o')toggleOriginal();
+});
+$('readerStage').addEventListener('wheel',e=>{if(!state.focus||e.target.closest('input'))return;e.preventDefault();changeZoom(state.zoom*Math.exp(-Math.sign(e.deltaY)*.12))},{passive:false});
 // Pointer Events support mouse dragging, swipe-to-next and pinch-to-zoom on mobile.
 
-const pointers=new Map();let anchor=null,pinchDistance=0,pinchX=0,pinchY=0,pinchStartX=1,pinchStartY=1;
+const pointers=new Map();let anchor=null,pinchDistance=0,pinchStartZoom=1;
 function distance(){const v=[...pointers.values()];return Math.hypot(v[0].x-v[1].x,v[0].y-v[1].y)}
 $('readerStage').addEventListener('pointerdown',e=>{
  if(e.target.closest('button,input,label')||!state.focus)return;
  state.moving=false;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
  if(pointers.size===1)anchor={x:e.clientX,y:e.clientY,panX:state.panX,panY:state.panY};
- if(pointers.size===2){const p=[...pointers.values()];pinchDistance=distance();pinchX=Math.abs(p[0].x-p[1].x);pinchY=Math.abs(p[0].y-p[1].y);pinchStartX=state.zoomX;pinchStartY=state.zoomY;anchor=null}
+ if(pointers.size===2){pinchDistance=distance();pinchStartZoom=state.zoom;anchor=null}
  try{$('readerStage').setPointerCapture(e.pointerId)}catch{}
 });
 $('readerStage').addEventListener('pointermove',e=>{
  if(!pointers.has(e.pointerId))return;
  pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
  if(pointers.size===2){
-  const p=[...pointers.values()],scale=distance()/Math.max(1,pinchDistance);
-  const dx=Math.abs(p[0].x-p[1].x),dy=Math.abs(p[0].y-p[1].y);
-  state.zoomX=Math.min(5,Math.max(1,pinchStartX*(pinchX>24?dx/pinchX:scale)));
-  state.zoomY=Math.min(5,Math.max(1,pinchStartY*(pinchY>24?dy/pinchY:scale)));
+  const scale=distance()/Math.max(1,pinchDistance);
+  state.zoom=Math.max(1,pinchStartZoom*scale);
   applyZoom(false);state.moving=true;return;
  }
  if(!anchor)return;
@@ -548,7 +579,7 @@ let prevCols=innerWidth<=650?2:innerWidth<=850?3:4;window.addEventListener('resi
 renderRanks();draw();
 async function hydrateRealPixiv(){
  try{
-  const response=await fetch('/assets/pixiv-feed.json?v=6.2',{cache:'force-cache'});
+  const response=await fetch('/assets/pixiv-feed.json',{cache:'no-cache'});
   if(!response.ok)throw Error('status '+response.status);
   const snap=await response.json(),works=normalizeSnapshot(snap);
   if(!works.length)throw Error('没有通过校验的 Pixiv 作品');
