@@ -30,6 +30,7 @@ jobs:
                 result={"http_status":r.status,"bytes":len(body),"mime":r.headers.get('content-type')}
                 if path=="/assets/pixiv-feed.json":
                   j=json.loads(body);result["works_in_snapshot"]=sum(len(a) for a in j["channels"].values());result["channels"]={k:len(v) for k,v in j["channels"].items()}
+                  result["explicit_tagged"]=sum(1 for a in j["channels"].values() for w in a if any(str(tag).strip().lower() in ["r-18","r18","r18g","nsfw","explicit"] for tag in w.get("tags",[])))
                 if path=="/assets/app.js":result["v6_loader"]="hydrateRealPixiv" in body.decode()
                 if path=="/health":result["server"]=json.loads(body)
             except urllib.error.HTTPError as e: result={"error":str(e),"body":e.read(100).decode(errors="replace")}
