@@ -1,9 +1,5 @@
 name: KIRA public Pixiv metadata snapshot
 on:
-  push:
-    branches: [kira-development]
-    paths:
-      - '.github/workflows/kira-free-pixiv-probe.yml'
   workflow_dispatch:
 permissions:
   contents: write
@@ -20,8 +16,11 @@ jobs:
           python3 - <<'PY'
           import urllib.request, urllib.parse, urllib.error, json, datetime
           NOW=datetime.datetime.now(datetime.timezone.utc).isoformat()
-          queries={"discover":"","miku":"初音ミク","genshin":"原神","girl":"女の子","touhou":"東方Project","original":"オリジナル"}
-          store={"generated_at":NOW,"provider":"lolicon","r18":False,"channels":{}}
+          queries={"discover":"","miku":"初音ミク","genshin":"原神","girl":"女の子"}
+          try:
+            with open("pixiv/data/feed.json") as f:prior=json.load(f)
+          except Exception:prior={"channels":{},"generated_at":NOW}
+          store={"generated_at":NOW,"provider":"lolicon","r18":False,"channels":{},"safety_filter":"r18_false_plus_explicit_tag_rejection"}
           tests={"tested_at":NOW,"results":[]}
           hosts={"i.pixiv.re","i.pixiv.cat","i-cf.pximg.net","i.pximg.net"}
           def clean(url):
@@ -52,7 +51,18 @@ jobs:
                   items.append({"id":"pixiv:"+str(pid)+":"+str(x.get("p",0)),"pid":pid,"page":int(x.get("p",0)), "title":str(x.get("title",""))[:130],"author":str(x.get("author",""))[:90],"uid":uid,"tags":[str(t)[:40] for t in x.get("tags",[])[:16]],"width":x.get("width"),"height":x.get("height"),"thumbnail_url":thumb,"preview_url":preview,"original_url":original or preview,"pixiv_url":"https://www.pixiv.net/artworks/"+str(pid),"artist_url":"https://www.pixiv.net/users/"+str(uid) if uid>0 else None,"license":"原作者保留版权","r18":False,"external":True})
               result["count"]=len(items)
             except Exception as e:result["error"]=str(e)[:180]
-            store["channels"][channel]=items
+            previous=prior["channels"].get(channel,[])
+            old_by_id={x["id"]:x for x in previous}
+            merged=[];seen=set()
+            for item in items+previous:
+              if item["id"] in seen:continue
+              if item["id"] in old_by_id:
+                for field in ["dominant_tone","dominant_hex","color_method"]:
+                  if old_by_id[item["id"]].get(field):item[field]=old_by_id[item["id"]][field]
+              seen.add(item["id"]);merged.append(item)
+            store["channels"][channel]=merged[:72]
+            result["total_after_merge"]=len(store["channels"][channel])
+            if not items:result["fallback"]="preserved previously verified channel"
             tests["results"].append(result)
             print(json.dumps(result,ensure_ascii=False))
           first=next((it for arr in store["channels"].values() for it in arr),None)
@@ -68,7 +78,12 @@ jobs:
                   status["mime"]=rsp.headers.get("content-type")
               except Exception as e:status["error"]=str(e)[:160]
               tests["results"].append(status)
+          if sum(len(v) for v in store["channels"].values())<20:
+            raise SystemExit("Not replacing snapshot with low/empty upstream results")
+          if not any(t.get("count",0)>0 for t in tests["results"]):
+            store["generated_at"]=prior.get("generated_at",NOW)
           with open("pixiv/data/feed.json","w") as f:json.dump(store,f,ensure_ascii=False,indent=2)
+          with open("public/assets/pixiv-feed.json","w") as f:json.dump(store,f,ensure_ascii=False,indent=2)
           with open("docs/pixiv-smoke-results.json","w") as f:json.dump(tests,f,ensure_ascii=False,indent=2)
           PY
       - name: Publish verified metadata only (never original image bytes)
@@ -76,6 +91,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add pixiv/data/feed.json docs/pixiv-smoke-results.json
+          git add pixiv/data/feed.json public/assets/pixiv-feed.json docs/pixiv-smoke-results.json
           git commit -m "data(kira): refresh free Pixiv metadata snapshot" || exit 0
+          git pull --rebase origin kira-development
           git push origin HEAD:kira-development
