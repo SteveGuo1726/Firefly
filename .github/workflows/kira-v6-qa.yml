@@ -30,7 +30,6 @@ jobs:
             assert(x.pid>0 && x.r18===false);
             assert(x.pixiv_url==='https://www.pixiv.net/artworks/'+x.pid);
             assert(new URL(x.thumbnail_url).hostname==='i.pixiv.re');
-            assert(!/^r[\s_-]*18(?:g)?$/i.test((x.tags||[]).join(' ')) || true);
             seen.add(x.id);
           }
           console.log(JSON.stringify({snapshot_records:rows.length,unique:seen.size,live_import_enabled:false}));
@@ -54,6 +53,7 @@ jobs:
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add docs/kira-v6-browser-qa.json
             git commit -m "test(kira): record V6 real-gallery Chromium results" || exit 0
+            git pull --rebase origin kira-development
             git push origin HEAD:kira-development
           fi
       - uses: actions/upload-artifact@v4
