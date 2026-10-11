@@ -1,24 +1,24 @@
 {
-  "tested_at": "2026-10-11T14:37:05.416088+00:00",
+  "tested_at": "2026-10-11T14:39:52.150661+00:00",
   "results": [
     {
-      "channel": "discover",
+      "channel": "genshin",
       "provider": "lolicon",
       "scheduled_rotation": true,
       "http_status": 200,
-      "count": 14,
-      "total_after_merge": 26
+      "count": 12,
+      "total_after_merge": 23
     },
     {
-      "channel": "miku",
+      "channel": "girl",
       "provider": "lolicon",
       "scheduled_rotation": true,
       "http_status": 200,
-      "count": 19,
-      "total_after_merge": 26
+      "count": 20,
+      "total_after_merge": 32
     },
     {
-      "channel": "landscape",
+      "channel": "original",
       "provider": "lolicon",
       "scheduled_rotation": true,
       "error": "HTTP Error 429: Too Many Requests",
