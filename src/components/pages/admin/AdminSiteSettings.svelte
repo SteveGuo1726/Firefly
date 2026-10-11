@@ -5,6 +5,8 @@ import {assertSiteSettings} from "@/utils/settings/managed-config";
 import type {GitHubAdminSession} from "@/utils/admin/github-session";
 import {getGitHubRepoConfigFromSession} from "@/utils/admin/github-session";
 import {fetchRepoFile,saveRepoFile} from "@/utils/write/github";
+import SiteSettingsImagePreview from "./SiteSettingsImagePreview.svelte";
+import {sectionCategories,sectionGroups,chineseLabel,chineseHelp,isImageSetting} from "@/utils/settings/settings-editor-ui";
 
 export let session:GitHubAdminSession;
 const configPath="src/data/site-settings.json";
@@ -53,28 +55,76 @@ function cloneAndSet(path:string[],value:unknown){
  let object=candidate.sections[currentSection] as Record<string,unknown>;
  for(const key of path.slice(0,-1))object=object[key] as Record<string,unknown>;
  object[path.at(-1)!]=value;
- try{assertSiteSettings(candidate);draft=candidate;dirty=true;error="";jsonText=toJson(sectionValue());}
- catch(e){error=e instanceof Error?e.message:"字段格式错误";}
+ draft=candidate;dirty=true;error="";
+ // Validate only on save or after leaving JSON mode: partially typed URLs and
+ // incomplete numbers must not force the text cursor back to the previous value.
+ if(editorMode!=="json")jsonText=toJson(sectionValue());
 }
-type EditableField={path:string[];label:string;value:unknown;kind:"string"|"number"|"boolean"|"json"};
+type EditableField={path:string[];value:unknown;kind:"string"|"number"|"boolean"|"json"|"lines"};
 function fieldsForCurrent(config:Draft,section:keyof Draft["sections"]):EditableField[]{
  const fields:EditableField[]=[];
- const walk=(object:Record<string,unknown>,path:string[]=[])=>{
-  for(const [key,value] of Object.entries(object)){
-   const p=[...path,key];
-   if(typeof value==="boolean"||typeof value==="string"||typeof value==="number")fields.push({path:p,label:p.join(" · "),value,kind:typeof value});
-   else if(value && typeof value==="object"&&!Array.isArray(value)&&p.length<3)walk(value as Record<string,unknown>,p);
-   else fields.push({path:p,label:p.join(" · "),value,kind:"json"});
-  }
+ const push=(path:string[],value:unknown)=>{
+  if(typeof value==="boolean"||typeof value==="string"||typeof value==="number"){
+   fields.push({path,value,kind:typeof value});
+  }else fields.push({path,value,kind:"json"});
  };
- walk(config.sections[section] as Record<string,unknown>);return fields;
+ const walk=(value:unknown,path:string[]=[],depth=0)=>{
+  if(depth>9||fields.length>550){push(path,value);return;}
+  if(Array.isArray(value)){
+   if(['keywords','categoryOrder','excludedLangs','noReferrerDomains'].includes(path.at(-1)||'') && value.every(entry=>typeof entry==='string')){
+    fields.push({path,value,kind:'lines'});return;
+   }
+   if(!value.length){push(path,value);return;}
+   value.forEach((item,index)=>walk(item,[...path,String(index)],depth+1));
+  }else if(value!==null&&typeof value==="object"){
+   if(!Object.keys(value).length){push(path,value);return;}
+   for(const [name,item] of Object.entries(value))walk(item,[...path,name],depth+1);
+  }else push(path,value);
+ };
+ walk(config.sections[section]);return fields;
+}
+function fieldsForGroup(config:Draft,section:keyof Draft["sections"],keys:string[]):EditableField[]{
+ return fieldsForCurrent(config,section).filter(field=>keys.includes(field.path[0]));
+}
+function fieldName(field:EditableField):string{
+ return chineseLabel(currentSection,field.path);
+}
+function fieldContext(field:EditableField):string{
+ const all=field.path.slice(0,-1);
+ if(!all.length)return '';
+ return all.map((segment,index)=>chineseLabel(currentSection,all.slice(0,index+1))).join(' · ');
+}
+function enumOptions(field:EditableField):{value:string;label:string}[]|null{
+ const path=currentSection+'.'+field.path.join('.');
+ const map:Record<string,{value:string;label:string}[]>={
+  'siteConfig.themeColor.defaultMode':[{value:'system',label:'跟随系统'},{value:'light',label:'浅色模式'},{value:'dark',label:'深色模式'}],
+  'siteConfig.navbar.logo.type':[{value:'image',label:'使用图片'},{value:'icon',label:'使用图标库'}],
+  'siteConfig.navbar.menuAlign':[{value:'left',label:'左对齐'},{value:'center',label:'居中'},{value:'right',label:'右对齐'}],
+  'siteConfig.navbar.navbarMode':[{value:'fixed',label:'固定在顶部'},{value:'sticky',label:'滚动时吸顶'},{value:'static',label:'跟随页面滚动'}],
+  'backgroundWallpaper.mode':[{value:'banner',label:'横幅壁纸'},{value:'fullscreen',label:'全屏壁纸'},{value:'overlay',label:'透明覆盖'},{value:'none',label:'纯色背景'}],
+  'siteConfig.imageOptimization.formats':[{value:'webp',label:'WebP 图片'},{value:'avif',label:'AVIF 图片'},{value:'both',label:'两种格式'}],
+  'siteConfig.postListLayout.defaultMode':[{value:'list',label:'列表'},{value:'grid',label:'网格'}],
+  'siteConfig.postListLayout.mobileDefaultMode':[{value:'list',label:'列表'},{value:'grid',label:'网格'}],
+  'siteConfig.postListLayout.coverPosition':[{value:'left',label:'左侧'},{value:'right',label:'右侧'}],
+  'siteConfig.categoryStyle':[{value:'rectangle',label:'方角'},{value:'pill',label:'胶囊'},{value:'rounded',label:'圆角'}],
+  'siteConfig.tagStyle':[{value:'rectangle',label:'方角'},{value:'pill',label:'胶囊'},{value:'rounded',label:'圆角'}],
+ };
+ const values=map[path];
+ return values?.some(option=>option.value===String(field.value))?values:null;
+}
+function showImagePreview(field:EditableField):boolean{
+ if(!isImageSetting(currentSection,field.path,field.value))return false;
+ if(field.path.at(-1)==='value'&&field.path.includes('logo')){
+  const root=draft.sections.siteConfig;
+  return root.navbar.logo.type==='image';
+ }
+ return true;
 }
 function updateField(field:EditableField,raw:string|boolean){
  try{
-  const value=field.kind==="boolean"?raw:field.kind==="number"?Number(raw):field.kind==="json"?JSON.parse(String(raw)):raw;
-  if(field.kind==="number"&&String(raw).trim()==="")throw Error("数值不能为空");
+  const value=field.kind==="boolean"?raw:field.kind==="number"?(String(raw).trim()===''?NaN:Number(raw)):field.kind==="json"?JSON.parse(String(raw)):field.kind==="lines"?String(raw).split(/\r?\n/).map(line=>line.trim()).filter(Boolean):raw;
   cloneAndSet(field.path,value);
- }catch(e){error=e instanceof Error?e.message:"字段格式错误";}
+ }catch(e){error=e instanceof Error?e.message:"输入格式错误";}
 }
 function applyJson():boolean{
  try{
@@ -146,7 +196,7 @@ onMount(()=>{jsonText=toJson(sectionValue());try{savedLocally=!!localStorage.get
 
 <section class="settings-workspace">
  <header class="settings-header card-base">
-  <div><p class="eyebrow">FIREFLY · CENTRAL SETTINGS</p><h2>站点设置</h2><p>统一 JSON 数据源，构建时应用；原来的 TypeScript 负责逻辑和类型，不向访客增加运行时配置接口。</p></div>
+  <div><p class="eyebrow">站点配置中心</p><h2>站点设置</h2><p>从左侧选择你想修改的功能，再按说明调整具体设置。图片地址会在输入时自动预览；高级模式保留完整配置编辑能力。</p></div>
   <div class="settings-actions"><button type="button" onclick={saveLocal} disabled={busy}>保存本机草稿</button><button type="button" onclick={exportJson} disabled={busy}>导出完整 JSON</button>{#if canCommit()}<button class="primary" type="button" onclick={publishExperiment} disabled={busy}>{busy?"提交中…":"提交实验分支"}</button>{/if}</div>
  </header>
  <div class="site-mode-notice card-base" role="note"><strong>生效方式：构建时更新</strong><span>站点访客无需额外获取设置文件。后台编辑不会自动影响正式站点；密码、令牌、运行函数和部分尚未迁入 JSON 的高级配置仍由原来的服务端或 TypeScript 文件管理。</span></div>
@@ -154,38 +204,64 @@ onMount(()=>{jsonText=toJson(sectionValue());try{savedLocally=!!localStorage.get
  {#if message}<p class="settings-feedback" role="status">{message}</p>{/if}
  <div class="settings-grid">
   <aside class="settings-groups card-base" aria-label="配置分组">
-   <div class="sidebar-top"><strong>设置分类</strong><small>{sections.length} 个已迁移分组</small></div>
-   {#each sections as name}<button type="button" class:active={name===currentSection} onclick={()=>changeSection(name)} aria-current={name===currentSection?"true":undefined}><strong>{metadata[name]?.title||name}</strong><small>{metadata[name]?.hint||name}</small></button>{/each}
+   <div class="sidebar-top"><strong>按用途查找设置</strong><small>已整理 {sections.length} 类功能</small></div>
+   {#each sectionCategories as category}
+    <div class="category-heading"><strong>{category.title}</strong><small>{category.description}</small></div>
+    {#each category.sections as name}
+     {#if sections.includes(name as keyof Draft["sections"])}
+      <button type="button" class:active={name===currentSection} onclick={()=>changeSection(name as keyof Draft["sections"])} aria-current={name===currentSection?"true":undefined}>
+       <strong>{metadata[name]?.title||'其他功能设置'}</strong><small>{metadata[name]?.hint||'调整此功能的展示方式'}</small>
+      </button>
+     {/if}
+    {/each}
+   {/each}
   </aside>
   <main class="settings-form card-base">
-   <header class="form-heading"><div><span class="eyebrow">{currentSection}</span><h3>{metadata[currentSection]?.title||currentSection}</h3><p>{metadata[currentSection]?.hint}</p></div><div class="form-tools"><button type="button" onclick={toggleAdvanced}>{advanced?"可视化编辑":"完整 JSON"}</button><button type="button" onclick={resetSection}>恢复本组</button></div></header>
+   <header class="form-heading"><div><span class="eyebrow">可视化站点设置</span><h3>{metadata[currentSection]?.title||'站点功能'}</h3><p>{metadata[currentSection]?.hint}</p></div><div class="form-tools"><button type="button" onclick={toggleAdvanced}>{advanced?"返回图形化设置":"高级：编辑源码数据"}</button><button type="button" onclick={resetSection}>恢复本组默认值</button></div></header>
    {#if advanced}
-    <label class="full-json"><span>完整配置对象 · JSON</span><textarea spellcheck="false" rows="22" bind:value={jsonText}></textarea><small>支持数组和嵌套对象；点击「校验并应用本组」后才会更新草稿。</small></label>
-    <button class="primary" type="button" onclick={applyJson}>校验并应用本组</button>
+    <label class="full-json"><span>高级模式：此分类的完整配置数据</span><textarea spellcheck="false" rows="22" bind:value={jsonText}></textarea><small>高级模式面向熟悉配置结构的用户；点击「检查并应用」后才会更新草稿。</small></label>
+    <button class="primary" type="button" onclick={applyJson}>检查并应用此分类</button>
    {:else}
-    <div class="fields">
-     {#each fieldsForCurrent(draft,currentSection) as field (field.path.join('.'))}
-      <label class="field" class:wide={field.kind==="json"||(typeof field.value==="string"&&field.value.length>130)}>
-       <span>{field.label}</span>
-       {#if field.kind==="boolean"}
-        <select value={String(field.value)} onchange={e=>updateField(field,(e.currentTarget as HTMLSelectElement).value==="true")}><option value="true">开启 · true</option><option value="false">关闭 · false</option></select>
-       {:else if field.kind==="number"}
-        <input type="number" value={String(field.value)} onblur={e=>updateField(field,(e.currentTarget as HTMLInputElement).value)}/>
-       {:else if field.kind==="json"}
-        <textarea rows="4" spellcheck="false" onblur={e=>updateField(field,(e.currentTarget as HTMLTextAreaElement).value)}>{toJson(field.value)}</textarea>
-       {:else if typeof field.value==="string"&&field.value.length>130}
-        <textarea rows="3" onblur={e=>updateField(field,(e.currentTarget as HTMLTextAreaElement).value)}>{field.value}</textarea>
-       {:else}
-        <input type="text" value={String(field.value)} onblur={e=>updateField(field,(e.currentTarget as HTMLInputElement).value)}/>
-       {/if}
-      </label>
+    <div class="logical-groups">
+     {#each sectionGroups(currentSection,sectionValue()) as group (group.id)}
+      <section class="logical-group">
+       <header class="logical-group-heading"><h4>{group.title}</h4><p>{group.description}</p></header>
+       <div class="fields">
+        {#each fieldsForGroup(draft,currentSection,group.keys) as field (field.path.join('.'))}
+         <div class="field" class:wide={field.kind==="json"||field.kind==="lines"||showImagePreview(field)||(typeof field.value==="string"&&field.value.length>130)}>
+          <label for={`site-field-${currentSection}-${field.path.join('-')}`} class="field-label">{fieldName(field)}</label>
+          {#if fieldContext(field)}<small class="field-location">{fieldContext(field)}</small>{/if}
+          {#if field.kind==="boolean"}
+           <select id={`site-field-${currentSection}-${field.path.join('-')}`} value={String(field.value)} onchange={e=>updateField(field,(e.currentTarget as HTMLSelectElement).value==="true")}><option value="true">开启</option><option value="false">关闭</option></select>
+          {:else if field.kind==="number"}
+           <input id={`site-field-${currentSection}-${field.path.join('-')}`} type="number" value={Number.isFinite(field.value)?String(field.value):''} oninput={e=>updateField(field,(e.currentTarget as HTMLInputElement).value)}/>
+          {:else if enumOptions(field)}
+           <select id={`site-field-${currentSection}-${field.path.join('-')}`} value={String(field.value)} onchange={e=>updateField(field,(e.currentTarget as HTMLSelectElement).value)}>
+            {#each enumOptions(field)||[] as option}<option value={option.value}>{option.label}</option>{/each}
+           </select>
+          {:else if field.kind==="lines"}
+           <textarea id={`site-field-${currentSection}-${field.path.join('-')}`} rows="5" spellcheck="false" onblur={e=>updateField(field,(e.currentTarget as HTMLTextAreaElement).value)}>{(field.value as string[]).join('\n')}</textarea>
+           <small class="field-help">每行一个内容。可以直接增加或删除行，不需要了解配置格式。</small>
+          {:else if field.kind==="json"}
+           <textarea id={`site-field-${currentSection}-${field.path.join('-')}`} rows="4" spellcheck="false" onblur={e=>updateField(field,(e.currentTarget as HTMLTextAreaElement).value)}>{toJson(field.value)}</textarea>
+          {:else if typeof field.value==="string"&&field.value.length>130}
+           <textarea id={`site-field-${currentSection}-${field.path.join('-')}`} rows="3" oninput={e=>updateField(field,(e.currentTarget as HTMLTextAreaElement).value)}>{field.value}</textarea>
+          {:else}
+           <input id={`site-field-${currentSection}-${field.path.join('-')}`} type="text" value={String(field.value??'')} oninput={e=>updateField(field,(e.currentTarget as HTMLInputElement).value)}/>
+          {/if}
+          {#if chineseHelp(currentSection,field.path,field.value)}<small class="field-help">{chineseHelp(currentSection,field.path,field.value)}</small>{/if}
+          {#if showImagePreview(field)}<SiteSettingsImagePreview value={String(field.value??'')} label={fieldName(field)}/>{/if}
+         </div>
+        {/each}
+       </div>
+      </section>
      {/each}
     </div>
    {/if}
    <footer class="form-footer"><small>{dirty?"● 有未保存修改":savedLocally?"✓ 当前设备已有本机草稿":"当前配置来自实验构建"}</small><div class="form-tools"><button onclick={validate}>检查所有配置</button><button onclick={restoreLocal} disabled={!savedLocally}>恢复本机草稿</button><button class="primary" onclick={saveLocal}>保存草稿</button></div></footer>
   </main>
  </div>
- <p class="settings-footnote">未迁移配置：动态导航生成函数、图床/后台身份验证、音乐鉴权、复杂组件逻辑等继续保持现状；不支持用浏览器配置覆盖服务端密钥。此设置区不会自动修改正式站点。文件：<code>src/data/site-settings.json</code>。</p>
+ <p class="settings-footnote">未迁移配置：动态导航生成函数、图床/后台身份验证、音乐鉴权、复杂组件逻辑等继续保持现状；不支持用浏览器配置覆盖服务端密钥。此设置区不会自动修改正式站点。配置变更需要实验分支重新构建后生效。</p>
 </section>
 
 <style>
@@ -227,4 +303,23 @@ onMount(()=>{jsonText=toJson(sectionValue());try{savedLocally=!!localStorage.get
 .settings-footnote{line-height:1.65;overflow-wrap:anywhere;margin:.25rem .35rem}
 @media(max-width:900px){.settings-grid{grid-template-columns:minmax(0,1fr)}.settings-groups{display:flex;overflow-x:auto;flex-wrap:nowrap;scrollbar-width:thin}.settings-groups>.sidebar-top{flex:0 0 8rem}.settings-groups button{min-width:9.4rem;max-width:11rem}.settings-groups button small{font-size:.65rem}.settings-header{flex-wrap:wrap}}
 @media(max-width:620px){.settings-workspace{gap:.55rem}.settings-header{padding:.8rem}.settings-header h2{font-size:1.15rem}.settings-header .settings-actions{width:100%}.settings-actions button{flex:1;min-width:7rem}.settings-groups{padding:.38rem}.settings-form{padding:.68rem}.fields{grid-template-columns:minmax(0,1fr)}.field.wide{grid-column:span 1}.form-heading{flex-direction:column}.form-tools{width:100%;flex-wrap:wrap}.form-tools button{flex:1}.field input,.field select,.field textarea{font-size:16px}.settings-footnote{padding:.2rem}}
+
+/* Semantic groups replace the former flat dump of internal field names. */
+.logical-groups{display:grid;gap:1.1rem;min-width:0}
+.logical-group{border:1px solid var(--line-divider);border-radius:.75rem;padding:.9rem;min-width:0;background:color-mix(in srgb,var(--card-bg) 94%,var(--primary) 2%)}
+.logical-group-heading{padding:0 0 .8rem;margin-bottom:.85rem;border-bottom:1px solid var(--line-divider)}
+.logical-group-heading h4{margin:0 0 .25rem;font-size:.94rem;font-weight:740}
+.logical-group-heading p{margin:0;font-size:.74rem;line-height:1.65;color:var(--text-muted,#888)}
+.category-heading{display:grid;gap:.13rem;margin:.48rem .3rem .1rem;padding:.6rem .35rem .22rem;border-top:1px solid var(--line-divider)}
+.category-heading strong{font-size:.75rem;font-weight:740;color:var(--primary)}
+.category-heading small{font-size:.66rem;color:var(--text-muted,#888)}
+.settings-groups button{min-height:0}
+.field-label{font-size:.8rem;font-weight:730;line-height:1.45;overflow-wrap:anywhere}
+.field-location{font-size:.65rem;font-weight:400;color:var(--text-muted,#888);line-height:1.35}
+.field-help{font-size:.68rem;font-weight:400;line-height:1.6;color:var(--text-muted,#888)}
+.settings-form .field{display:flex;flex-direction:column;align-items:stretch;gap:.34rem;padding:.7rem;border:1px solid var(--line-divider);border-radius:.65rem;background:var(--card-bg)}
+.settings-form .field select,.settings-form .field input,.settings-form .field textarea{margin-top:.15rem}
+@media(min-width:901px){.settings-groups{position:sticky;top:1rem;max-height:calc(100vh - 2rem);overflow:auto}}
+@media(max-width:900px){.category-heading{min-width:6.5rem;max-width:7.5rem;flex:0 0 auto;border-top:0;border-left:1px solid var(--line-divider);padding:.38rem}.category-heading small{display:none}.settings-groups>.sidebar-top{flex:0 0 7rem}.settings-groups button{min-width:8.5rem;max-width:10rem}}
+@media(max-width:620px){.logical-group{padding:.6rem}.settings-form .field{padding:.6rem}.category-heading{min-width:5rem}.settings-groups button{min-width:8rem}}
 </style>
