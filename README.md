@@ -1,12 +1,14 @@
-# KIRA! JUMP — development branch
+# KIRA! JUMP — independent gallery development branch
+
+> **项目范围已校正（2026-10-11）**：Firefly 是独立博客，**不在 KIRA 开发范围内**。现阶段只开发 KIRA 独立二次元画廊，共享图床只保守维护兼容性。严禁修改博客页面、相册 API、账号、生产 Worker 或 `master`。详见 [项目边界](docs/KIRA_SCOPE.md)。KIRA 主画廊已是 `public/` + `preview/` 的 V7.x，`pixiv/` 为图源辅助实验。
 
 This is a **standalone KIRA source tree** developed independently from the Firefly blog. This branch intentionally contains only KIRA files. Do not merge it into `master`: that would remove the blog files on the merged tree. The Firefly `master` branch is untouched.
 
 ## Frontend
 
-`public/` holds the responsive gallery/reader and 36 separately cached image assets, split from V5's ~1.9 MB inline HTML. 12 illustrated **demo** works have WebP card, WebP preview and JPG demo-original variants. Demo originals are small crops and **are not true full-resolution originals**. Browser-only favorites persist in localStorage, opening a work updates its shareable `#art-id` URL, recommendations prefetch two previews. Main artwork viewer still zooms the image alone.
+`public/` is the current V7.x KIRA main gallery and reader; the earlier 36 demo assets are historical UI fixtures, while discovery now uses the real Pixiv metadata snapshot in `public/assets/pixiv-feed.json`. 12 illustrated **demo** works have WebP card, WebP preview and JPG demo-original variants. Demo originals are small crops and **are not true full-resolution originals**. Browser-only favorites persist in localStorage, opening a work updates its shareable `#art-id` URL, recommendations prefetch two previews. Main artwork viewer still zooms the image alone.
 
-`npx wrangler deploy -c wrangler.jsonc` uses Cloudflare Workers Static Assets under independent service `kira-jump-static-dev`; no SSR or image-transform Worker requests are required. The already-live `kira-cf.casto.top` V5 monolith has **not** been replaced yet.
+`npx wrangler deploy -c wrangler.jsonc` uses Cloudflare Workers Static Assets under independent service `kira-jump-static-dev`; no SSR or image-transform Worker requests are required. The current standalone international gallery preview is `kira-cf.casto.top`, deployed via `preview/build.mjs` to `kira-jump-international-preview`. The static-only config above is an older experiment, not the main gallery.
 
 ## Backend
 
