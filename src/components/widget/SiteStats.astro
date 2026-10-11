@@ -1,5 +1,4 @@
 ---
-import { getCollection } from "astro:content";
 import { Icon } from "astro-icon/components";
 import WidgetLayout from "@/components/common/WidgetLayout.astro";
 import { siteConfig } from "@/config";
@@ -27,7 +26,6 @@ const siteStartDate = siteConfig.siteStartDate || "2025-01-01";
 
 // 获取所有文章
 const posts = await getSortedPosts();
-const dynamics = siteConfig.pages.dynamic ? await getCollection("dynamic") : [];
 const categories = await getCategoryList();
 const tags = await getTagList();
 
@@ -55,28 +53,20 @@ function formatNumber(num: number): string {
 	return num.toLocaleString();
 }
 
-// 获取「最后活动」时间：比较文章发布、文章更新和动态发布时间，取全站最新时间。
+// 获取「最后活动」时间：取每篇文章 published 与 updated 中较新的那个，再从全站所有文章里取最大值。这样新发文章和修改老文章都会刷新该字段。
 const getActivityDate = (post: (typeof posts)[number]): Date => {
 	const { published, updated } = post.data;
 	if (updated && updated > published) return updated;
 	return published;
 };
 
-const activityDates = posts.map(getActivityDate);
-if (siteConfig.pages.dynamic) {
-	activityDates.push(...dynamics.map((dynamic) => dynamic.data.published));
-}
-const lastActivityDate = activityDates.reduce<Date | null>(
-	(latest, current) => {
-		if (!latest || current > latest) return current;
-		return latest;
-	},
-	null,
-);
+const lastActivityDate = posts.reduce<Date | null>((latest, post) => {
+	const current = getActivityDate(post);
+	if (!latest || current > latest) return current;
+	return latest;
+}, null);
 
-const lastActivityDateIso = lastActivityDate
-	? lastActivityDate.toISOString()
-	: null;
+const lastPostDate = lastActivityDate ? lastActivityDate.toISOString() : null;
 
 const todayText = i18n(I18nKey.today);
 
@@ -86,15 +76,6 @@ const stats = [
 		label: i18n(I18nKey.siteStatsPostCount),
 		value: posts.length,
 	},
-	...(siteConfig.pages.dynamic
-		? [
-				{
-					icon: "material-symbols:dynamic-feed-rounded",
-					label: i18n(I18nKey.siteStatsDynamicCount),
-					value: dynamics.length,
-				},
-			]
-		: []),
 	{
 		icon: "material-symbols:folder-outline",
 		label: i18n(I18nKey.siteStatsCategoryCount),
@@ -136,7 +117,7 @@ const stats = [
       <div class="flex items-center justify-between px-3 py-1.5">
         <div class="flex items-center gap-2.5">
           <div class="text-(--primary) text-xl">
-            <Icon is:inline name={stat.icon} />
+            <Icon name={stat.icon} />
           </div>
           <span class="text-neutral-700 dark:text-neutral-300 font-medium text-sm">
             {stat.label}
@@ -160,7 +141,7 @@ const stats = [
   </div>
 </WidgetLayout>
 
-<script is:inline define:vars={{ siteStartDate, lastActivityDateIso, todayText }}>
+<script is:inline define:vars={{ siteStartDate, lastPostDate, todayText }}>
   function updateDynamicStats() {
     const today = new Date();
 
@@ -175,10 +156,10 @@ const stats = [
     });
 
     // 更新最后活动时间
-    if (lastActivityDateIso) {
-      const lastActivity = new Date(lastActivityDateIso);
-      const timeSinceLastActivity = Math.abs(today.getTime() - lastActivity.getTime());
-      const daysSinceLastUpdate = Math.floor(timeSinceLastActivity / (1000 * 60 * 60 * 24));
+    if (lastPostDate) {
+      const lastPost = new Date(lastPostDate);
+      const timeSinceLastPost = Math.abs(today.getTime() - lastPost.getTime());
+      const daysSinceLastUpdate = Math.floor(timeSinceLastPost / (1000 * 60 * 60 * 24));
 
       const lastUpdateElements = document.querySelectorAll('[data-stat-id="last-update"]');
       lastUpdateElements.forEach((element) => {
@@ -200,8 +181,12 @@ const stats = [
   // 页面加载时更新
   updateDynamicStats();
 
-  // 页面切换时重新更新
-  document.addEventListener("swup:contentReplaced", () => {
-    setTimeout(updateDynamicStats, 100);
-  });
+  // 防止 Swup 切页重跑脚本时重复注册监听器
+  if (!window.__siteStatsInit) {
+    window.__siteStatsInit = true;
+    // 页面切换时重新更新
+    document.addEventListener("swup:contentReplaced", () => {
+      setTimeout(updateDynamicStats, 100);
+    });
+  }
 </script>

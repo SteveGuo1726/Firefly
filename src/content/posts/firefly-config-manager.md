@@ -21,7 +21,7 @@ https://github.com/SteveGuo1726/firefly-config-manager
 
 ## 打开方式
 
-  
+
 1. 使用最新版 Chrome 或 Edge 打开 `firefly-config-manager.html`。
 
 2. 点击左侧的“选择网站仓库”。
@@ -29,9 +29,7 @@ https://github.com/SteveGuo1726/firefly-config-manager
 3. 选择 Firefly 网站仓库目录，例如：
 
 ```text
-
 E:\Blog\Firefly
-
 ```
 
 
@@ -41,7 +39,7 @@ E:\Blog\Firefly
 
 Firefox 和 Safari 通常不支持这个 HTML 文件所需的目录写入 API，因此建议使用 Chrome 或 Edge。
 
-  
+
 ## 主要功能
 
 
@@ -50,11 +48,11 @@ Firefox 和 Safari 通常不支持这个 HTML 文件所需的目录写入 API，
 
 工具会读取 `src/config` 下的主要配置文件，并把常用设置做成表单：
 
-  
+
 
 左侧导航栏可以折叠，适合在小屏幕或编辑长配置时腾出更多横向空间。
 
-  
+
 
 - 站点与 SEO：标题、副标题、站点 URL、语言、描述、关键词、favicon、建站日期、时区、OpenGraph、分享海报、最后修改时间。
 
@@ -78,7 +76,7 @@ Firefox 和 Safari 通常不支持这个 HTML 文件所需的目录写入 API，
 
 - 统计分析：Google Analytics、Microsoft Clarity、Umami、Relpays、51la。
 
-  
+
 
 新版 Firefly 的部分配置支持多种写法，例如壁纸 `src` 可以是字符串、数组或 `{ desktop, mobile }` 对象，Banner 署名、水波、Overlay 可切换项也可以是布尔值或桌面/移动端对象。管理器会优先提供直观字段，同时保留“完整配置”编辑框，方便处理这些联合类型结构。
 
@@ -90,28 +88,26 @@ Firefox 和 Safari 通常不支持这个 HTML 文件所需的目录写入 API，
 
 新版进一步把赞助方式、赞助者列表、广告、看板娘、页脚开关等配置做成了结构化表单，减少直接写 JSON 的情况。
 
-  
+
 
 如果某个配置字段在当前文件中没有显式写出，但类型定义允许它作为可选字段存在，管理器会先显示一个默认空值；修改后会自动把该属性插入到对应配置对象中。这样上游新增的可选字段不会再因为“未找到”而只能去源码页手改。
 
-  
+
 
 上游近期把樱花特效配置从 `sakuraConfig.ts` 重命名并集中到 `effectsConfig.ts`，壁纸配置也把首页文字、导航透明、水波和渐变等通用项移动到了 `backgroundWallpaper.common.*`，并新增 `fullscreen` 壁纸模式。当前管理器已按这些新字段读取和写入。
 
-  
+
 
 侧边栏组件数组支持编辑组件类型、启用状态、位置、文章页/非文章页显示、广告配置 ID、响应式隐藏设备、折叠阈值和自定义属性。复杂对象仍可通过对应完整配置或源码页兜底编辑。
 
-  
+
 
 ### 文章元数据管理
 
 工具会读取：
 
 ```text
-
 src/content/posts
-
 ```
 
 
@@ -134,7 +130,7 @@ src/content/posts
 
 正文内容不会在这个工具中编辑，保存文章时会保留原正文，只重写 Frontmatter。文章保存时同样会进入备份会话。
 
-  
+
 ### 资源预览
 
 - 图片、头像、封面、广告图、二维码、Logo 等图片类路径会尽量显示紧凑缩略图。
@@ -157,16 +153,14 @@ src/content/posts
 
 - Firefly 网站前端会优先读取访问者浏览器里的 `localStorage.hue`，所以如果你曾在网站显示设置里手动调过主题色，构建后仍可能看到旧颜色；需要在网站显示设置中重置主题色，或清除该站点的 `localStorage.hue`，才会显示新的配置默认色。
 
-  
+
 
 ### 备份恢复
 
 每次点击“保存全部修改”前，工具会在仓库根目录创建备份：
 
 ```text
-
 .firefly-config-manager-backups
-
 ```
 
 备份包含一个 JSON manifest 和对应文件的 `.bak` 内容。manifest 会记录本次保存前备份的原因、涉及文件，以及每个文件对应的改动说明；为了避免泄露文章密码、API token 等内容，说明只记录字段名和来源，不记录具体新旧值。界面中的“备份恢复”页可以按保存会话整体恢复，并显示这些改动说明。
@@ -181,7 +175,7 @@ src/content/posts
 
 说明：旧版本工具曾把备份放在 `src/config/.firefly-config-manager-backups`，新版不会删除旧备份，但“备份恢复”页只管理新版根目录备份。
 
-  
+
 
 ## 安全建议
 
@@ -193,7 +187,7 @@ src/content/posts
 
 - 如果需要回退，优先使用 Git；没有 Git 提交时，可使用“备份恢复”。
 
-  
+
 
 ## 参考
 

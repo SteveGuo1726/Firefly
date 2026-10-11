@@ -1,10 +1,13 @@
+import { applyManagedConfig } from "../utils/settings/managed-config";
 import type { SiteConfig } from "@/types/siteConfig";
+import { resolvePageToggles } from "../utils/page-toggle-utils";
+import { resolveSiteLang } from "../utils/site-config-utils";
 
 // 定义站点语言
 // 语言代码，例如：'zh_CN', 'zh_TW', 'en', 'ja', 'ru', 'ko'。
 const SITE_LANG = "zh_CN";
 
-export const siteConfig: SiteConfig = {
+export const siteConfig: SiteConfig = applyManagedConfig("siteConfig", {
 	// 站点标题
 	title: "星遐蝶梦",
 
@@ -40,7 +43,7 @@ export const siteConfig: SiteConfig = {
 		// 主题色的默认色相，范围从 0 到 360。例如：红色：0，青色：200，蓝绿色：250，粉色：345
 		hue: 295,
 		// 是否对访问者隐藏主题色选择器
-		fixed: false,
+
 		// 默认模式："light" 亮色，"dark" 暗色，"system" 跟随系统
 		defaultMode: "system",
 	},
@@ -93,7 +96,7 @@ export const siteConfig: SiteConfig = {
 		// 导航栏图标和标题是否跟随主题色
 		followTheme: false,
 		// 导航栏是否固定在顶部并始终可见
-		stickyNavbar: true,
+		navbarMode: "fixed",
 	},
 
 	// 站点开始日期，用于统计运行天数
@@ -104,7 +107,7 @@ export const siteConfig: SiteConfig = {
 	timezone: "Asia/Shanghai",
 
 	// 页面开关配置 - 控制特定页面的访问权限，设为false会返回404并自动隐藏对应的导航栏菜单项
-	pages: {
+	pages: resolvePageToggles({
 		// 友链页面开关
 		friends: true,
 		// 打赏页面开关
@@ -116,13 +119,20 @@ export const siteConfig: SiteConfig = {
 		// 相册页面开关
 		gallery: true,
 		// 追番页面开关
-		anime: true,
+		// 新上游页面开关：保留原有页面设置，新功能使用上游初始选项
+		booknav: true,
+		projects: true,
+		bilibili: true,
+		vndb: false,
+		mal: false,
 		// 动态页面开关
 		dynamic: true,
-	},
+	}),
 
 	// 分类导航栏开关，在首页和归档页顶部显示分类快捷导航
 	categoryBar: true,
+	categoryStyle: "rectangle",
+	tagStyle: "pill",
 
 	// 归档页是否折叠非最新年份文章，禁用后默认展开全部年份
 	foldArticle: true,
@@ -131,10 +141,11 @@ export const siteConfig: SiteConfig = {
 	postListLayout: {
 		// 默认布局模式："list" 列表模式（单列布局），"grid" 网格模式（多列布局）
 		defaultMode: "list",
+		coverPosition: "right",
 		// 移动端默认布局模式，不设置则跟随 defaultMode
 		mobileDefaultMode: "grid",
 		// 是否允许用户切换布局
-		allowSwitch: true,
+
 		// 文章简介显示行数，设为 0 则不截断
 		descriptionLines: 2,
 		// 文章卡片底部统计和发布日期是否显示图标
@@ -143,6 +154,7 @@ export const siteConfig: SiteConfig = {
 		// 设置为"meta"：显示在文章标题下的元数据
 		// 设置为"bottom"：顶替stats在底部显示
 		tagsPosition: "bottom",
+		tagsBottomStyle: "chip",
 		// PostMeta 元数据显示控制
 		meta: {
 			// 是否显示发布日期
@@ -174,6 +186,7 @@ export const siteConfig: SiteConfig = {
 			masonry: false,
 			// 网格模式卡片最小宽度(px)，浏览器根据容器宽度自动计算列数
 			columnWidth: 320,
+			coverFullWidth: false,
 		},
 	},
 
@@ -192,9 +205,19 @@ export const siteConfig: SiteConfig = {
 		// 文章过期阈值（天数），超过此天数才显示"上次编辑"卡片
 		outdatedThreshold: 30,
 		// 是否开启分享海报生成功能
-		sharePoster: true,
+
+		share: true,
+		postNavigation: true,
+		relatedPosts: true,
+		randomPosts: true,
 		// OpenGraph图片功能，注意开启后要渲染很长时间，不建议本地调试的时候开启
 		generateOgImages: false,
+		immersiveReading: {
+			enable: true,
+			defaultOn: false,
+			tocEnabled: true,
+			tocPosition: "left",
+		},
 	},
 
 	// bangumi配置
@@ -215,21 +238,8 @@ export const siteConfig: SiteConfig = {
 		categoryOrder: ["anime", "book", "music", "game"],
 	},
 
-	// 追番配置（Bilibili + TMDB）
-	anime: {
-		// Bilibili 配置
-		bilibili: {
-			// 你的 Bilibili 用户 UID
-			uid: "393766623",
-		},
-		// TMDB 配置（可选，需要翻墙）
-		// tmdb: {
-		//   // TMDB API 密钥
-		//   apiKey: "your_tmdb_api_key",
-		//   // TMDB 列表 ID
-		//   listId: "your_list_id",
-		// },
-	},
+	// 新版 Firefly Bilibili 页面直接使用原有个人 UID
+	bilibili: { uid: "393766623" },
 
 	// 分页配置
 	pagination: {
@@ -256,6 +266,8 @@ export const siteConfig: SiteConfig = {
 		noReferrerDomains: ["*.hdslb.com", "*.bilibili.com"],
 	},
 
+	feed: { contentMode: "full" },
+
 	// 站点语言，在本配置文件顶部SITE_LANG定义
-	lang: SITE_LANG,
-};
+	lang: resolveSiteLang(SITE_LANG),
+});

@@ -8,7 +8,7 @@ import {
 } from "@/utils/admin/github-session";
 import {
 	deleteRepoFile,
-	fetchRepoFile,
+	fetchRepoFilesBatch,
 	listRepoTree,
 	saveRepoFile,
 } from "@/utils/write/github";
@@ -130,11 +130,9 @@ async function loadDynamics(preferredPath = "") {
 			)
 			.map((entry) => entry.path)
 			.sort((left, right) => right.localeCompare(left));
-		items = await Promise.all(
-			paths.map(async (path) => {
-				const file = await fetchRepoFile(config, path);
-				return parseDynamic(path, file.sha, file.content);
-			}),
+		const files = await fetchRepoFilesBatch(config, paths);
+		items = files.map((file) =>
+			parseDynamic(file.path, file.sha, file.content),
 		);
 		const target =
 			items.find((item) => item.path === preferredPath) ||

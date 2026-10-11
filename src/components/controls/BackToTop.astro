@@ -45,21 +45,18 @@ import FloatingButton from "@/components/common/FloatingButton.astro";
         };
 
         window.addEventListener("scroll", updateVisibility, { passive: true });
+        updateVisibility();
       }
     };
   }
-  // ... existing initialization logic ...
-  // 页面加载完成后初始化
-  document.addEventListener("DOMContentLoaded", () => {
-    new BackToTopManager();
-  });
-
-  // 如果页面已经加载完成，立即初始化
-  if (document.readyState === "loading") {
-    document.addEventListener("DOMContentLoaded", () => {
-      new BackToTopManager();
-    });
-  } else {
-    new BackToTopManager();
+  // 按钮在 Swup 容器外、跨导航持久存在，只保留一个管理器和一个滚动监听器。
+  if (!window.__backToTopInit) {
+    window.__backToTopInit = true;
+    const initBackToTop = () => new BackToTopManager();
+    if (document.readyState === "loading") {
+      document.addEventListener("DOMContentLoaded", initBackToTop, { once: true });
+    } else {
+      initBackToTop();
+    }
   }
 </script>

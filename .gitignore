@@ -41,3 +41,6 @@ package/
 .obsidian/
 # friend circle generated data
 .friend-circle-dist/
+
+# Preview-only derivative images generated at build time; source originals are immutable.
+public/gallery-thumbs/

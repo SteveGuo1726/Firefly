@@ -48,6 +48,7 @@ type ProcessorLike = {
 type MermaidModule = {
 	initialize: (config: Record<string, unknown>) => void;
 	render: (id: string, code: string) => Promise<{ svg: string }>;
+	parse: (code: string, options?: { suppressErrors: boolean }) => Promise<false | { diagramType: string }>;
 };
 
 type PreviewDeps = {
@@ -64,6 +65,8 @@ type PreviewDeps = {
 	rehypeSlug: GenericPlugin;
 	rehypeAutolinkHeadings: GenericPlugin;
 	rehypeCallouts: GenericPlugin;
+	codeGroup: GenericPlugin;
+	admonition: GenericPlugin;
 	visit: GenericVisit;
 };
 
@@ -99,10 +102,6 @@ let mermaidModulePromise: Promise<MermaidModule> | null = null;
 let iconifyLoaderPromise: Promise<void> | null = null;
 let expressiveCodeRendererPromise: Promise<ExpressiveCodeRenderer> | null =
 	null;
-
-function loadEsm<T = unknown>(url: string): Promise<T> {
-	return import(/* @vite-ignore */ url) as Promise<T>;
-}
 
 function evaluateMdxExpression(expression: string): string {
 	try {
@@ -292,7 +291,7 @@ async function getExpressiveCodeRenderer(): Promise<ExpressiveCodeRenderer> {
 								collapseButtonText: i18n(I18nKey.codeCollapsibleShowLess),
 								expandedAnnouncement: i18n(I18nKey.codeCollapsibleExpanded),
 								collapsedAnnouncement: i18n(I18nKey.codeCollapsibleCollapsed),
-							}),
+							}) as unknown as ReturnType<typeof pluginCollapsibleSections>,
 						]
 					: []),
 			],
@@ -305,7 +304,7 @@ async function getExpressiveCodeRenderer(): Promise<ExpressiveCodeRenderer> {
 				},
 			},
 			shiki: {
-				engine: "javascript",
+				engine: "oniguruma",
 			},
 			styleOverrides: {
 				borderRadius: "0.75rem",
@@ -507,24 +506,26 @@ async function loadPreviewDeps(): Promise<PreviewDeps> {
 				rehypeSlugModule,
 				rehypeAutolinkHeadingsModule,
 				rehypeCalloutsModule,
+				codeGroupModule,
+				admonitionModule,
 				visitModule,
 			] = await Promise.all([
-				loadEsm<Record<string, unknown>>("https://esm.sh/unified@11"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/remark-gfm@4"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/remark-parse@11"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/remark-directive@3"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/remark-math@6"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/remark-sectionize@2"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/remark-rehype@11"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/rehype-raw@7"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/rehype-stringify@10"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/rehype-katex@7"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/rehype-slug@6"),
-				loadEsm<Record<string, unknown>>(
-					"https://esm.sh/rehype-autolink-headings@7",
-				),
-				loadEsm<Record<string, unknown>>("https://esm.sh/rehype-callouts@2"),
-				loadEsm<Record<string, unknown>>("https://esm.sh/unist-util-visit@5"),
+				import("unified"),
+				import("remark-gfm"),
+				import("remark-parse"),
+				import("remark-directive"),
+				import("remark-math"),
+				import("remark-sectionize"),
+				import("remark-rehype"),
+				import("rehype-raw"),
+				import("rehype-stringify"),
+				import("rehype-katex"),
+				import("rehype-slug"),
+				import("rehype-autolink-headings"),
+				import("rehype-callouts"),
+				import("rehype-code-group"),
+				import("remark-admonition-to-blockquote-callout"),
+				import("unist-util-visit"),
 			]);
 
 			return {
@@ -542,6 +543,8 @@ async function loadPreviewDeps(): Promise<PreviewDeps> {
 				rehypeAutolinkHeadings:
 					rehypeAutolinkHeadingsModule.default as GenericPlugin,
 				rehypeCallouts: rehypeCalloutsModule.default as GenericPlugin,
+				codeGroup: codeGroupModule.default as GenericPlugin,
+				admonition: admonitionModule.default as GenericPlugin,
 				visit: visitModule.visit as GenericVisit,
 			};
 		})();
@@ -552,9 +555,9 @@ async function loadPreviewDeps(): Promise<PreviewDeps> {
 
 async function loadMermaidModule(): Promise<MermaidModule> {
 	if (!mermaidModulePromise) {
-		mermaidModulePromise = loadEsm<Record<string, unknown>>(
-			"https://esm.sh/mermaid@11?bundle",
-		).then((module) => (module.default ?? module) as MermaidModule);
+		mermaidModulePromise = import("mermaid").then(
+			(module) => (module.default ?? module) as unknown as MermaidModule,
+		);
 	}
 
 	return mermaidModulePromise;
@@ -566,19 +569,9 @@ async function ensureIconifyLoaded(container: HTMLElement): Promise<void> {
 	}
 
 	if (!iconifyLoaderPromise) {
-		iconifyLoaderPromise = new Promise<void>((resolve, reject) => {
-			if (window.customElements?.get("iconify-icon")) {
-				resolve();
-				return;
-			}
-
-			const script = document.createElement("script");
-			script.src =
-				"https://code.iconify.design/iconify-icon/2.2.0/iconify-icon.min.js";
-			script.async = true;
-			script.onload = () => resolve();
-			script.onerror = () => reject(new Error("Failed to load Iconify"));
-			document.head.appendChild(script);
+		iconifyLoaderPromise = import("iconify-icon").then(async () => {
+			if (window.customElements?.get("iconify-icon")) return;
+			await window.customElements?.whenDefined("iconify-icon");
 		});
 	}
 
@@ -726,6 +719,24 @@ async function enhanceGitHubCards(container: HTMLElement) {
 	);
 }
 
+/* Preserve the source line on semantic Markdown blocks. The writing editor uses
+   these positions for heading/paragraph-accurate scroll synchronization. */
+function rehypePreviewSourceAnchors() {
+ return (tree: UnknownNode) => {
+  const blockNames=new Set(["h1","h2","h3","h4","h5","h6","p","pre","blockquote","ul","ol","table","figure","section","div"]);
+  const visitNode=(node: UnknownNode) => {
+   if(node.type==="element" && typeof node.tagName==="string" && blockNames.has(node.tagName)){
+    const start=(node.position as {start?: {line?: number}}|undefined)?.start?.line;
+    if(typeof start==="number" && Number.isFinite(start) && start>0){
+     node.properties={...node.properties,"data-source-line":String(start)};
+    }
+   }
+   for(const child of node.children||[])visitNode(child);
+  };
+  visitNode(tree);
+ };
+}
+
 async function enhanceMermaid(container: HTMLElement) {
 	const nodes = Array.from(container.querySelectorAll<HTMLElement>(".mermaid"));
 	if (nodes.length === 0) return;
@@ -744,14 +755,21 @@ async function enhanceMermaid(container: HTMLElement) {
 			const code = node.textContent || "";
 			if (!code.trim()) return;
 
+			const renderId=`write-preview-mermaid-${Date.now()}-${index}`;
 			try {
-				const renderResult = await mermaid.render(
-					`write-preview-mermaid-${Date.now()}-${index}`,
-					code,
-				);
+				// Invalid diagrams must not call render(): Mermaid otherwise injects a
+				// large global error SVG outside the editor's preview container.
+				const parsed=await mermaid.parse(code,{suppressErrors:true});
+				if(!parsed)throw new Error("Invalid Mermaid diagram syntax");
+				const renderResult = await mermaid.render(renderId,code);
 				node.innerHTML = renderResult.svg;
 			} catch {
-				node.innerHTML = `<pre><code>${escapeHtml(code)}</code></pre>`;
+				// Guard the render-time failure path too; never leave Mermaid's
+				// temporary error container attached to the document body.
+				document.getElementById(`d${renderId}`)?.remove();
+				const temporary=document.getElementById(renderId);
+				if(temporary && !node.contains(temporary))temporary.remove();
+				node.innerHTML = `<div class="mermaid-parse-error" role="note">Mermaid 图表语法有误，请检查源代码。</div><pre><code>${escapeHtml(code)}</code></pre>`;
 			}
 		}),
 	);
@@ -861,6 +879,7 @@ export async function renderFireflyPreview(
 		.use(deps.remarkGfm)
 		.use(deps.remarkDirective)
 		.use(deps.remarkMath)
+		.use(deps.admonition)
 		.use(createGithubDirectivePlugin(deps.visit))
 		.use(createMermaidDirectivePlugin(deps.visit))
 		.use(createPlantumlDirectivePlugin(deps.visit))
@@ -874,6 +893,7 @@ export async function renderFireflyPreview(
 			theme: options.calloutTheme || siteConfig.post.rehypeCallouts.theme,
 		})
 		.use(deps.rehypeSlug)
+		.use(deps.codeGroup)
 		.use(rehypeFigure)
 		.use(rehypeExternalLinks, { siteUrl: siteConfig.site_url })
 		.use(deps.rehypeAutolinkHeadings, {
@@ -890,6 +910,7 @@ export async function renderFireflyPreview(
 				children: [{ type: "text", value: "#" }],
 			},
 		})
+		.use(rehypePreviewSourceAnchors)
 		.use(deps.rehypeStringify, { allowDangerousHtml: true });
 
 	const rendered = await processor.process(source);

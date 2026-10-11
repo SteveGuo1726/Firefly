@@ -1,0 +1,30 @@
+diff --git a/dist/index.js b/dist/index.js
+index ced8e113b0d24757d7cce0b7ddc626e470132934..f608703ee4978413e9e57fff655aba23124fa090 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -5,6 +5,7 @@ import { bundledThemes } from "shiki/themes";
+ // src/highlighter.ts
+ import { getStableObjectHash } from "@expressive-code/core";
+ import { createHighlighterCore, isSpecialLang } from "shiki/core";
++import { createJavaScriptRegexEngine } from "shiki/engine/javascript";
+ import { bundledLanguages } from "shiki/langs";
+ 
+ // src/languages.ts
+@@ -131,7 +132,7 @@ async function getCachedHighlighter(config = {}) {
+       const highlighter = await createHighlighterCore({
+         themes: [],
+         langs: [],
+-        engine: createRegexEngine(config.engine)
++        engine: await createRegexEngine(config.engine)
+       });
+       await ensureLanguagesAreLoaded({ highlighter, ...config });
+       return highlighter;
+@@ -142,7 +143,7 @@ async function getCachedHighlighter(config = {}) {
+ }
+ async function createRegexEngine(engine) {
+   if (engine === "javascript")
+-    return [(await import("shiki/engine/javascript")).createJavaScriptRegexEngine({ forgiving: true })][0];
++    return createJavaScriptRegexEngine({ forgiving: true });
+   return [(await import("shiki/engine/oniguruma")).createOnigurumaEngine(import("shiki/wasm"))][0];
+ }
+ async function ensureThemeIsLoaded(highlighter, theme, styleVariants) {

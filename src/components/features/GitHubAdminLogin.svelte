@@ -7,6 +7,9 @@ import {
 	type GitHubAdminSession,
 	getGitHubAdminSession,
 	loginWithGitHubToken,
+	refreshOAuthAdminSession,
+	isOAuthSupported,
+	logoutOAuthAdmin,
 } from "@/utils/admin/github-session";
 import { url } from "@/utils/url-utils";
 
@@ -16,6 +19,7 @@ let modalOpen = false;
 let menuOpen = false;
 let submitting = false;
 let errorMessage = "";
+let oauthAvailable=false;
 
 function syncSession() {
 	session = getGitHubAdminSession();
@@ -23,6 +27,7 @@ function syncSession() {
 }
 
 function openLogin() {
+	if(oauthAvailable){window.location.assign("/api/admin/auth/start");return;}
 	errorMessage = "";
 	modalOpen = true;
 	menuOpen = false;
@@ -49,14 +54,21 @@ async function submitLogin() {
 	}
 }
 
-function logout() {
-	clearGitHubAdminSession();
-	session = null;
-	menuOpen = false;
+async function logout() {
+ if(session?.oauth){
+  try{await logoutOAuthAdmin();}
+  catch(error){errorMessage=error instanceof Error?error.message:"退出失败";return;}
+ }else{
+  clearGitHubAdminSession();
+ }
+ session=null;
+ menuOpen=false;
 }
+
 
 onMount(() => {
 	syncSession();
+	void refreshOAuthAdminSession().then(()=>{oauthAvailable=isOAuthSupported();syncSession();});
 	window.addEventListener(GITHUB_SESSION_CHANGED_EVENT, syncSession);
 	return () =>
 		window.removeEventListener(GITHUB_SESSION_CHANGED_EVENT, syncSession);
@@ -86,10 +98,11 @@ onMount(() => {
 					<strong>{session.name}</strong>
 					<span>{session.owner}/{session.repo}</span>
 				</div>
-				<a href={url("/write/")} onclick={() => (menuOpen = false)}>写作管理</a>
-				<a href={url("/dynamic/#dynamic-admin")} onclick={() => (menuOpen = false)}>动态管理</a>
-				<a href={url("/gallery/manage/")} onclick={() => (menuOpen = false)}>相册管理</a>
+				<a href={url("/admin/?section=posts")} onclick={() => (menuOpen = false)}>文章后台</a>
+				<a href={url("/admin/?section=dynamic")} onclick={() => (menuOpen = false)}>动态后台</a>
+				<a href={url("/admin/?section=gallery")} onclick={() => (menuOpen = false)}>相册管理</a>
 				<button type="button" class="logout-button" onclick={logout}>退出登录</button>
+				{#if errorMessage}<p role="alert" class="login-error">{errorMessage}</p>{/if}
 			</div>
 		{/if}
 	{:else}
@@ -101,7 +114,7 @@ onMount(() => {
 			title="GitHub 登录"
 		>
 			<span class="github-mark">GH</span>
-			<span>GitHub 登录</span>
+			<span>{oauthAvailable?"GitHub OAuth 登录":"GitHub 登录"}</span>
 		</button>
 	{/if}
 </div>
@@ -118,7 +131,7 @@ onMount(() => {
 			<div class="dialog-header">
 				<div>
 					<h2 id="github-login-title">登录 GitHub 管理账号</h2>
-					<p>验证后在此设备保留 {githubAdminConfig.sessionDays} 天。</p>
+					<p>Token 仅保留在当前标签页；关闭标签页后自动退出。</p>
 				</div>
 				<button type="button" class="close-button" aria-label="关闭" onclick={closeLogin}>×</button>
 			</div>
@@ -135,7 +148,7 @@ onMount(() => {
 				/>
 			</label>
 			<p class="login-note">
-				Token 需要 {githubAdminConfig.owner}/{githubAdminConfig.repo} 的 Contents 读写权限，只保存在当前浏览器。
+				Token 需要 {githubAdminConfig.owner}/{githubAdminConfig.repo} 的 Contents 读写权限，只保存在当前标签页的 sessionStorage。
 			</p>
 			{#if errorMessage}<div class="login-error">{errorMessage}</div>{/if}
 			<div class="dialog-actions">

@@ -1,0 +1,27 @@
+{
+  "cloudFunctions": {
+    "mainlandRegions": [
+      "ap-shanghai"
+    ],
+    "overseasRegions": [
+      "ap-tokyo"
+    ],
+    "nodejs": {
+      "maxDuration": 30,
+      "includeFiles": [
+        "src/server/live-content/**"
+      ]
+    }
+  },
+  "headers": [
+    {
+      "source": "/internal/live-post-shell/*",
+      "headers": [
+        {
+          "key": "X-Robots-Tag",
+          "value": "noindex, nofollow, noarchive"
+        }
+      ]
+    }
+  ]
+}

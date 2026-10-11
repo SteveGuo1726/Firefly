@@ -104,6 +104,115 @@ export async function fetchRepoFile(
 	};
 }
 
+const GITHUB_GRAPHQL_BATCH_SIZE = 25;
+
+type GitHubGraphQLBlob = {
+	oid?: string;
+	text?: string | null;
+};
+
+type GitHubGraphQLResponse = {
+	data?: {
+		repository?: Record<string, GitHubGraphQLBlob | null> | null;
+	};
+	errors?: Array<{ message?: string }>;
+};
+
+async function fetchRepoFileBatchViaRest(
+	config: GitHubRepoConfig,
+	filePaths: string[],
+): Promise<GitHubRepoFile[]> {
+	return Promise.all(filePaths.map((filePath) => fetchRepoFile(config, filePath)));
+}
+
+export async function fetchRepoFilesBatch(
+	config: GitHubRepoConfig,
+	filePaths: string[],
+): Promise<GitHubRepoFile[]> {
+	const files: GitHubRepoFile[] = [];
+
+	for (
+		let offset = 0;
+		offset < filePaths.length;
+		offset += GITHUB_GRAPHQL_BATCH_SIZE
+	) {
+		const paths = filePaths.slice(offset, offset + GITHUB_GRAPHQL_BATCH_SIZE);
+		if (paths.length === 0) continue;
+
+		const variableDefinitions = [
+			"$owner: String!",
+			"$repo: String!",
+			...paths.map((_, index) => `$expr${index}: String!`),
+		].join(", ");
+		const objectFields = paths
+			.map(
+				(_, index) =>
+					`file${index}: object(expression: $expr${index}) { ... on Blob { oid text } }`,
+			)
+			.join("\n");
+		const variables: Record<string, string> = {
+			owner: config.owner,
+			repo: config.repo,
+		};
+		paths.forEach((filePath, index) => {
+			variables[`expr${index}`] = `${config.branch}:${filePath}`;
+		});
+
+		try {
+			const response = await fetch("https://api.github.com/graphql", {
+				method: "POST",
+				headers: {
+					...getHeaders(config.token),
+					"Content-Type": "application/json",
+				},
+				body: JSON.stringify({
+					query: `query(${variableDefinitions}) {
+						repository(owner: $owner, name: $repo) {
+							${objectFields}
+						}
+					}`,
+					variables,
+				}),
+			});
+
+			const payload = (await response.json()) as GitHubGraphQLResponse;
+			if (
+				!response.ok ||
+				payload.errors?.length ||
+				!payload.data?.repository
+			) {
+				throw new Error(
+					payload.errors?.[0]?.message ||
+						`GraphQL 批量读取失败：${response.status}`,
+				);
+			}
+
+			const repository = payload.data.repository;
+			const batchFiles = await Promise.all(
+				paths.map(async (filePath, index) => {
+					const blob = repository[`file${index}`];
+					if (!blob?.oid || typeof blob.text !== "string") {
+						return fetchRepoFile(config, filePath);
+					}
+
+					return {
+						path: filePath,
+						sha: blob.oid,
+						content: blob.text,
+						htmlUrl: buildGitHubSourceUrl(config, filePath),
+						downloadUrl: buildGitHubRawUrl(config, filePath),
+					} satisfies GitHubRepoFile;
+				}),
+			);
+			files.push(...batchFiles);
+		} catch {
+			files.push(...(await fetchRepoFileBatchViaRest(config, paths)));
+		}
+	}
+
+	return files;
+}
+
 export async function listRepoTree(
 	config: GitHubRepoConfig,
 ): Promise<GitHubRepoTreeEntry[]> {

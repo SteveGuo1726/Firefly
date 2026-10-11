@@ -34,6 +34,9 @@ export type PublicGalleryAlbum = ManagedGalleryAlbum & {
 };
 
 export type GalleryAdminState = {
+	/** Experimental blog backend: read-only projection of the existing public gallery. */
+	readOnly?: boolean;
+	source?: "imagebed-admin" | "public-gallery-bridge";
 	manifest: GalleryManifest;
 	albums: PublicGalleryAlbum[];
 	directories: string[];

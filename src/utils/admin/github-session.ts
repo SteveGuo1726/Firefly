@@ -4,14 +4,55 @@ import type { GitHubRepoConfig } from "@/utils/write/github";
 export const GITHUB_SESSION_CHANGED_EVENT =
 	"firefly:github-admin-session-changed";
 
-const STORAGE_KEY = "FIREFLY_GITHUB_ADMIN_SESSION_V1";
+const STORAGE_KEY = "FIREFLY_GITHUB_ADMIN_SESSION_V2";
+const LEGACY_STORAGE_KEY = "FIREFLY_GITHUB_ADMIN_SESSION_V1";
 const DAY_MS = 24 * 60 * 60 * 1000;
+let oauthCachedSession: GitHubAdminSession | null = null;
+let oauthSupported = false;
+
+export function isOAuthSupported(): boolean { return oauthSupported; }
+
+export async function refreshOAuthAdminSession(): Promise<GitHubAdminSession | null> {
+ try {
+  const response=await fetch("/api/admin/auth/me",{cache:"no-store",credentials:"same-origin"});
+  oauthSupported=response.ok;
+  if(oauthSupported){
+   // OAuth takes precedence: do not revive a previously persisted PAT session.
+   try{sessionStorage.removeItem(STORAGE_KEY);}catch{}
+  }
+  if(!response.ok){oauthCachedSession=null;return null;}
+  const data=await response.json();
+  if(!data?.authenticated || !data.user?.login){oauthCachedSession=null;notifySessionChanged();return null;}
+  oauthCachedSession={
+   login:String(data.user.login),name:String(data.user.login),avatarUrl:"",
+   token:"",oauth:true,
+   owner:githubAdminConfig.owner,repo:githubAdminConfig.repo,branch:githubAdminConfig.branch,
+   expiresAt:Date.now()+8*60*60*1000,
+  };
+  notifySessionChanged();
+  return oauthCachedSession;
+ }catch{
+  oauthCachedSession=null;oauthSupported=false;notifySessionChanged();return null;
+ }
+}
+
+export async function logoutOAuthAdmin(): Promise<void> {
+ const response=await fetch("/api/admin/auth/logout",{
+  method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},
+  body:"{}",
+ });
+ if(!response.ok)throw new Error("OAuth 退出失败，请重试。");
+ oauthCachedSession=null;
+ clearGitHubAdminSession();
+}
+
 
 export type GitHubAdminSession = {
 	login: string;
 	name: string;
 	avatarUrl: string;
 	token: string;
+	oauth?: boolean;
 	owner: string;
 	repo: string;
 	branch: string;
@@ -34,7 +75,14 @@ type GitHubRepositoryResponse = {
 };
 
 function storageAvailable(): boolean {
-	return typeof window !== "undefined" && typeof localStorage !== "undefined";
+	return typeof window !== "undefined" && typeof sessionStorage !== "undefined";
+}
+
+// Never restore bearer credentials from persistent localStorage.
+function discardLegacyPersistentToken(): void {
+ if (typeof window === "undefined") return;
+ try { window.localStorage.removeItem(LEGACY_STORAGE_KEY); }
+ catch { /* Storage can be blocked by the browser. */ }
 }
 
 function notifySessionChanged(): void {
@@ -43,8 +91,10 @@ function notifySessionChanged(): void {
 }
 
 export function getGitHubAdminSession(): GitHubAdminSession | null {
+	if(oauthSupported) return oauthCachedSession && oauthCachedSession.expiresAt>Date.now()?oauthCachedSession:null;
 	if (!storageAvailable()) return null;
-	const raw = localStorage.getItem(STORAGE_KEY);
+	discardLegacyPersistentToken();
+	const raw = sessionStorage.getItem(STORAGE_KEY);
 	if (!raw) return null;
 
 	try {
@@ -68,9 +118,9 @@ export function getGitHubAdminSession(): GitHubAdminSession | null {
 }
 
 export function getGitHubRepoConfigFromSession(
-	session = getGitHubAdminSession(),
+	session: GitHubAdminSession | null = getGitHubAdminSession(),
 ): GitHubRepoConfig | null {
-	if (!session) return null;
+	if (!session || session.oauth) return null;
 	return {
 		owner: session.owner,
 		repo: session.repo,
@@ -80,7 +130,11 @@ export function getGitHubRepoConfigFromSession(
 }
 
 export function clearGitHubAdminSession(notify = true): void {
-	if (storageAvailable()) localStorage.removeItem(STORAGE_KEY);
+	oauthCachedSession=null;
+	if (storageAvailable()) sessionStorage.removeItem(STORAGE_KEY);
+	if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+		localStorage.removeItem(LEGACY_STORAGE_KEY);
+	}
 	if (notify) notifySessionChanged();
 }
 
@@ -88,6 +142,7 @@ export async function loginWithGitHubToken(
 	tokenInput: string,
 ): Promise<GitHubAdminSession> {
 	const token = tokenInput.trim();
+	if (oauthSupported) throw new Error("站点已启用 OAuth，请使用 GitHub 授权登录。");
 	if (!token) throw new Error("请输入 GitHub Fine-grained PAT。");
 
 	const headers = {
@@ -117,7 +172,7 @@ export async function loginWithGitHubToken(
 			repository.message || `仓库验证失败：${repositoryResponse.status}`,
 		);
 	}
-	if (repository.permissions?.push === false) {
+	if (repository.permissions?.push !== true) {
 		throw new Error("当前 Token 没有仓库写入权限。");
 	}
 
@@ -131,7 +186,7 @@ export async function loginWithGitHubToken(
 		branch: githubAdminConfig.branch,
 		expiresAt: Date.now() + githubAdminConfig.sessionDays * DAY_MS,
 	};
-	localStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+	sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
 	notifySessionChanged();
 	return session;
 }

@@ -45,7 +45,9 @@ const managedFallbackAlbums: PublicGalleryAlbum[] = galleryManagedSeed.albums
 	.filter(
 		(album) => !staticAlbums.some((candidate) => candidate.id === album.id),
 	)
-	.map(createManagedPublicAlbum);
+	.map((album) =>
+		createManagedPublicAlbum(album, import.meta.env.PUBLIC_GALLERY_IMAGE_BASE_URL),
+	);
 const initialAlbums: PublicGalleryAlbum[] = [
 	...staticAlbums,
 	...managedFallbackAlbums,

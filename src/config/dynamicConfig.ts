@@ -1,6 +1,7 @@
+import { applyManagedConfig } from "../utils/settings/managed-config";
 import type { DynamicConfig } from "@/types/dynamicConfig";
 
-export const dynamicConfig: DynamicConfig = {
+export const dynamicConfig: DynamicConfig = applyManagedConfig("dynamicConfig", {
 	// 页面标题，如果留空则使用 i18n 中的翻译
 	title: "",
 
@@ -8,8 +9,11 @@ export const dynamicConfig: DynamicConfig = {
 	description: "",
 
 	// 是否为每条动态启用评论，需要先在 commentConfig.ts 启用评论系统
+	profileUrl: "/about/",
 	showComment: true,
 
 	// 每页显示的动态数量
 	itemsPerPage: 20,
-};
+	apiUrl: "/api/dynamic.json",
+	memos: { enable: false, apiUrl: "", parent: "" },
+});

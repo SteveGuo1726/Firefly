@@ -7,12 +7,20 @@ import type {
 	PublicGalleryAlbum,
 } from "../src/types/galleryAdmin";
 
+type GalleryManifestStore = {
+	get(key: string, type: "json"): Promise<unknown>;
+	put(key: string, value: string): Promise<void>;
+};
+
 type Env = {
 	ASSETS?: { fetch(request: Request): Promise<Response> };
+	GALLERY_MANIFEST?: GalleryManifestStore;
 	IMAGEBED_TOKEN?: string;
 	IMAGEBED_BASE_URL?: string;
+	IMAGE_PUBLIC_BASE_URL?: string;
 	GITHUB_ADMIN_LOGIN?: string;
 	GITHUB_REPO?: string;
+	FIREFLY_ADMIN_SERVICE_SECRET?: string;
 	ALLOWED_ORIGIN?: string;
 };
 
@@ -28,6 +36,7 @@ type ImageBedList = {
 
 const IMAGE_EXTENSIONS = /\.(?:avif|bmp|gif|jpe?g|png|svg|webp)$/i;
 const MANIFEST_DIR = "photos/.firefly-gallery";
+const MANIFEST_KV_KEY = "gallery-manifest:v1";
 const MANIFEST_VERSION = 1;
 const MAX_FILE_BYTES = 30 * 1024 * 1024;
 const AUTH_CACHE_MS = 5 * 60 * 1000;
@@ -55,6 +64,16 @@ function isAllowedOrigin(request: Request, env: Env): boolean {
 	return !origin || origin === (env.ALLOWED_ORIGIN || "https://blog.casto.top");
 }
 
+function withPublicGalleryCors(response: Response): Response {
+ const headers = new Headers(response.headers);
+ headers.set("Access-Control-Allow-Origin", "*");
+ headers.set("Access-Control-Allow-Methods", "GET, OPTIONS");
+ headers.set("Access-Control-Allow-Headers", "Content-Type");
+ return new Response(response.body, {
+  status: response.status, statusText: response.statusText, headers,
+ });
+}
+
 function withCors(response: Response, request: Request, env: Env): Response {
 	const origin = request.headers.get("Origin");
 	if (!origin || !isAllowedOrigin(request, env)) return response;
@@ -75,6 +94,15 @@ function imageBedBaseUrl(env: Env): string {
 	return (env.IMAGEBED_BASE_URL || "https://img.casto.top").replace(/\/+$/, "");
 }
 
+function imagePublicBaseUrl(env: Env): string {
+	return (env.IMAGE_PUBLIC_BASE_URL || imageBedBaseUrl(env) + "/file").replace(
+		/\/+$/,
+		"",
+	);
+}
+function publicImageUrl(env: Env, key: string): string {
+	return imagePublicBaseUrl(env) + "/" + encodeKey(key);
+}
 function encodeKey(key: string): string {
 	return key.split("/").map(encodeURIComponent).join("/");
 }
@@ -114,10 +142,22 @@ async function tokenHash(token: string): Promise<string> {
 	).join("");
 }
 
+async function trustedAdminService(request:Request,env:Env):Promise<boolean>{
+ const supplied=request.headers.get("X-Firefly-Service-Key")||"";
+ const configured=env.FIREFLY_ADMIN_SERVICE_SECRET||"";
+ if(!configured||configured.length<32||!supplied)return false;
+ const hash=async(value:string)=>new Uint8Array(await crypto.subtle.digest("SHA-256",new TextEncoder().encode(value)));
+ const [left,right]=await Promise.all([hash(supplied),hash(configured)]);
+ let diff=0;
+ for(let i=0;i<left.length;i++)diff|=left[i]^right[i];
+ return diff===0;
+}
+
 async function requireGitHubAdmin(
 	request: Request,
 	env: Env,
 ): Promise<Response | null> {
+	if(await trustedAdminService(request,env))return null;
 	const authorization = request.headers.get("Authorization") || "";
 	const token = authorization.startsWith("Bearer ")
 		? authorization.slice(7).trim()
@@ -152,7 +192,12 @@ async function requireGitHubAdmin(
 			headers,
 		},
 	);
-	if (!repoResponse.ok) return errorResponse("GitHub 仓库权限验证失败。", 403);
+	const repo = (await repoResponse.json().catch(() => ({}))) as {
+		permissions?: { push?: boolean };
+	};
+	if (!repoResponse.ok || repo.permissions?.push !== true) {
+		return errorResponse("GitHub 仓库写入权限验证失败。", 403);
+	}
 
 	authCache.set(hash, Date.now() + AUTH_CACHE_MS);
 	return null;
@@ -211,7 +256,7 @@ function toPhoto(env: Env, file: ImageBedFile): ManagedGalleryPhoto | null {
 	const metadata = file.metadata || {};
 	return {
 		key,
-		url: `${imageBedBaseUrl(env)}/file/${encodeKey(key)}`,
+		url: publicImageUrl(env, key),
 		name: key.split("/").pop() || key,
 		size: Number(metadata.FileSizeBytes || 0),
 		width: Number(metadata.Width || 0) || undefined,
@@ -289,16 +334,25 @@ function normalizeManifest(input: unknown): GalleryManifest {
 		};
 	});
 
-	return {
-		version: MANIFEST_VERSION,
-		updatedAt: new Date().toISOString(),
-		albums,
-	};
+	const rawUpdatedAt = normalizeString(source.updatedAt, 64);
+	const updatedAt = Number.isNaN(Date.parse(rawUpdatedAt))
+		? new Date().toISOString()
+		: new Date(rawUpdatedAt).toISOString();
+	return { version: MANIFEST_VERSION, updatedAt, albums };
 }
 
 async function loadManifest(env: Env, force = false): Promise<GalleryManifest> {
-	if (!force && manifestCache && manifestCache.expiresAt > Date.now()) {
+	if (!force && manifestCache && manifestCache.expiresAt > Date.now())
 		return manifestCache.manifest;
+	if (env.GALLERY_MANIFEST) {
+		try {
+			const stored = await env.GALLERY_MANIFEST.get(MANIFEST_KV_KEY, "json");
+			if (stored) {
+				const manifest = normalizeManifest(stored);
+				manifestCache = { expiresAt: Date.now() + GALLERY_CACHE_MS, manifest };
+				return manifest;
+			}
+		} catch {}
 	}
 	try {
 		const list = await listRemoteFiles(env, MANIFEST_DIR, false);
@@ -316,10 +370,7 @@ async function loadManifest(env: Env, force = false): Promise<GalleryManifest> {
 			if (!response.ok) continue;
 			try {
 				const manifest = normalizeManifest(await response.json());
-				manifestCache = {
-					expiresAt: Date.now() + GALLERY_CACHE_MS,
-					manifest,
-				};
+				manifestCache = { expiresAt: Date.now() + GALLERY_CACHE_MS, manifest };
 				return manifest;
 			} catch {
 				// Try an older manifest if the newest upload is incomplete.
@@ -340,7 +391,7 @@ function buildManifestAlbums(
 	return manifest.albums.map((album) => {
 		const photos = album.photoOrder.map((key) => ({
 			key,
-			url: `${imageBedBaseUrl(env)}/file/${encodeKey(key)}`,
+			url: publicImageUrl(env, key),
 			name: key.split("/").pop() || key,
 			size: 0,
 		}));
@@ -349,7 +400,7 @@ function buildManifestAlbums(
 			...album,
 			photos,
 			photoCount: photos.length,
-			coverUrl: cover ? `${imageBedBaseUrl(env)}/file/${encodeKey(cover)}` : "",
+			coverUrl: cover ? publicImageUrl(env, cover) : "",
 		};
 	});
 }
@@ -385,29 +436,6 @@ function buildAlbums(
 	});
 }
 
-function reconcileManifestAlbums(
-	manifest: GalleryManifest,
-	albums: PublicGalleryAlbum[],
-): GalleryManifest | null {
-	const albumsById = new Map(albums.map((album) => [album.id, album]));
-	let changed = false;
-	const reconciled = manifest.albums.map((album) => {
-		const discovered = albumsById.get(album.id);
-		if (!discovered) return album;
-		const photoOrder = discovered.photos.map((photo) => photo.key);
-		const cover = photoOrder.includes(album.cover)
-			? album.cover
-			: photoOrder[0] || "";
-		const orderChanged =
-			photoOrder.length !== album.photoOrder.length ||
-			photoOrder.some((key, index) => key !== album.photoOrder[index]);
-		if (!orderChanged && cover === album.cover) return album;
-		changed = true;
-		return { ...album, photoOrder, cover };
-	});
-	return changed ? { ...manifest, albums: reconciled } : null;
-}
-
 async function loadGalleryState(
 	env: Env,
 	force = false,
@@ -432,17 +460,13 @@ async function loadGalleryState(
 				.filter(isUserAlbumDir),
 		),
 	).sort();
-	const discoveredAlbums = buildAlbums(manifest, photos);
-	const reconciled = reconcileManifestAlbums(manifest, discoveredAlbums);
-	const activeManifest = reconciled
-		? await saveManifest(env, reconciled)
-		: manifest;
-	const albums = reconciled
-		? buildAlbums(activeManifest, photos)
-		: discoveredAlbums;
-	const mapped = new Set(activeManifest.albums.map((album) => album.sourceDir));
+	// Remote listing can temporarily be empty or incomplete. Admin GET must be
+	// read-only: never persist a reconciliation that could erase saved photo order
+	// and covers during a transient image-bed failure or consistency delay.
+	const albums = buildAlbums(manifest, photos);
+	const mapped = new Set(manifest.albums.map((album) => album.sourceDir));
 	const state = {
-		manifest: activeManifest,
+		manifest,
 		albums,
 		directories,
 		unmappedDirectories: directories.filter(
@@ -504,36 +528,48 @@ async function uploadRemoteFile(
 	);
 	return {
 		key,
-		url: `${imageBedBaseUrl(env)}/file/${encodeKey(key)}`,
+		url: publicImageUrl(env, key),
 		name: key.split("/").pop() || file.name,
 		size: file.size,
 	};
 }
 
+async function saveLegacyManifest(
+	env: Env,
+	manifest: GalleryManifest,
+): Promise<void> {
+	const existing = await listRemoteFiles(env, MANIFEST_DIR, false);
+	const previousKeys = (existing.files || [])
+		.map((file) => cleanPath(file.name))
+		.filter(
+			(key) => key.startsWith(MANIFEST_DIR + "/") && key.endsWith(".json"),
+		).sort((left, right) => right.localeCompare(left));
+	const file = new File(
+		[JSON.stringify(manifest)],
+		String(Date.now()) + ".json",
+		{ type: "application/json" },
+	);
+	await uploadRemoteFile(env, file, MANIFEST_DIR);
+	// Keep four earlier manifests in addition to the new one. A broken
+	// latest upload can then be recovered without relying solely on KV.
+	await Promise.allSettled(
+		previousKeys.slice(4).map((key) => deleteRemoteKey(env, key)),
+	);
+}
 async function saveManifest(
 	env: Env,
 	input: unknown,
 ): Promise<GalleryManifest> {
 	const manifest = normalizeManifest(input);
-	const existing = await listRemoteFiles(env, MANIFEST_DIR, false);
-	const previousKeys = (existing.files || [])
-		.map((file) => cleanPath(file.name))
-		.filter(
-			(key) => key.startsWith(`${MANIFEST_DIR}/`) && key.endsWith(".json"),
+	manifest.updatedAt = new Date().toISOString();
+	if (env.GALLERY_MANIFEST) {
+		await env.GALLERY_MANIFEST.put(MANIFEST_KV_KEY, JSON.stringify(manifest));
+		await saveLegacyManifest(env, manifest).catch((error) =>
+			console.warn("Gallery legacy manifest backup failed", error),
 		);
-	const filename = `${Date.now()}.json`;
-	const file = new File([JSON.stringify(manifest)], filename, {
-		type: "application/json",
-	});
-	await uploadRemoteFile(env, file, MANIFEST_DIR);
-	await Promise.allSettled(
-		previousKeys.map((key) => deleteRemoteKey(env, key)),
-	);
+	} else await saveLegacyManifest(env, manifest);
 	galleryCache = null;
-	manifestCache = {
-		expiresAt: Date.now() + GALLERY_CACHE_MS,
-		manifest,
-	};
+	manifestCache = { expiresAt: Date.now() + GALLERY_CACHE_MS, manifest };
 	return manifest;
 }
 
@@ -543,20 +579,19 @@ async function handlePublicGallery(
 ): Promise<Response> {
 	try {
 		const url = new URL(request.url);
-		let manifest = await loadManifest(env);
-		if (
-			manifest.albums.some(
-				(album) => album.photoOrder.length === 0 && album.cover.length > 0,
-			)
-		) {
-			manifest = (await loadGalleryState(env)).manifest;
-		}
+		const manifest = await loadManifest(env);
 		const albumId = url.searchParams.get("album")?.trim();
 		const summary = url.searchParams.get("summary") === "true";
-		const publicAlbums = buildManifestAlbums(env, manifest);
-		const albums = albumId
-			? publicAlbums.filter((album) => album.id === albumId)
-			: publicAlbums;
+		const all = buildManifestAlbums(env, manifest);
+		const albums = albumId ? all.filter((album) => album.id === albumId) : all;
+		const etag = '"gallery-' + manifest.updatedAt + '"';
+		const headers = {
+			"Cache-Control":
+				"public, max-age=15, s-maxage=30, stale-while-revalidate=300",
+			ETag: etag,
+		};
+		if (request.headers.get("If-None-Match") === etag)
+			return new Response(null, { status: 304, headers });
 		return json(
 			{
 				albums: summary
@@ -564,17 +599,11 @@ async function handlePublicGallery(
 					: albums,
 				updatedAt: manifest.updatedAt,
 			},
-			{
-				headers: {
-					"Cache-Control": "public, max-age=10, must-revalidate",
-				},
-			},
+			{ headers },
 		);
-	} catch (error) {
-		return errorResponse(
-			error instanceof Error ? error.message : "相册读取失败。",
-			503,
-		);
+	} catch {
+        // Do not leak KV or upstream exception details in a public response.
+		return errorResponse("公开相册暂时不可用。", 503);
 	}
 }
 
@@ -597,7 +626,17 @@ async function handleAdminApi(request: Request, env: Env): Promise<Response> {
 			url.pathname === "/api/admin/gallery/manifest" &&
 			request.method === "PUT"
 		) {
-			return json({ manifest: await saveManifest(env, await request.json()) });
+			const submitted = await request.json() as Partial<GalleryManifest>;
+			if (!submitted || typeof submitted.updatedAt !== "string") {
+				return errorResponse("相册清单缺少版本时间，请先刷新。", 400);
+			}
+			// Best-effort stale-tab protection. KV itself has no cross-region CAS:
+			// never promise this prevents simultaneous writes in different isolates.
+			const current = await loadManifest(env, true);
+			if (submitted.updatedAt !== current.updatedAt) {
+				return errorResponse("相册已在其他标签页或设备被更新，请先刷新并合并改动。", 409);
+			}
+			return json({ manifest: await saveManifest(env, submitted) });
 		}
 
 		if (
@@ -645,8 +684,9 @@ async function handleAdminApi(request: Request, env: Env): Promise<Response> {
 		) {
 			const body = (await request.json()) as { key?: string };
 			const key = cleanPath(body.key);
-			if (!isSafePath(key) || key.startsWith(`${MANIFEST_DIR}/`)) {
-				return errorResponse("文件路径无效。", 400);
+			if (!isSafePath(key) || !IMAGE_EXTENSIONS.test(key) ||
+				key.startsWith(`${MANIFEST_DIR}/`)) {
+				return errorResponse("只能删除明确的图片文件，不能删除目录或相册清单。", 400);
 			}
 			await deleteRemoteKey(env, key);
 			clearGalleryCache();
@@ -663,6 +703,8 @@ async function handleAdminApi(request: Request, env: Env): Promise<Response> {
 			if (
 				!isSafePath(key) ||
 				!isSafePath(newKey) ||
+				!IMAGE_EXTENSIONS.test(key) ||
+				!IMAGE_EXTENSIONS.test(newKey) ||
 				key.startsWith(`${MANIFEST_DIR}/`) ||
 				newKey.startsWith(`${MANIFEST_DIR}/`)
 			) {
@@ -706,17 +748,39 @@ async function handleAdminApi(request: Request, env: Env): Promise<Response> {
 			};
 			const sourceDir = cleanPath(body.sourceDir);
 			const newSourceDir = cleanPath(body.newSourceDir);
-			if (!isUserAlbumDir(sourceDir) || !isUserAlbumDir(newSourceDir)) {
-				return errorResponse("相册目录无效。", 400);
+			if (!isUserAlbumDir(sourceDir) || !isUserAlbumDir(newSourceDir) ||
+				sourceDir === newSourceDir) {
+				return errorResponse("相册目录无效或未更改。", 400);
+			}
+			const destination = await listRemoteFiles(env, newSourceDir, true);
+			if ((destination.files || []).some(file =>
+				cleanPath(file.name).startsWith(`${newSourceDir}/`))) {
+				return errorResponse("目标相册目录已有文件，已取消重命名以防覆盖。", 409);
 			}
 			const list = await listRemoteFiles(env, sourceDir, true);
 			const keys = (list.files || [])
 				.map((file) => cleanPath(file.name))
 				.filter((key) => key.startsWith(`${sourceDir}/`));
 			const moved: Record<string, string> = {};
-			for (const key of keys) {
-				const target = `${newSourceDir}/${key.slice(sourceDir.length + 1)}`;
-				moved[key] = await renameRemoteKey(env, key, target);
+			try {
+				for (const key of keys) {
+					const target = `${newSourceDir}/${key.slice(sourceDir.length + 1)}`;
+					moved[key] = await renameRemoteKey(env, key, target);
+				}
+			} catch (error) {
+				const failedRollbacks: string[] = [];
+				for (const [original, renamed] of Object.entries(moved).reverse()) {
+					try {
+						await renameRemoteKey(env, renamed, original);
+					} catch {
+						failedRollbacks.push(original);
+					}
+				}
+				clearGalleryCache();
+				if (failedRollbacks.length) {
+					return errorResponse("目录重命名失败，且部分图片回滚失败；请立即核对图床并避免覆盖原相册清单。", 502);
+				}
+				return errorResponse("目录重命名失败，已回滚已移动的图片。", 502);
 			}
 			clearGalleryCache();
 			return json({ moved });
@@ -734,14 +798,19 @@ async function handleAdminApi(request: Request, env: Env): Promise<Response> {
 export default {
 	async fetch(request: Request, env: Env): Promise<Response> {
 		const pathname = new URL(request.url).pathname;
+        // Public album GET may be embedded in cloud development previews.
+        // Admin/write endpoints keep their same-origin and auth restrictions.
+        if (pathname === "/api/gallery/public" && request.method === "OPTIONS") {
+          return withPublicGalleryCors(new Response(null,{status:204}));
+        }
+        if (pathname === "/api/gallery/public" && request.method === "GET") {
+          return withPublicGalleryCors(await handlePublicGallery(request,env));
+        }
 		if (pathname.startsWith("/api/") && !isAllowedOrigin(request, env)) {
 			return errorResponse("请求来源不受信任。", 403);
 		}
 		if (pathname.startsWith("/api/") && request.method === "OPTIONS") {
 			return withCors(new Response(null, { status: 204 }), request, env);
-		}
-		if (pathname === "/api/gallery/public" && request.method === "GET") {
-			return withCors(await handlePublicGallery(request, env), request, env);
 		}
 		if (pathname.startsWith("/api/admin/")) {
 			return withCors(await handleAdminApi(request, env), request, env);

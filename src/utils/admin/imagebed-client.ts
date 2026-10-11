@@ -11,17 +11,41 @@ type ImageBedListResponse = {
 	directories: string[];
 };
 
-const GALLERY_API_ORIGIN = "https://gallery-api.casto.top";
+const DEFAULT_GALLERY_API_ORIGIN = "https://gallery-api.casto.top";
+const GALLERY_PUBLIC_API_ORIGIN = (
+	import.meta.env.PUBLIC_GALLERY_API_ORIGIN?.trim() || DEFAULT_GALLERY_API_ORIGIN
+).replace(/\/+$/, "");
+const GALLERY_ADMIN_API_ORIGIN = (
+	import.meta.env.PUBLIC_GALLERY_ADMIN_API_ORIGIN?.trim() ||
+	DEFAULT_GALLERY_API_ORIGIN
+).replace(/\/+$/, "");
 
 function apiUrl(path: string): URL {
-	return new URL(path, GALLERY_API_ORIGIN);
+	return new URL(path, GALLERY_PUBLIC_API_ORIGIN);
+}
+
+/** The isolated blog preview must never write to the live imagebed while
+ * its independent new gallery API and data model are being developed. */
+export function isIsolatedPreviewGallery(): boolean {
+ return typeof window!=="undefined" && (window.location.hostname==="v1-preview.casto.top" || window.location.hostname==="firefly-blog-preview.guojunyang666666.workers.dev");
+}
+function preventPreviewImagebedWrite(): void {
+ if(isIsolatedPreviewGallery())throw new Error("实验站仅允许本机相册草稿，图床上传、重命名、删除和正式清单保存已隔离。");
+}
+
+function adminApiUrl(path: string): URL {
+ const session=getGitHubAdminSession();
+ if(session?.oauth && typeof window!=="undefined"){
+  return new URL(path,window.location.origin);
+ }
+ return new URL(path, GALLERY_ADMIN_API_ORIGIN);
 }
 
 function adminHeaders(contentType?: string): HeadersInit {
 	const session = getGitHubAdminSession();
 	if (!session) throw new Error("GitHub 登录已失效，请重新登录。");
 	return {
-		Authorization: `Bearer ${session.token}`,
+		...(session.oauth ? {} : {Authorization: `Bearer ${session.token}`}),
 		...(contentType ? { "Content-Type": contentType } : {}),
 	};
 }
@@ -40,7 +64,20 @@ async function readJson<T>(response: Response): Promise<T> {
 }
 
 export async function fetchGalleryAdminState(): Promise<GalleryAdminState> {
-	const response = await fetch(apiUrl("/api/admin/gallery/state"), {
+	// The existing imagebed rejects requests with the experimental site's
+	// Origin header. Read its PUBLIC album catalog through our same-origin,
+	// server-side-only adapter. No gallery administrator credentials required.
+	if (isIsolatedPreviewGallery()) {
+		const response = await fetch("/api/gallery/preview-state", {
+			credentials: "same-origin",
+			cache: "no-store",
+		});
+		const state = await readJson<GalleryAdminState>(response);
+		if (!state.readOnly || state.source !== "public-gallery-bridge")
+			throw new Error("相册只读接口返回异常，已停止处理以保护图床。");
+		return state;
+	}
+	const response = await fetch(adminApiUrl("/api/admin/gallery/state"), {
 		headers: adminHeaders(),
 		cache: "no-store",
 	});
@@ -61,7 +98,8 @@ export async function fetchPublicGallery(
 export async function saveGalleryManifest(
 	manifest: GalleryManifest,
 ): Promise<GalleryManifest> {
-	const response = await fetch(apiUrl("/api/admin/gallery/manifest"), {
+	preventPreviewImagebedWrite();
+	const response = await fetch(adminApiUrl("/api/admin/gallery/manifest"), {
 		method: "PUT",
 		headers: adminHeaders("application/json"),
 		body: JSON.stringify(manifest),
@@ -73,7 +111,7 @@ export async function saveGalleryManifest(
 export async function listImageBedFiles(
 	dir: string,
 ): Promise<ImageBedListResponse> {
-	const url = apiUrl("/api/admin/imagebed/list");
+	const url = adminApiUrl("/api/admin/imagebed/list");
 	url.searchParams.set("dir", dir);
 	url.searchParams.set("recursive", "true");
 	const response = await fetch(url, {
@@ -87,9 +125,10 @@ export async function uploadImageBedFile(
 	file: File,
 	folder: string,
 ): Promise<ManagedGalleryPhoto> {
+	preventPreviewImagebedWrite();
 	const formData = new FormData();
 	formData.append("file", file);
-	const url = apiUrl("/api/admin/imagebed/upload");
+	const url = adminApiUrl("/api/admin/imagebed/upload");
 	url.searchParams.set("folder", folder);
 	const response = await fetch(url, {
 		method: "POST",
@@ -100,7 +139,7 @@ export async function uploadImageBedFile(
 }
 
 export async function deleteImageBedFile(key: string): Promise<void> {
-	const response = await fetch(apiUrl("/api/admin/imagebed/delete"), {
+	const response = await fetch(adminApiUrl("/api/admin/imagebed/delete"), {
 		method: "POST",
 		headers: adminHeaders("application/json"),
 		body: JSON.stringify({ key }),
@@ -112,7 +151,9 @@ export async function renameImageBedFile(
 	key: string,
 	newKey: string,
 ): Promise<{ newKey: string }> {
-	const response = await fetch(apiUrl("/api/admin/imagebed/rename"), {
+	preventPreviewImagebedWrite();
+	preventPreviewImagebedWrite();
+	const response = await fetch(adminApiUrl("/api/admin/imagebed/rename"), {
 		method: "POST",
 		headers: adminHeaders("application/json"),
 		body: JSON.stringify({ key, newKey }),
@@ -121,7 +162,7 @@ export async function renameImageBedFile(
 }
 
 export async function deleteImageBedAlbum(sourceDir: string): Promise<void> {
-	const response = await fetch(apiUrl("/api/admin/gallery/delete-album"), {
+	const response = await fetch(adminApiUrl("/api/admin/gallery/delete-album"), {
 		method: "POST",
 		headers: adminHeaders("application/json"),
 		body: JSON.stringify({ sourceDir }),
@@ -133,7 +174,9 @@ export async function renameImageBedAlbum(
 	sourceDir: string,
 	newSourceDir: string,
 ): Promise<Record<string, string>> {
-	const response = await fetch(apiUrl("/api/admin/gallery/rename-album"), {
+	preventPreviewImagebedWrite();
+	preventPreviewImagebedWrite();
+	const response = await fetch(adminApiUrl("/api/admin/gallery/rename-album"), {
 		method: "POST",
 		headers: adminHeaders("application/json"),
 		body: JSON.stringify({ sourceDir, newSourceDir }),

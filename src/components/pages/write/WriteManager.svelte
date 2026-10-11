@@ -18,6 +18,7 @@ import { buildPostSource, parsePostSource } from "@/utils/write/frontmatter";
 import {
 	buildGitHubSourceUrl,
 	fetchRepoFile,
+	fetchRepoFilesBatch,
 	type GitHubRepoConfig,
 	listRepoTree,
 	saveRepoFile,
@@ -205,28 +206,32 @@ async function fetchPostList() {
 			)
 			.sort((left, right) => right.path.localeCompare(left.path));
 
-		const entries = await Promise.all(
-			postFiles.map(async (entry) => {
-				const repoFile = await fetchRepoFile(repoConfig, entry.path);
-				const parsed = parsePostSource(repoFile.content);
-				const relativePath = entry.path.replace(/^src\/content\/posts\//, "");
-				const stem = relativePath.replace(/\.(md|mdx)$/i, "");
-				const publishedAt = parsed.fields.published
-					? new Date(parsed.fields.published).getTime()
-					: Date.now();
-
-				return {
-					id: stem,
-					title: parsed.fields.title || stem,
-					description: parsed.fields.description || "",
-					published: Number.isFinite(publishedAt) ? publishedAt : Date.now(),
-					category: parsed.fields.category || "",
-					password: !!parsed.fields.password,
-					draft: !!parsed.fields.draft,
-					filePath: entry.path,
-				} satisfies PostListItem;
-			}),
+		const repoFiles = await fetchRepoFilesBatch(
+			repoConfig,
+			postFiles.map((entry) => entry.path),
 		);
+		const entries = repoFiles.map((repoFile) => {
+			const parsed = parsePostSource(repoFile.content);
+			const relativePath = repoFile.path.replace(
+				/^src\/content\/posts\//,
+				"",
+			);
+			const stem = relativePath.replace(/\.(md|mdx)$/i, "");
+			const publishedAt = parsed.fields.published
+				? new Date(parsed.fields.published).getTime()
+				: Date.now();
+
+			return {
+				id: stem,
+				title: parsed.fields.title || stem,
+				description: parsed.fields.description || "",
+				published: Number.isFinite(publishedAt) ? publishedAt : Date.now(),
+				category: parsed.fields.category || "",
+				password: !!parsed.fields.password,
+				draft: !!parsed.fields.draft,
+				filePath: repoFile.path,
+			} satisfies PostListItem;
+		});
 
 		posts = entries.sort((left, right) => right.published - left.published);
 		refreshFilteredPosts();

@@ -4,6 +4,7 @@ import I18nKey from "@/i18n/i18nKey";
 import { i18n } from "@/i18n/translation";
 import { getSortedPostsList } from "@/utils/content-utils";
 import { getPostUrlBySlug, url } from "@/utils/url-utils";
+import LivePostDiscover from "@/components/pages/post/LivePostDiscover.svelte";
 
 // 归档列表：全量按年分组，服务端渲染。筛选（?tag=/?category=/?uncategorized）
 // 与年份折叠由客户端脚本处理——数据本身在构建期已全部就绪。
@@ -56,6 +57,13 @@ const foldOnFilter = collapseAllButFirst;
   class="card-base px-8 py-6"
   data-fold={foldOnFilter ? "true" : "false"}
 >
+  <LivePostDiscover
+    client:load
+    staticIds={posts.map((post) => post.id)}
+    discoverLiveOnly={true}
+    variant="archive"
+  />
+
   {/* 筛选头部：默认隐藏，客户端在有筛选时填充并显示 */}
   <div id="archive-filter-header" class="mb-5 hidden">
     <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
@@ -109,6 +117,7 @@ const foldOnFilter = collapseAllButFirst;
               class="archive-post group btn-plain block! h-10 w-full rounded-lg hover:text-[initial]"
               data-tags={JSON.stringify(post.data.tags || [])}
               data-category={post.data.category || ""}
+              data-post-id={post.id}
             >
               <div class="flex flex-row justify-start items-center h-full">
                 {/* date */}
@@ -137,7 +146,7 @@ const foldOnFilter = collapseAllButFirst;
                       {post.data.category}
                     </span>
                   )}
-                  <span class="truncate">{post.data.title}</span>
+                  <span class="truncate" data-post-card-title>{post.data.title}</span>
                 </div>
 
                 {/* tag list */}
@@ -186,7 +195,23 @@ const foldOnFilter = collapseAllButFirst;
         this.updateBannerTitle(tags, categories, !!uncategorized);
       }
 
+      this._refreshForLivePosts = () => {
+        const liveParams = new URLSearchParams(window.location.search);
+        const liveTags = liveParams.has("tag") ? liveParams.getAll("tag") : [];
+        const liveCategories = liveParams.has("category") ? liveParams.getAll("category") : [];
+        const liveUncategorized = !!liveParams.get("uncategorized");
+        if (liveTags.length > 0 || liveCategories.length > 0 || liveUncategorized) {
+          this.applyFilter(liveTags, liveCategories, liveUncategorized);
+        }
+      };
+      window.addEventListener("livePostsUpdated", this._refreshForLivePosts);
       this.bindYearToggles();
+    }
+
+    disconnectedCallback() {
+      if (this._refreshForLivePosts) {
+        window.removeEventListener("livePostsUpdated", this._refreshForLivePosts);
+      }
     }
 
     // 按筛选条件隐藏不匹配的文章行，重算每年计数，隐藏空年份，重新折叠
@@ -247,8 +272,16 @@ const foldOnFilter = collapseAllButFirst;
         this.setBlockCollapsed(block, shouldCollapse);
       });
 
-      // 填充并显示筛选头部
-      this.renderFilterHeader(tags, categories, uncategorized, totalVisible);
+      // 实时新文章不在静态年份块内，但也应计入当前筛选结果数。
+      const liveCount = Number(
+        this.querySelector("[data-live-archive-count]")?.dataset.liveArchiveCount || 0,
+      );
+      this.renderFilterHeader(
+        tags,
+        categories,
+        uncategorized,
+        totalVisible + liveCount,
+      );
     }
 
     setBlockCollapsed(block, collapsed) {

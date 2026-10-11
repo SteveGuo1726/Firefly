@@ -2,22 +2,34 @@
 import { onMount, tick } from "svelte";
 import ClientPagination from "@/components/common/ClientPagination.svelte";
 import { formatTimezoneOffset } from "@/utils/date-utils";
+import { fetchMemos } from "@/utils/memos-adapter";
 import { registerDynamicGallery } from "./dynamic-gallery";
 import { registerDynamicInlineComments } from "./dynamic-inline-comments";
 
-type DynamicImage = {
-	alt: string;
-	src: string;
-	title?: string;
-};
+import {
+	mergeLiveDynamicEntries,
+	type DynamicData,
+} from "@/utils/dynamic-live";
 
-type DynamicData = {
-	id: string;
-	published: number;
-	html: string;
-	images: DynamicImage[];
-	searchText: string;
-};
+async function mergeLiveDynamics(baseEntries: DynamicData[]): Promise<DynamicData[]> {
+	try {
+		const response = await fetch("/api/live-content/index?kind=dynamic", {
+			cache: "no-store",
+		});
+		if (!response.ok) return baseEntries;
+		const payload = (await response.json()) as { entries?: Parameters<typeof mergeLiveDynamicEntries>[1] };
+		return mergeLiveDynamicEntries(baseEntries, payload.entries || []);
+	} catch (error) {
+		console.warn("Live dynamic overlay unavailable", error);
+		return baseEntries;
+	}
+}
+
+interface MemosConfig {
+	enable: boolean;
+	apiUrl: string;
+	parent?: string;
+}
 
 interface Props {
 	source: string;
@@ -28,6 +40,7 @@ interface Props {
 	loadingText: string;
 	allYearsText: string;
 	timezone: string;
+	memos?: MemosConfig;
 }
 
 const {
@@ -39,6 +52,7 @@ const {
 	loadingText,
 	allYearsText,
 	timezone,
+	memos,
 }: Props = $props();
 
 let entries = $state<DynamicData[]>([]);
@@ -147,19 +161,44 @@ function createItem(entry: DynamicData) {
 	if (time) {
 		const date = new Date(entry.published);
 		time.dateTime = date.toISOString();
-		time.textContent = new Intl.DateTimeFormat(
-			document.documentElement.lang || undefined,
-			{
-				timeZone: "UTC",
+		// 第三方 API 和 Memos 使用浏览器本地时区，不做额外时区转换
+		if (source.startsWith("http") || memos?.enable) {
+			time.textContent = date.toLocaleDateString("zh-CN", {
 				year: "numeric",
 				month: "2-digit",
 				day: "2-digit",
 				hour: "2-digit",
 				minute: "2-digit",
-				second: "2-digit",
-			},
-		).format(date);
-		time.textContent += ` ${formatTimezoneOffset(timezone, date)}`;
+			});
+		} else {
+			time.textContent = new Intl.DateTimeFormat(
+				document.documentElement.lang || undefined,
+				{
+					timeZone: "UTC",
+					year: "numeric",
+					month: "2-digit",
+					day: "2-digit",
+					hour: "2-digit",
+					minute: "2-digit",
+					second: "2-digit",
+				},
+			).format(date);
+			time.textContent += ` ${formatTimezoneOffset(timezone, date)}`;
+		}
+	}
+	const location = root.querySelector<HTMLElement>("[data-dynamic-location]");
+	if (location) {
+		const locationText = entry.location?.trim();
+		if (locationText) {
+			const text = location.querySelector<HTMLElement>(
+				"[data-dynamic-location-text]",
+			);
+			if (text) text.textContent = locationText;
+			location.title = locationText;
+			location.removeAttribute("hidden");
+		} else {
+			location.setAttribute("hidden", "");
+		}
 	}
 
 	const content = root.querySelector<HTMLElement>("[data-dynamic-content]");
@@ -176,6 +215,16 @@ function createItem(entry: DynamicData) {
 		}
 		const gallery = root.querySelector<HTMLElement>("dynamic-gallery");
 		if (gallery) gallery.dataset.sourceId = content.id;
+	}
+
+	// 置顶标识
+	const pinned = root.querySelector<HTMLElement>("[data-dynamic-pinned]");
+	if (pinned) {
+		if (entry.pinned) {
+			pinned.removeAttribute("hidden");
+		} else {
+			pinned.setAttribute("hidden", "");
+		}
 	}
 
 	const comments = root.querySelector<HTMLElement>("dynamic-inline-comments");
@@ -212,7 +261,7 @@ function goToPage(page: number) {
 	currentPage = page;
 	updateUrl(true);
 	document
-		.querySelector(".dynamic-page")
+		.querySelector(".page-shell")
 		?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
@@ -224,7 +273,7 @@ $effect(() => {
 onMount(() => {
 	registerDynamicGallery();
 	registerDynamicInlineComments();
-	const page = list.closest(".dynamic-page");
+	const page = list.closest(".page-shell");
 	template =
 		page?.querySelector<HTMLTemplateElement>("[data-dynamic-item-template]") ??
 		null;
@@ -237,11 +286,22 @@ onMount(() => {
 	searchInput?.addEventListener("input", filter);
 	yearSelect?.addEventListener("change", filter);
 
-	const load = async () => {
+	let refreshing = false;
+	let lastRefreshAt = 0;
+	const load = async (background = false) => {
+		if (refreshing) return;
+		refreshing = true;
 		try {
-			const response = await fetch(source);
-			if (!response.ok) throw new Error(`HTTP ${response.status}`);
-			entries = (await response.json()) as DynamicData[];
+			if (memos?.enable) {
+				entries = await fetchMemos(memos.apiUrl, { parent: memos.parent });
+			} else {
+				const response = await fetch(source, { cache: "no-store" });
+				if (!response.ok) throw new Error(`HTTP ${response.status}`);
+				entries = await mergeLiveDynamics((await response.json()) as DynamicData[]);
+			}
+			// 更新页面计数
+			const countEl = document.querySelector("[data-dynamic-page-count]");
+			if (countEl) countEl.textContent = String(entries.length);
 			populateYears();
 			currentPage = pageFromUrl();
 			applyFilters(false);
@@ -257,16 +317,40 @@ onMount(() => {
 					restoreAnchorAfterRender = true;
 				}
 			}
+			failed = false;
+			lastRefreshAt = Date.now();
 		} catch (error) {
 			console.error("Failed to load dynamics", error);
-			failed = true;
+			if (!background || entries.length === 0) failed = true;
 		} finally {
 			loading = false;
+			refreshing = false;
+		}
+	};
+	const refreshIfStale = () => {
+		if (document.visibilityState === "visible" && Date.now() - lastRefreshAt > 3000) {
+			void load(true);
 		}
 	};
 	void load();
+	const onContentChanged = (event: StorageEvent) => {
+		if (event.key !== "firefly:live-content-updated" || !event.newValue) return;
+		try {
+			if (JSON.parse(event.newValue)?.kind === "dynamic") void load(true);
+		} catch {
+			// Ignore malformed cross-tab notifications.
+		}
+	};
+	window.addEventListener("storage", onContentChanged);
+	window.addEventListener("focus", refreshIfStale);
+	window.addEventListener("pageshow", refreshIfStale);
+	document.addEventListener("visibilitychange", refreshIfStale);
 
 	return () => {
+		window.removeEventListener("storage", onContentChanged);
+		window.removeEventListener("focus", refreshIfStale);
+		window.removeEventListener("pageshow", refreshIfStale);
+		document.removeEventListener("visibilitychange", refreshIfStale);
 		searchInput?.removeEventListener("input", filter);
 		yearSelect?.removeEventListener("change", filter);
 	};
@@ -274,21 +358,21 @@ onMount(() => {
 </script>
 
 {#if loading}
-	<div class="dynamic-loading card-base" role="status">
-		<span class="dynamic-loading-spinner" aria-hidden="true"></span>
+	<div class="page-loading card-base" role="status">
+		<span class="page-loading-spinner" aria-hidden="true"></span>
 		<p>{loadingText}</p>
 	</div>
 {:else if failed || entries.length === 0}
-	<div class="dynamic-empty card-base">
+	<div class="page-empty card-base">
 		<p>{emptyText}</p>
 	</div>
 {:else if filtered.length === 0}
-	<div class="dynamic-no-results card-base">
+	<div class="page-no-results card-base">
 		<p>{noResultsText}</p>
 	</div>
 {/if}
 
-<div class="dynamic-feed" bind:this={list}></div>
+<div class="page-feed" bind:this={list}></div>
 
 {#if !loading && !failed}
 	<ClientPagination

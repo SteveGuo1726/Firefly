@@ -1,0 +1,197 @@
+<script lang="ts">
+import { onMount, tick } from "svelte";
+import { uploadImageBedFile } from "@/utils/admin/imagebed-client";
+import { markdownImage, insertMarkdownAt } from "@/utils/admin/editor-image";
+import { readDraft, writeDraft, clearDraft } from "@/utils/admin/draft-storage";
+import { siteConfig } from "@/config/siteConfig";
+import type { GitHubAdminSession } from "@/utils/admin/github-session";
+import { buildDynamicDocument, excerptMarkdown, parseDynamicDocument, type AdminDynamicFields } from "@/utils/admin/content-format";
+import { fetchGitContentSource } from "@/utils/admin/github-content-reader";
+import { deleteLiveContentItem, fetchLiveContentIndex, fetchLiveContentItem, saveLiveContentItem, fetchLiveContentHistory, restoreLiveContentRevision, undoGitBaselineDeletion, type LiveHistoryEntry } from "@/utils/admin/live-content-client";
+import { createPreviewController } from "@/utils/admin/preview-controller";
+
+export let session:GitHubAdminSession;
+type Base={id:string;path:string;published:string;pinned:boolean;location:string;excerpt:string};
+type Row=Base&{live:boolean;baseGitSha:string;revision:string};
+let rows:Row[]=[];let query="";let loading=false;let opening=false;let saving=false;let deleting=false;let currentId="";let currentPath="";let loadedPath="";let baseGitSha="";let liveRevision="";let originalSource="";let fields:AdminDynamicFields={published:"",pinned:false,location:""};let body="";let previewHtml="";let message="";let error="";let previewLoading=false;let previewFailure="";
+let savedEditorSnapshot="";
+let imageUploading=false;let editorTextarea:HTMLTextAreaElement|null=null;
+let liveIndexHealthy=false;
+let deletedRows:{id:string;path:string;revision:string;baseGitSha:string}[]=[];
+let deletedGitSha="";
+let historyEntries:LiveHistoryEntry[]=[];let historyRevision="";let historyLoading=false;
+function editorSnapshot(){return JSON.stringify({currentId,currentPath,loadedPath,baseGitSha,liveRevision,originalSource,fields,body});}
+function guardUnsaved(){return !savedEditorSnapshot || editorSnapshot()===savedEditorSnapshot || confirm("当前有未保存的编辑内容。继续将丢失这些修改，确定切换吗？");}
+
+function filtered(){const n=query.trim().toLowerCase();return !n?rows:rows.filter(r=>[r.excerpt,r.location,r.published,r.path].join(" ").toLowerCase().includes(n));}
+function idFromPath(path:string){return path.replace(/^src\/content\/dynamic\//,"").replace(/\.md$/i,"");}
+function normalizePath(value:string){const rel=value.trim().replace(/^src\/content\/dynamic\//,"").replace(/^\/+/, "");if(!rel||rel.includes("..")||rel.includes("\\")||!rel.endsWith(".md"))throw new Error("动态路径必须位于 src/content/dynamic/ 下并以 .md 结尾。");return"src/content/dynamic/"+rel;}
+const markdownImagePattern=/!\[([^\]]*)\]\((\S+?)(?:\s+["']([^"']*)["'])?\)/g;
+function baseMeta(){return{published:fields.published,pinned:fields.pinned,location:fields.location.trim(),excerpt:excerptMarkdown(body,160)};}
+async function liveMeta(){
+	const images:Array<{alt:string;src:string;title?:string}>=[];
+	const markdown=body.replace(markdownImagePattern,(_match,alt:string,src:string,title?:string)=>{
+		images.push({alt,src,...(title?{title}:{})});
+		return "";
+	});
+	const html=await previewController.renderNow({source:markdown});
+	return{...baseMeta(),html,images,searchText:[excerptMarkdown(body,1200),fields.location].filter(Boolean).join(" ").toLocaleLowerCase()};
+}
+async function refresh(){liveIndexHealthy=false;loading=true;error="";try{const baseRes=await fetch("/api/admin-content-index.json",{cache:"no-store"});if(!baseRes.ok)throw new Error("读取构建期内容索引失败。");const base=await baseRes.json();deletedRows=[];const map=new Map<string,Row>((base.dynamics as Base[]).map(x=>[x.id,{...x,live:false,baseGitSha:"",revision:""}]));try{const live=await fetchLiveContentIndex("dynamic",session);for(const e of live.entries){if(e.deleted){deletedRows.push({id:e.id,path:e.path||"",revision:e.revision||"",baseGitSha:e.baseGitSha||""});map.delete(e.id);continue;}const old=map.get(e.id);const m=e.meta as Partial<Base>;map.set(e.id,{id:e.id,path:e.path||old?.path||`src/content/dynamic/${e.id}.md`,published:String(m.published??old?.published??""),pinned:Boolean(m.pinned??old?.pinned??false),location:String(m.location??old?.location??""),excerpt:String(m.excerpt??old?.excerpt??""),live:true,baseGitSha:e.baseGitSha||"",revision:e.revision||""});}}catch(e){throw new Error("实时内容索引读取失败：已停止刷新，避免将过期 Git 列表误认为实时数据。", {cause:e});}liveIndexHealthy=true;rows=[...map.values()].sort((a,b)=>Date.parse(b.published||"0")-Date.parse(a.published||"0"));}catch(e){liveIndexHealthy=false;error=e instanceof Error?e.message:"动态列表读取失败。";}finally{loading=false;}}
+async function open(row:Row){if(saving||deleting||opening||!guardUnsaved())return;historyEntries=[];historyRevision="";deletedGitSha="";opening=true;error="";message="";previewController.cancel();previewHtml="";previewLoading=false;previewFailure="";try{let source="";let sha=row.baseGitSha;if(row.live){const live=await fetchLiveContentItem("dynamic",row.id,session);if(live?.source){source=live.source;sha=live.baseGitSha||sha;liveRevision=live.revision||row.revision||"";}}else{liveRevision="";}if(!source){const git=await fetchGitContentSource(session,row.path);source=git.source;sha=git.sha;}const parsed=parseDynamicDocument(source);currentId=row.id;currentPath=row.path;loadedPath=row.path;baseGitSha=sha;originalSource=source;fields=parsed.fields;body=parsed.body;savedEditorSnapshot=editorSnapshot();updatePreview();}catch(e){error=e instanceof Error?e.message:"读取动态失败。";}finally{opening=false;}}
+function nowText(){const p=Object.fromEntries(new Intl.DateTimeFormat("en-CA",{timeZone:"Asia/Shanghai",year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hourCycle:"h23"}).formatToParts(new Date()).filter(x=>x.type!=="literal").map(x=>[x.type,x.value]));return`${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}:${p.second}`;}
+function fileFromDate(v:string){const m=/^(\d{4})-(\d{2})-(\d{2}) (\d{2}):(\d{2}):(\d{2})$/.exec(v);return m?`${m[1]}-${m[2]}-${m[3]}-${m[4]}${m[5]}${m[6]}.md`:`dynamic-${Date.now()}.md`;}
+function createNew(){if(saving||deleting||opening||!guardUnsaved())return;const published=nowText();historyEntries=[];historyRevision="";deletedGitSha="";currentId="";currentPath="src/content/dynamic/"+fileFromDate(published);loadedPath="";baseGitSha="";liveRevision="";originalSource="";fields={published,pinned:false,location:""};body="";message="新动态尚未写入 Blob。";error="";savedEditorSnapshot=editorSnapshot();void updatePreview();}
+async function save(){if(imageUploading){error="请等待图片上传完成后再保存。";return;}if(!liveIndexHealthy){error="实时内容索引尚未成功同步，请刷新列表后重试保存。";return;}if(!/^\d{4}-\d{2}-\d{2} [0-2]\d:[0-5]\d:[0-5]\d$/.test(fields.published.trim())){error="发布时间格式必须为 YYYY-MM-DD HH:mm:ss。";return;}if(!body.trim()){error="动态正文不能为空。";return;}let path:string;try{path=normalizePath(currentPath);}catch(e){error=e instanceof Error?e.message:"路径无效。";return;}const nextId=idFromPath(path);if(rows.some((row)=>row.id===nextId&&row.id!==currentId)){error="目标动态路径已经存在，请换一个文件路径。";return;}const source=buildDynamicDocument(fields,body,originalSource);saving=true;error="";message="";try{const publicMeta=await liveMeta();const result=await saveLiveContentItem({session,kind:"dynamic",id:nextId,path,source,meta:publicMeta,baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision,previousId:currentId&&currentId!==nextId?currentId:undefined,previousPath:currentId&&currentId!==nextId?loadedPath:undefined,previousBaseGitSha:currentId&&currentId!==nextId?baseGitSha:undefined,previousBaseGitBranch:session.branch});currentId=nextId;currentPath=path;loadedPath=path;liveRevision=result.revision;originalSource=source;savedEditorSnapshot=editorSnapshot();try{clearDraft(window.sessionStorage,"dynamic",session.login);}catch{}message=`实时版本已保存：${result.revision.slice(0,8)}。未创建 Git commit。`;await refresh();}catch(e){error=e instanceof Error?e.message:"保存失败。";}finally{saving=false;}}
+async function remove(){if(!liveIndexHealthy){error="实时内容索引尚未成功同步，请刷新列表后重试删除。";return;}if(!currentId||!confirm(`确定隐藏 ${currentPath}？Git 归档前不会删除仓库文件。`))return;deleting=true;error="";message="";try{await deleteLiveContentItem({session,kind:"dynamic",id:currentId,path:loadedPath||currentPath,meta:baseMeta(),baseGitSha,baseGitBranch:session.branch,expectedRevision:liveRevision});currentId="";currentPath="";loadedPath="";originalSource="";liveRevision="";baseGitSha="";fields={published:"",pinned:false,location:""};body="";previewController.cancel();previewHtml="";previewLoading=false;previewFailure="";savedEditorSnapshot=editorSnapshot();try{clearDraft(window.sessionStorage,"dynamic",session.login);}catch{}await refresh();message="已写入实时删除标记；Git 仓库尚未改动。";}catch(e){error=e instanceof Error?e.message:"删除失败。";}finally{deleting=false;}}
+// Lazily load the expensive Markdown/MDX renderer; never display stale results.
+const previewController=createPreviewController(
+ async document=>{
+  const {renderFireflyPreview}=await import("@/utils/write/preview");
+  return renderFireflyPreview({
+   source:document.source,calloutTheme:siteConfig.post.rehypeCallouts.theme,
+   ...(document.isMdx?{isMdx:true}:{})
+  });
+ },
+ {
+  onReady:html=>{previewHtml=html;previewLoading=false;previewFailure="";},
+  onBusy:()=>{previewLoading=true;previewFailure="";previewHtml="";},
+  onFailure:message=>{previewHtml="";previewLoading=false;previewFailure=message;},
+ },
+);
+function updatePreview(){previewController.schedule({source:body},true);}
+function schedulePreview(){previewController.schedule({source:body});}
+async function openDeleted(item:{id:string;path:string;revision:string;baseGitSha:string}){
+ if(saving||deleting||opening||!guardUnsaved())return;
+ currentId=item.id;currentPath=item.path;loadedPath=item.path;
+ liveRevision=item.revision;baseGitSha=item.baseGitSha;deletedGitSha=item.baseGitSha;originalSource="";body="";
+ fields={published:"",pinned:false,location:""};
+ historyEntries=[];historyRevision="";previewController.cancel();previewHtml="";previewLoading=false;previewFailure="";
+ savedEditorSnapshot=editorSnapshot();
+ message="已选中删除记录。请从历史版本中选择需要恢复的内容。";error="";
+ await loadHistory();
+}
+async function undoGitDelete(){
+ if(!currentId || !deletedGitSha || !liveRevision || saving || deleting || !guardUnsaved())return;
+ if(!confirm("撤销 Git 原有内容的实时删除标记？服务端将先核实 Git 文件未变化。"))return;
+ deleting=true;error="";message="";
+ try{
+  await undoGitBaselineDeletion({session,kind:"dynamic",id:currentId,expectedRevision:liveRevision});
+  currentId="";currentPath="";loadedPath="";liveRevision="";deletedGitSha="";
+  historyEntries=[];historyRevision="";savedEditorSnapshot="";
+  await refresh();
+  message="已撤销删除标记，原始 Git 内容重新公开。";
+ }catch(e){error=e instanceof Error?e.message:"撤销删除失败。";}
+ finally{deleting=false;}
+}
+async function uploadEditorImage(event:Event){
+ const input=event.currentTarget as HTMLInputElement;
+ const file=input.files?.[0];
+ input.value="";
+ if(!file)return;
+ if(!file.type.startsWith("image/")||file.size>30*1024*1024){
+  error="仅支持不超过 30 MB 的图片。";return;
+ }
+ imageUploading=true;error="";message="";
+ try{
+  const beforeUpload=body;
+  const position=editorTextarea?.selectionStart??body.length;
+  const ending=editorTextarea?.selectionEnd??position;
+  const image=await uploadImageBedFile(file,"blog");
+  const editedDuringUpload=body!==beforeUpload;
+  const result=insertMarkdownAt(body,editedDuringUpload?body.length:position,editedDuringUpload?body.length:ending,markdownImage(file.name,image.url));
+  body=result.value;
+  await tick();
+  editorTextarea?.focus();
+  editorTextarea?.setSelectionRange(result.caret,result.caret);
+  await updatePreview();
+  message="图片上传完成，已插入编辑器。";
+ }catch(e){error=e instanceof Error?e.message:"图片上传失败，原有正文未改动。";}
+ finally{imageUploading=false;}
+}
+async function loadHistory(){
+ if(!currentId || historyLoading)return;
+ historyLoading=true;error="";
+ try{historyEntries=await fetchLiveContentHistory("dynamic",currentId,session);historyRevision=historyEntries[0]?.revision||"";}
+ catch(e){error=e instanceof Error?e.message:"读取历史版本失败。";}
+ finally{historyLoading=false;}
+}
+async function restoreHistory(){
+ if(!currentId||!historyRevision||saving||deleting||!guardUnsaved())return;
+ if(!confirm("确定恢复这个历史版本？当前已发布内容会产生一个新的 revision，仍可通过历史记录找回。"))return;
+ saving=true;error="";message="";
+ try{
+  await restoreLiveContentRevision({session,kind:"dynamic",id:currentId,revision:historyRevision,expectedRevision:liveRevision});
+  const restoredId=currentId;
+  currentId="";currentPath="";savedEditorSnapshot="";
+  historyEntries=[];historyRevision="";
+  await refresh();
+  const row=rows.find(item=>item.id===restoredId);
+  saving=false;
+  if(row)await open(row);
+  message="已恢复历史版本并生成新的实时 revision。";
+ }catch(e){error=e instanceof Error?e.message:"恢复历史失败。";}
+ finally{saving=false;}
+}
+
+onMount(()=>{
+ void refresh();
+ const store=window.sessionStorage;
+ const local=readDraft(store,"dynamic",session.login);
+ if(local && confirm("发现上次未保存的动态草稿，是否恢复？")){
+  try{
+   const draft=JSON.parse(local.snapshot);
+   if(typeof draft.currentPath==="string" && typeof draft.body==="string" && draft.fields && typeof draft.fields==="object"){
+    currentPath=draft.currentPath;fields=draft.fields;body=draft.body;
+    
+    currentId=typeof draft.currentId==="string"?draft.currentId:"";
+    loadedPath=typeof draft.loadedPath==="string"?draft.loadedPath:"";
+    baseGitSha=typeof draft.baseGitSha==="string"?draft.baseGitSha:"";
+    liveRevision=typeof draft.liveRevision==="string"?draft.liveRevision:"";
+    originalSource=typeof draft.originalSource==="string"?draft.originalSource:"";
+    savedEditorSnapshot="";void updatePreview();
+   }
+  }catch{/* Ignore corrupt private draft data */ }
+ }
+ const persist=()=>{
+  try{
+   const snapshot=editorSnapshot();
+   if(currentPath && snapshot!==savedEditorSnapshot)writeDraft(store,"dynamic",session.login,snapshot);
+   else if(snapshot===savedEditorSnapshot)clearDraft(store,"dynamic",session.login);
+  }catch{/* Unavailable or full session storage must not block editing */ }
+ };
+ const interval=window.setInterval(persist,2500);
+ window.addEventListener("pagehide",persist);
+ return()=>{
+  persist();
+  window.clearInterval(interval);
+  window.removeEventListener("pagehide",persist);
+  previewController.clear();
+ };
+});
+</script>
+
+<section class="manager card-base"><header><div><h2>动态管理</h2><p>实时写入 Blob；公开动态页不再挂载管理组件。</p></div><div class="actions"><button onclick={()=>refresh()} disabled={loading}>刷新</button><button class="primary" onclick={createNew}>新建</button></div></header><div class="layout"><aside><input class="search" type="search" bind:value={query} placeholder="搜索动态"/><div class="list">{#if loading}<p>读取中...</p>{:else}{#each filtered() as row}<button class:active={row.id===currentId} onclick={()=>open(row)}><strong>{row.excerpt||row.id}</strong><span>{row.published} · {row.live?"实时":"Git"}</span><small>{row.location}</small></button>{/each}{/if}</div>{#if deletedRows.length}<div class="deleted-entries"><strong>已删除 ({deletedRows.length})</strong>{#each deletedRows as item}<button type="button" onclick={()=>openDeleted(item)} title="查看历史并恢复">{item.id} · 恢复</button>{/each}</div>{/if}</aside><div class="editor"><div class="grid"><label class="wide"><span>文件路径</span><input bind:value={currentPath}/></label><label><span>发布时间</span><input bind:value={fields.published}/></label><label><span>位置</span><input bind:value={fields.location}/></label></div><label class="check"><input type="checkbox" bind:checked={fields.pinned}/>置顶</label><label class="image-upload"><span>插入图片</span><input type="file" accept="image/*" onchange={uploadEditorImage} disabled={imageUploading}/>{#if imageUploading}<small>上传中，请勿关闭页面...</small>{/if}</label>
+<label class="body"><span>正文 Markdown</span><textarea bind:this={editorTextarea} bind:value={body} oninput={schedulePreview}></textarea></label><div class="history-controls">
+ <button type="button" onclick={loadHistory} disabled={!currentId||historyLoading}>{historyLoading?"读取历史中...":"查看历史版本"}</button>
+ {#if deletedGitSha && currentId && deletedRows.some(row=>row.id===currentId)}<button type="button" onclick={undoGitDelete} disabled={saving||deleting}>撤销 Git 内容删除</button>{/if}
+ {#if historyEntries.length}
+  <select bind:value={historyRevision} aria-label="选择历史版本">
+   {#each historyEntries as revision}
+    <option value={revision.revision}>{revision.updatedAt} · {String(revision.meta?.title||revision.meta?.excerpt||revision.revision.slice(0,8))}</option>
+   {/each}
+  </select>
+  <button type="button" onclick={restoreHistory} disabled={!historyRevision||saving||deleting}>恢复所选版本</button>
+ {/if}
+</div>
+<div class="status"><div>{#if opening}<span>读取源码...</span>{/if}{#if message}<span class="ok">{message}</span>{/if}{#if error}<span class="bad">{error}</span>{/if}</div><div class="actions"><button class="danger" onclick={remove} disabled={!currentId||saving||deleting}>删除实时版本</button><button class="primary" onclick={save} disabled={saving||deleting||opening}>{saving?"保存中...":"实时保存"}</button></div></div></div><div class="preview"><strong>动态预览</strong>
+ {#if previewLoading}<p role="status">正在生成预览，可以继续操作...</p>{/if}
+ {#if previewFailure}<p role="alert">{previewFailure}</p>{/if}
+ <div class="prose prose-base max-w-none custom-md dark:prose-invert">{@html previewHtml}</div>
+</div></div></section>
+<style>
+.image-upload{display:flex;align-items:center;flex-wrap:wrap;gap:.6rem;padding:.45rem 0;font-size:.78rem}.image-upload input{font-size:.76rem;max-width:100%}
+.deleted-entries{display:grid;gap:.4rem;padding:.8rem 0;border-top:1px solid var(--line-divider)}.deleted-entries strong{font-size:.8rem;color:#b55050}.deleted-entries button{text-align:left;overflow-wrap:anywhere}
+.history-controls{display:flex;flex-wrap:wrap;gap:.45rem;padding:.7rem 0;align-items:center}.history-controls select{max-width:100%;min-width:9rem;border:1px solid var(--line-divider);border-radius:.5rem;background:var(--card-bg);color:inherit;padding:.5rem}
+.manager{overflow:hidden}header{display:flex;justify-content:space-between;align-items:center;gap:1rem;padding:1rem;border-bottom:1px solid var(--line-divider)}h2{margin:0;font-size:1.05rem}header p{margin:.25rem 0 0;font-size:.76rem;opacity:.58}.actions{display:flex;gap:.45rem}button{border:1px solid var(--line-divider);border-radius:.55rem;background:transparent;color:inherit;padding:.55rem .7rem;font:inherit;font-size:.76rem;font-weight:700;cursor:pointer}button.primary{background:var(--primary);border-color:var(--primary);color:white}button.danger{color:#c43d3d;border-color:rgb(196 61 61/.3)}button:disabled{opacity:.5;cursor:not-allowed}.layout{display:grid;grid-template-columns:17rem minmax(28rem,1fr) minmax(22rem,.8fr);min-height:62vh}aside{padding:.75rem;border-right:1px solid var(--line-divider)}.search,.grid input,.body textarea{width:100%;border:1px solid var(--line-divider);border-radius:.55rem;background:transparent;color:inherit;font:inherit}.search{padding:.62rem}.list{display:grid;gap:.3rem;margin-top:.6rem;max-height:58vh;overflow:auto}.list button{display:grid;text-align:left;gap:.15rem}.list button.active{border-color:var(--primary);background:color-mix(in oklab,var(--primary) 9%,transparent)}.list span,.list small{font-size:.67rem;opacity:.55}.editor{padding:.9rem;border-right:1px solid var(--line-divider)}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem}.grid label,.body{display:grid;gap:.3rem;font-size:.72rem;font-weight:700}.grid .wide{grid-column:span 2}.grid input{padding:.6rem}.check{display:flex;gap:.35rem;margin:.8rem 0;font-size:.76rem}.body textarea{min-height:25rem;padding:.7rem;resize:vertical;font-family:ui-monospace,SFMono-Regular,Menlo,monospace;line-height:1.6}.status{display:flex;justify-content:space-between;gap:.7rem;align-items:center;margin-top:.7rem;font-size:.7rem}.status>div:first-child{display:grid}.ok{color:#059669}.bad{color:#c43d3d}.preview{padding:1rem;overflow:auto;max-height:62vh}.preview>strong{display:block;margin-bottom:.8rem}@media(max-width:1250px){.layout{grid-template-columns:16rem minmax(0,1fr)}.preview{grid-column:1/-1;border-top:1px solid var(--line-divider);max-height:none}}@media(max-width:800px){header{align-items:flex-start;flex-direction:column}.layout{grid-template-columns:1fr}aside,.editor{border-right:0;border-bottom:1px solid var(--line-divider)}.list{max-height:16rem}.grid{grid-template-columns:1fr}.grid .wide{grid-column:auto}.status{align-items:flex-start;flex-direction:column}}
+</style>
