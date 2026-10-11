@@ -16,7 +16,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import json,urllib.request,subprocess,pathlib,re,datetime
-          base="https://kira-pixiv-feed-dev.guojunyang666666.workers.dev"
+          base="https://kira-pixiv-dev.casto.top"
           report={"date":datetime.datetime.now(datetime.timezone.utc).isoformat()}
           for key,path in [("health","/health"),("feed","/api/v1/pixiv?channel=discover&batch=0"),("html","/")]:
             try:
@@ -33,6 +33,7 @@ jobs:
                   check=subprocess.run(['node','--check','/tmp/kira-pixiv-client.js'],capture_output=True,text=True)
                   report[key]["js_valid"]=check.returncode==0
                   report[key]["js_error"]=check.stderr[-900:] if check.returncode else ''
+            except urllib.error.HTTPError as e:report[key]={"error":str(e)[:160],"body":e.read(450).decode("utf-8","replace")[:430]}
             except Exception as e:report[key]={"error":str(e)[:350]}
           pathlib.Path("docs").mkdir(exist_ok=True)
           pathlib.Path("docs/pixiv-worker-check.json").write_text(json.dumps(report,ensure_ascii=False,indent=2))
