@@ -5,6 +5,9 @@ on:
     paths:
       - '.github/workflows/kira-v6-qa.yml'
       - 'scripts/kira-v6-browser-qa.mjs'
+      - 'public/assets/app.js'
+      - 'public/assets/style.css'
+      - 'public/index.html'
   workflow_dispatch:
 permissions:
   contents: write
