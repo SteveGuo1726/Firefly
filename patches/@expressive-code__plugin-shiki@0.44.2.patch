@@ -1,0 +1,13 @@
+diff --git a/dist/index.js b/dist/index.js
+index ced8e113b0d24757d7cce0b7ddc626e470132934..360f3fcd9f2f7c6313cc4e327d5feb64178ab2b5 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -131,7 +131,7 @@ async function getCachedHighlighter(config = {}) {
+       const highlighter = await createHighlighterCore({
+         themes: [],
+         langs: [],
+-        engine: createRegexEngine(config.engine)
++        engine: await createRegexEngine(config.engine)
+       });
+       await ensureLanguagesAreLoaded({ highlighter, ...config });
+       return highlighter;
