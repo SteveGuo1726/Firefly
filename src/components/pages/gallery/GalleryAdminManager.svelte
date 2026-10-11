@@ -441,12 +441,12 @@ async function downloadManifestBackup() {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
   anchor.href = url;
-  anchor.download = "firefly-gallery-manifest-" + new Date().toISOString().slice(0,10) + ".json";
+  anchor.download = (previewReadOnly ? "firefly-gallery-PUBLIC-ONLY-DRAFT-" : "firefly-gallery-manifest-") + new Date().toISOString().slice(0,10) + ".json";
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
   setTimeout(()=>URL.revokeObjectURL(url),30000);
-  setMessage("清单备份已下载（仅元数据，无图片）。SHA-256：" + result.sha256 +
+  setMessage((previewReadOnly ? "已导出公开相册的本机草稿（不含未公开图片，不得覆盖正式完整清单）。" : "清单备份已下载（仅元数据，无图片）。") + "SHA-256：" + result.sha256 +
    (dirty ? "；包含尚未保存的本地修改。" : ""));
  } catch (error) {
   setMessage(error instanceof Error ? error.message : "清单备份失败。",true);
@@ -488,7 +488,7 @@ onMount(() => {
 		<div class="toolbar-actions">
             {#if previewReadOnly}<button type="button" onclick={clearLocalGalleryDraft} disabled={loading||saving||!localGalleryDraftRestored}>清除本机草稿</button>{/if}
             <button type="button" onclick={() => (showIntegrity = !showIntegrity)} disabled={loading}>{showIntegrity ? "收起校验" : "检查清单"}{integrity.errorCount ? " ⚠" : ""}</button>
-            <button type="button" onclick={downloadManifestBackup} disabled={loading || uploading}>下载清单备份</button>
+            <button type="button" onclick={downloadManifestBackup} disabled={loading || uploading}>{previewReadOnly?"导出未发布草稿":"下载清单备份"}</button>
 			<button type="button" onclick={() => loadState()} disabled={loading || saving || uploading}>刷新</button>
 			<button type="button" onclick={() => createAlbum()} disabled={loading || saving}>新建相册</button>
 			<button class="primary" type="button" onclick={saveAll} disabled={!dirty || loading || saving || uploading}>
@@ -497,7 +497,7 @@ onMount(() => {
 		</div>
 	</div>
 
-	{#if previewReadOnly}<div class="gallery-preview-notice card-base" role="note"><strong>相册实验编辑 · 安全隔离</strong><span>读取正式图床的公开相册与图片地址；可本机调整名称、封面、顺序等并导出清单。不会修改图床照片、上传、删除，也不会自动同步新画廊。{localGalleryDraftRestored?"已恢复此浏览器保存的相册编辑草稿。":"尚未保存本机草稿。"}</span></div>{/if}
+	{#if previewReadOnly}<div class="gallery-preview-notice card-base" role="note"><strong>相册实验编辑 · 安全隔离</strong><span>读取正式图床的公开相册与图片地址；可本机调整名称、封面、顺序等并导出清单。不会修改图床照片、上传、删除，也不会自动同步新画廊。公开数据不一定包含隐藏或未发布的相册，导出草稿不能直接覆盖图床完整清单。{localGalleryDraftRestored?"已恢复此浏览器保存的相册编辑草稿。":"尚未保存本机草稿。"}</span></div>{/if}
 	{#if errorMessage}<div class="message error">{errorMessage}</div>{/if}
 	{#if successMessage}<div class="message success">{successMessage}</div>{/if}
 
