@@ -6,10 +6,12 @@
 import {execFile} from "node:child_process";
 import {promisify} from "node:util";
 import {createHash} from "node:crypto";
+import {tmpdir} from "node:os";
+import {join} from "node:path";
 import {readFile,writeFile,mkdir,rm,stat} from "node:fs/promises";
 import sharp from "sharp";
 const execFileAsync=promisify(execFile);
-const PUBLIC_API="https://firefly-gallery-api-preview.guojunyang666666.workers.dev/api/gallery/public";
+const PUBLIC_API="https://gallery-api.casto.top/api/gallery/public";
 const ROOT="public/gallery-thumbs";
 const MANIFEST="src/data/gallery-thumbnails.json";
 const MAX_PHOTOS=150;
@@ -32,12 +34,19 @@ async function main(){
  if(process.env.FIREFLY_GALLERY_PUBLIC_LIST) {
   rawList=await readFile(process.env.FIREFLY_GALLERY_PUBLIC_LIST,"utf8");
  }else{
-  const {stdout}=await execFileAsync("curl",[
-   "--fail","--silent","--show-error","--location","--max-time","19",
-   "--header","Origin: https://firefly-blog-preview.guojunyang666666.workers.dev",
-   PUBLIC_API,
-  ],{timeout:24000,maxBuffer:3_000_000});
-  rawList=stdout;
+  try{
+   const {stdout}=await execFileAsync("curl",[
+    "--fail","--silent","--show-error","--location","--max-time","19",
+    "--header","Origin: https://blog.casto.top",
+    PUBLIC_API,
+   ],{timeout:24000,maxBuffer:3_000_000});
+   rawList=stdout;
+  }catch(err){
+   // Gallery is an independent service. Network outages must never block a
+   // normal blog deployment or preserve stale links to missing thumbnails.
+   console.warn("Public gallery API unavailable; use original URLs for this build:",String(err.message||err).slice(0,120));
+   rawList='{"albums":[]}';
+  }
  }
  const data=JSON.parse(rawList);
  if(!Array.isArray(data.albums))throw Error("Public albums JSON missing");
@@ -53,7 +62,7 @@ async function main(){
  let failed=0,success=0,bytes=0;
  const processOne=async(url)=>{
   const filename=thumbnailFilename(url),output=ROOT+"/"+filename;
-  const raw=".git/image-thumb-source-"+filename;
+  const raw=join(tmpdir(),"firefly-thumb-source-"+filename+"-"+process.pid);
   try{
    const prior=await stat(output).catch(()=>null);
    if(prior?.size>0 && previous.images[url]==="/gallery-thumbs/"+filename) {
@@ -94,6 +103,6 @@ async function main(){
  const manifest={schema:1,generatedAt:new Date().toISOString(),images:Object.fromEntries(Object.entries(images).sort())};
  await writeFile(MANIFEST,JSON.stringify(manifest,null,2)+"\n");
  console.log(JSON.stringify({urls:urls.length,success,failed,totalThumbBytes:bytes,manifest:MANIFEST}));
- if(!success)process.exitCode=1;
+ if(urls.length&&!success)console.warn("No public thumbnails fetched; clients will use original public image URLs.");
 }
 if(process.argv[1]?.endsWith("generate-public-gallery-thumbnails.mjs"))await main();
