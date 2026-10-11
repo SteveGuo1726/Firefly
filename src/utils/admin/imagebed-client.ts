@@ -24,6 +24,15 @@ function apiUrl(path: string): URL {
 	return new URL(path, GALLERY_PUBLIC_API_ORIGIN);
 }
 
+/** The isolated blog preview must never write to the live imagebed while
+ * its independent new gallery API and data model are being developed. */
+export function isIsolatedPreviewGallery(): boolean {
+ return typeof window!=="undefined" && (window.location.hostname==="v1-preview.casto.top" || window.location.hostname==="firefly-blog-preview.guojunyang666666.workers.dev");
+}
+function preventPreviewImagebedWrite(): void {
+ if(isIsolatedPreviewGallery())throw new Error("实验站仅允许本机相册草稿，图床上传、重命名、删除和正式清单保存已隔离。");
+}
+
 function adminApiUrl(path: string): URL {
  const session=getGitHubAdminSession();
  if(session?.oauth && typeof window!=="undefined"){
@@ -76,6 +85,7 @@ export async function fetchPublicGallery(
 export async function saveGalleryManifest(
 	manifest: GalleryManifest,
 ): Promise<GalleryManifest> {
+	preventPreviewImagebedWrite();
 	const response = await fetch(adminApiUrl("/api/admin/gallery/manifest"), {
 		method: "PUT",
 		headers: adminHeaders("application/json"),
@@ -102,6 +112,7 @@ export async function uploadImageBedFile(
 	file: File,
 	folder: string,
 ): Promise<ManagedGalleryPhoto> {
+	preventPreviewImagebedWrite();
 	const formData = new FormData();
 	formData.append("file", file);
 	const url = adminApiUrl("/api/admin/imagebed/upload");
@@ -127,6 +138,8 @@ export async function renameImageBedFile(
 	key: string,
 	newKey: string,
 ): Promise<{ newKey: string }> {
+	preventPreviewImagebedWrite();
+	preventPreviewImagebedWrite();
 	const response = await fetch(adminApiUrl("/api/admin/imagebed/rename"), {
 		method: "POST",
 		headers: adminHeaders("application/json"),
@@ -148,6 +161,8 @@ export async function renameImageBedAlbum(
 	sourceDir: string,
 	newSourceDir: string,
 ): Promise<Record<string, string>> {
+	preventPreviewImagebedWrite();
+	preventPreviewImagebedWrite();
 	const response = await fetch(adminApiUrl("/api/admin/gallery/rename-album"), {
 		method: "POST",
 		headers: adminHeaders("application/json"),
