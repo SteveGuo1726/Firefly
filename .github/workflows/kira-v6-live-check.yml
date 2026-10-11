@@ -1,4 +1,4 @@
-name: KIRA V6 Cloudflare live verification
+name: KIRA V7.2 Cloudflare live verification
 on:
   push:
     branches: [kira-development]
@@ -31,7 +31,13 @@ jobs:
                 if path=="/assets/pixiv-feed.json":
                   j=json.loads(body);result["works_in_snapshot"]=sum(len(a) for a in j["channels"].values());result["channels"]={k:len(v) for k,v in j["channels"].items()}
                   result["explicit_tagged"]=sum(1 for a in j["channels"].values() for w in a if any(str(tag).strip().lower() in ["r-18","r18","r18g","nsfw","explicit"] for tag in w.get("tags",[])))
-                if path=="/assets/app.js":result["v6_loader"]="hydrateRealPixiv" in body.decode()
+                if path=="/assets/app.js":
+                  code=body.decode()
+                  result["real_pixiv_loader"]="hydrateRealPixiv" in code
+                  result["progressive_loading"]="loadWorkPreview" in code and "imageWithFailover" in code
+                  result["independent_axes"]="zoomX" in code and "zoomY" in code
+                if path=="/":result["no_top_strip"]='class="reader-top"' not in body.decode()
+                if path=="/health":result["expected_version"]="7.2.0"
                 if path=="/health":result["server"]=json.loads(body)
             except urllib.error.HTTPError as e: result={"error":str(e),"body":e.read(100).decode(errors="replace")}
             except Exception as e:result={"error":str(e)}
@@ -48,6 +54,6 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
             git add docs/kira-v6-live-check.json
-            git commit -m "test(kira): save V6 Cloudflare live route report" || exit 0
+            git commit -m "test(kira): save V7.2 Cloudflare live route report" || exit 0
             git push origin HEAD:kira-development
           fi
