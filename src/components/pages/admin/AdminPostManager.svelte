@@ -570,4 +570,9 @@ onMount(()=>{
 }
 @media (max-width:360px){.post-metadata>.grid{grid-template-columns:minmax(0,1fr)}.post-metadata>.grid>label.wide{grid-column:span 1}.post-metadata>summary small{font-size:.63rem}}
 
+
+/* Keep an always reachable exit from synced preview on narrow screens. */
+.layout.docked>.editor>.editor-intro{display:flex;flex-direction:row;justify-content:flex-end;flex:0 0 auto;margin:0;min-height:2.4rem}
+.layout.docked>.editor>.editor-intro .editor-title,.layout.docked>.editor>.editor-intro .draft-quick-toggle{display:none}
+.layout.docked>.editor>.editor-intro .quick-preview-button{display:inline-flex;align-items:center;justify-content:center;min-height:2.4rem}
 </style>
