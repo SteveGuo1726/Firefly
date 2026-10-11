@@ -34,7 +34,10 @@
         "artist_url": "https://www.pixiv.net/users/7609394",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "蓝",
+        "dominant_hex": "#5dc9f5",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:83485753:0",
@@ -70,7 +73,10 @@
         "artist_url": "https://www.pixiv.net/users/1789666",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "暖",
+        "dominant_hex": "#b99375",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:105131628:0",
@@ -106,7 +112,10 @@
         "artist_url": "https://www.pixiv.net/users/81873231",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#c5847e",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:112731153:0",
@@ -142,7 +151,10 @@
         "artist_url": "https://www.pixiv.net/users/12439891",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "蓝",
+        "dominant_hex": "#6ca2ab",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:144904228:0",
@@ -178,7 +190,10 @@
         "artist_url": "https://www.pixiv.net/users/37257600",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "蓝",
+        "dominant_hex": "#7e7dbd",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:120894446:0",
@@ -214,7 +229,10 @@
         "artist_url": "https://www.pixiv.net/users/70374572",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "粉",
+        "dominant_hex": "#b27792",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:143614328:0",
@@ -239,7 +257,10 @@
         "artist_url": "https://www.pixiv.net/users/923597",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "白",
+        "dominant_hex": "#f3edf0",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:133109110:0",
@@ -275,7 +296,10 @@
         "artist_url": "https://www.pixiv.net/users/95767859",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "白",
+        "dominant_hex": "#f4efed",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:98228689:0",
@@ -310,7 +334,10 @@
         "artist_url": "https://www.pixiv.net/users/14161677",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "金",
+        "dominant_hex": "#2a2716",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:121722372:0",
@@ -346,7 +373,10 @@
         "artist_url": "https://www.pixiv.net/users/45378144",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "白",
+        "dominant_hex": "#f7f3f3",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:88631364:0",
@@ -382,7 +412,10 @@
         "artist_url": "https://www.pixiv.net/users/14970603",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#c5948b",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:91891843:0",
@@ -418,7 +451,10 @@
         "artist_url": "https://www.pixiv.net/users/23034",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#e0b0a7",
+        "color_method": "thumbnail_hsv_v1"
       }
     ],
     "miku": [
@@ -456,7 +492,10 @@
         "artist_url": "https://www.pixiv.net/users/2379047",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "蓝",
+        "dominant_hex": "#789ca5",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:140700046:0",
@@ -492,7 +531,10 @@
         "artist_url": "https://www.pixiv.net/users/87118889",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "蓝",
+        "dominant_hex": "#83aaaf",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:105808984:0",
@@ -523,7 +565,10 @@
         "artist_url": "https://www.pixiv.net/users/17332140",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "蓝",
+        "dominant_hex": "#81c3d3",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:99568279:0",
@@ -559,7 +604,10 @@
         "artist_url": "https://www.pixiv.net/users/17332140",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#d7888b",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:101017543:0",
@@ -594,7 +642,10 @@
         "artist_url": "https://www.pixiv.net/users/10829062",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "蓝",
+        "dominant_hex": "#96bfe0",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:137283409:0",
@@ -629,7 +680,10 @@
         "artist_url": "https://www.pixiv.net/users/14723742",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#cc9e9a",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:86258656:0",
@@ -665,7 +719,10 @@
         "artist_url": "https://www.pixiv.net/users/5566164",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "蓝",
+        "dominant_hex": "#5c718a",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:122252204:0",
@@ -696,7 +753,10 @@
         "artist_url": "https://www.pixiv.net/users/7005814",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "暖",
+        "dominant_hex": "#b99b82",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:106079726:0",
@@ -732,7 +792,10 @@
         "artist_url": "https://www.pixiv.net/users/5851220",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "暖",
+        "dominant_hex": "#c8ac98",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:122881871:0",
@@ -768,7 +831,10 @@
         "artist_url": "https://www.pixiv.net/users/593960",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "暖",
+        "dominant_hex": "#be8956",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:114007936:0",
@@ -804,7 +870,10 @@
         "artist_url": "https://www.pixiv.net/users/10891",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "暖",
+        "dominant_hex": "#e4a648",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:128020697:0",
@@ -839,7 +908,10 @@
         "artist_url": "https://www.pixiv.net/users/5271609",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "蓝",
+        "dominant_hex": "#7790a6",
+        "color_method": "thumbnail_hsv_v1"
       }
     ],
     "genshin": [
@@ -875,7 +947,10 @@
         "artist_url": "https://www.pixiv.net/users/70050825",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "蓝",
+        "dominant_hex": "#446799",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:87999084:0",
@@ -911,7 +986,10 @@
         "artist_url": "https://www.pixiv.net/users/2374176",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "蓝",
+        "dominant_hex": "#6372a5",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:118612781:1",
@@ -981,7 +1059,10 @@
         "artist_url": "https://www.pixiv.net/users/695970",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#b27274",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:135926624:0",
@@ -1010,7 +1091,10 @@
         "artist_url": "https://www.pixiv.net/users/195891",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "蓝",
+        "dominant_hex": "#6889c4",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:110873802:0",
@@ -1046,7 +1130,10 @@
         "artist_url": "https://www.pixiv.net/users/81013450",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#c77b78",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:96851570:0",
@@ -1082,7 +1169,10 @@
         "artist_url": "https://www.pixiv.net/users/14181210",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#bd7e7c",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:99888227:0",
@@ -1117,7 +1207,10 @@
         "artist_url": "https://www.pixiv.net/users/30481106",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#c39792",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:116001600:1",
@@ -1187,7 +1280,10 @@
         "artist_url": "https://www.pixiv.net/users/10122880",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#d18f90",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:125975832:0",
@@ -1223,7 +1319,10 @@
         "artist_url": "https://www.pixiv.net/users/68481914",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#ca9691",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:101787793:0",
@@ -1259,7 +1358,10 @@
         "artist_url": "https://www.pixiv.net/users/30481106",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#c48f86",
+        "color_method": "thumbnail_hsv_v1"
       }
     ],
     "girl": [
@@ -1293,7 +1395,10 @@
         "artist_url": "https://www.pixiv.net/users/3188698",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#b37f7b",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:101446847:0",
@@ -1323,7 +1428,10 @@
         "artist_url": "https://www.pixiv.net/users/32221908",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "暖",
+        "dominant_hex": "#a08469",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:100702436:0",
@@ -1359,7 +1467,10 @@
         "artist_url": "https://www.pixiv.net/users/20485733",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "蓝",
+        "dominant_hex": "#6ba7d9",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:140067560:0",
@@ -1395,7 +1506,10 @@
         "artist_url": "https://www.pixiv.net/users/65293655",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "紫",
+        "dominant_hex": "#877291",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:116096256:1",
@@ -1431,7 +1545,10 @@
         "artist_url": "https://www.pixiv.net/users/8890126",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#b66057",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:121338755:0",
@@ -1463,7 +1580,10 @@
         "artist_url": "https://www.pixiv.net/users/3338926",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#e7b1b8",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:100710651:0",
@@ -1499,7 +1619,10 @@
         "artist_url": "https://www.pixiv.net/users/1444517",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#cd877f",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:96248942:0",
@@ -1535,7 +1658,10 @@
         "artist_url": "https://www.pixiv.net/users/17224409",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#b1726d",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:117616058:0",
@@ -1640,7 +1766,10 @@
         "artist_url": "https://www.pixiv.net/users/32136727",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#9d4d52",
+        "color_method": "thumbnail_hsv_v1"
       },
       {
         "id": "pixiv:110631896:0",
@@ -1676,7 +1805,10 @@
         "artist_url": "https://www.pixiv.net/users/31806785",
         "license": "原作者保留版权",
         "r18": false,
-        "external": true
+        "external": true,
+        "dominant_tone": "红",
+        "dominant_hex": "#e5b6b4",
+        "color_method": "thumbnail_hsv_v1"
       }
     ],
     "touhou": [],
