@@ -1,33 +1,58 @@
-name: KIRA free Pixiv API connectivity
+name: KIRA free Pixiv source smoke test
 on:
   push:
     branches: [kira-development]
-    paths: [.github/workflows/kira-free-pixiv-probe.yml]
+    paths:
+      - '.github/workflows/kira-free-pixiv-probe.yml'
   workflow_dispatch:
+permissions:
+  contents: write
 jobs:
   probe:
     runs-on: ubuntu-latest
     timeout-minutes: 3
     steps:
-      - name: Probe public free Pixiv metadata endpoints
+      - uses: actions/checkout@v4
+      - name: Probe free Pixiv APIs and Cloudflare development adapter
         shell: bash
         run: |
+          mkdir -p docs
           python3 - <<'PY'
-          import json, urllib.request
+          import json, urllib.request, datetime
           cases = [
-           ("lolicon", "https://api.lolicon.app/setu/v2?r18=0&num=3&excludeAI=true&size=small&size=regular&size=original"),
-           ("anosu", "https://image.anosu.top/pixiv/json?num=3&r18=0&size=regular"),
-           ("cf_lolicon", "https://kira-free-pixiv-probe.guojunyang666666.workers.dev/lolicon"),
-           ("cf_anosu", "https://kira-free-pixiv-probe.guojunyang666666.workers.dev/anosu")
+            ('lolicon', 'https://api.lolicon.app/setu/v2?r18=0&num=3&excludeAI=true&size=regular'),
+            ('anosu', 'https://image.anosu.top/pixiv/json?num=3&r18=0&size=regular'),
+            ('kira-worker-health', 'https://kira-pixiv-feed-dev.guojunyang666666.workers.dev/health'),
+            ('kira-worker-feed', 'https://kira-pixiv-feed-dev.guojunyang666666.workers.dev/api/v1/pixiv?channel=discover&batch=0')
           ]
+          data = {"tested_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),"results":[]}
           for name,url in cases:
-           try:
-            req=urllib.request.Request(url,headers={"Accept":"application/json","User-Agent":"KiraJump-FreeSource-ConnectivityTest/1"})
-            with urllib.request.urlopen(req,timeout=13) as r:
-             response=json.load(r)
-             items = response if isinstance(response,list) else response.get("data",response.get("images",[]))
-             if not isinstance(items,list):items=response.get("images",[]) if isinstance(response,dict) else []
-             print(json.dumps({"source":name,"status":r.status,"keys":list(response)[:10] if isinstance(response,dict) else [],"count":len(items),"sample":[{"pid":x.get("pid"),"title":str(x.get("title",""))[:70],"domain":str(x.get("urls",{}).get("regular",x.get("url","")))[:110]} for x in items[:2] if isinstance(x,dict)],"error":response.get("error") if isinstance(response,dict) else None},ensure_ascii=False))
-           except Exception as e:
-            print(json.dumps({"source":name,"error":str(e)[:210]},ensure_ascii=False))
+            result={"name":name}
+            try:
+              req=urllib.request.Request(url,headers={"Accept":"application/json","User-Agent":"KIRA-source-smoke/0.1"})
+              with urllib.request.urlopen(req,timeout=16) as response:
+                body=json.load(response)
+                result["http_status"]=response.status
+                result["response_type"]=type(body).__name__
+                if isinstance(body,dict):
+                  result["keys"]=list(body)[:12]
+                  records=body.get("items",body.get("data",[]))
+                  if isinstance(records,list):
+                    result["count"]=len(records)
+                    result["sample"]= [{"title":str(x.get('title',''))[:65],"pid":x.get('pid'),"image_host":str(x.get('urls',{}).get('regular',x.get('thumbnail_url',x.get('url',''))))[:100]} for x in records[:2] if isinstance(x,dict)]
+                  result["error"]=body.get("error")
+            except Exception as exc:
+              result["error"]=str(exc)[:190]
+            print(json.dumps(result,ensure_ascii=False,sort_keys=True))
+            data["results"].append(result)
+          with open('docs/pixiv-smoke-results.json','w') as f:
+            json.dump(data,f,indent=2,ensure_ascii=False)
           PY
+      - name: Save source checks
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/pixiv-smoke-results.json
+          git commit -m "test(kira): record free Pixiv API connectivity" || exit 0
+          git push origin HEAD:kira-development
