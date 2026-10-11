@@ -1,0 +1,52 @@
+name: KIRA inspect free QA runs
+on:
+  push:
+    branches: [kira-development]
+    paths:
+      - '.github/workflows/kira-ci-status.yml'
+  workflow_dispatch:
+permissions:
+  contents: write
+  actions: read
+jobs:
+  status:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Read existing QA results from GitHub Actions API
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import urllib.request, json,os,datetime,pathlib
+          name=os.environ['GITHUB_REPOSITORY']
+          token=os.environ['GITHUB_TOKEN']
+          def get(path):
+            request=urllib.request.Request('https://api.github.com'+path,headers={'Accept':'application/vnd.github+json','Authorization':'Bearer '+token,'X-GitHub-Api-Version':'2022-11-28'})
+            with urllib.request.urlopen(request,timeout=15) as r:return json.load(r)
+          output={'checked_at':datetime.datetime.now(datetime.timezone.utc).isoformat(),'runs':{}}
+          names=['kira-v6-qa.yml','kira-v6-static-check.yml','kira-v6-live-check.yml','kira-pixiv-palette.yml']
+          for wf in names:
+            try:
+              runs=get('/repos/'+name+'/actions/workflows/'+wf+'/runs?branch=kira-development&per_page=3')['workflow_runs']
+              brief=[]
+              for r in runs:
+                jobs=get('/repos/'+name+'/actions/runs/'+str(r['id'])+'/jobs?per_page=50').get('jobs',[])
+                brief.append({'run_id':r['id'],'status':r['status'],'conclusion':r['conclusion'],'url':r['html_url'],'jobs':[{'name':j['name'],'conclusion':j['conclusion'],'steps':[{'name':s['name'],'conclusion':s['conclusion']} for s in j.get('steps',[]) if s.get('conclusion')=='failure']} for j in jobs]})
+              output['runs'][wf]=brief
+            except Exception as e:output['runs'][wf]={'error':str(e)[:200]}
+          pathlib.Path('docs').mkdir(exist_ok=True)
+          pathlib.Path('docs/kira-ci-status.json').write_text(json.dumps(output,ensure_ascii=False,indent=2))
+          print(json.dumps(output,ensure_ascii=False,indent=2))
+          PY
+      - name: Save QA status
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/kira-ci-status.json
+          git commit -m "test(kira): record detailed Github Actions QA state" || exit 0
+          git pull --rebase origin kira-development
+          git push origin HEAD:kira-development
