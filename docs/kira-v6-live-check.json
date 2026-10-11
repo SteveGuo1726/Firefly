@@ -1,0 +1,46 @@
+{
+  "date": "2026-10-11T10:38:12.466201+00:00",
+  "checks": {
+    "/": {
+      "http_status": 200,
+      "bytes": 11819,
+      "mime": "text/html; charset=utf-8"
+    },
+    "/assets/style.css": {
+      "http_status": 200,
+      "bytes": 28053,
+      "mime": "text/css; charset=utf-8"
+    },
+    "/assets/app.js": {
+      "http_status": 200,
+      "bytes": 24874,
+      "mime": "application/javascript; charset=utf-8",
+      "v6_loader": true
+    },
+    "/assets/pixiv-feed.json": {
+      "http_status": 200,
+      "bytes": 57414,
+      "mime": "application/json; charset=utf-8",
+      "works_in_snapshot": 48,
+      "channels": {
+        "discover": 12,
+        "miku": 12,
+        "genshin": 12,
+        "girl": 12,
+        "touhou": 0,
+        "original": 0
+      }
+    },
+    "/health": {
+      "http_status": 200,
+      "bytes": 86,
+      "mime": "application/json",
+      "server": {
+        "ok": true,
+        "name": "KIRA V6 development",
+        "pixiv_snapshot_records": 48,
+        "version": "6.0.0"
+      }
+    }
+  }
+}
