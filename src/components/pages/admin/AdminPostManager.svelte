@@ -4,6 +4,10 @@ import { uploadImageBedFile } from "@/utils/admin/imagebed-client";
 import { markdownImage, insertMarkdownAt } from "@/utils/admin/editor-image";
 import { readDraft, writeDraft, clearDraft } from "@/utils/admin/draft-storage";
 import { siteConfig } from "@/config/siteConfig";
+import { processCoverImageSync, getApiUrlList } from "@/utils/image-utils";
+import "@/styles/markdown.css";
+import "@/styles/markdown-extend.styl";
+import "@/styles/expressive-code.css";
 import type { GitHubAdminSession } from "@/utils/admin/github-session";
 import { buildPostDocument, emptyPostFields, excerptMarkdown, parsePostDocument, type AdminPostFields } from "@/utils/admin/content-format";
 import { fetchGitContentSource } from "@/utils/admin/github-content-reader";
@@ -20,6 +24,42 @@ let currentId="";let currentPath="";let loadedPath="";let baseGitSha="";let live
 let fields:AdminPostFields=emptyPostFields();let body="";let tagsText="";let previewHtml="";let message="";let error="";
 let previewPresentation:"article"|"body"="article";
 let previewViewport:"desktop"|"mobile"="desktop";
+let dockedPreview=false;
+let previewScrollPanel:HTMLElement|null=null;
+let syncingScrollFrom:"source"|"preview"|null=null;
+function syncDockedScroll(from:"source"|"preview"){
+ if(!dockedPreview||syncingScrollFrom&&syncingScrollFrom!==from)return;
+ const source=editorTextarea,preview=previewScrollPanel;
+ if(!source||!preview)return;
+ const origin=from==="source"?source:preview;
+ const target=from==="source"?preview:source;
+ const maxOrigin=Math.max(0,origin.scrollHeight-origin.clientHeight);
+ const maxTarget=Math.max(0,target.scrollHeight-target.clientHeight);
+ if(maxOrigin===0||maxTarget===0)return;
+ const targetTop=origin.scrollTop/maxOrigin*maxTarget;
+ if(Math.abs(target.scrollTop-targetTop)<2)return;
+ syncingScrollFrom=from;
+ target.scrollTop=targetTop;
+ requestAnimationFrame(()=>{if(syncingScrollFrom===from)syncingScrollFrom=null;});
+}
+function toggleDockedPreview(){
+ dockedPreview=!dockedPreview;
+ if(dockedPreview){previewPresentation="body";previewViewport="desktop";}
+}
+function previewCoverUrl(){
+ const resolved=processCoverImageSync(fields.image,currentId||currentPath);
+ if(!resolved||/^(?:https?:)?\/\//i.test(resolved)||/^(?:data:|blob:|\/)/.test(resolved))return resolved;
+ const parts=currentPath.split("/");parts.pop();
+ for(const part of resolved.split("/")){if(!part||part===".")continue;if(part==="..")parts.pop();else parts.push(part);}
+ return "https://raw.githubusercontent.com/SteveGuo1726/Firefly/"+encodeURIComponent(session.branch||"master")+"/"+parts.join("/");
+}
+function retryCover(event:Event){
+ const image=event.currentTarget as HTMLImageElement;
+ const candidates=getApiUrlList(fields.image,currentId||currentPath);
+ const next=candidates.indexOf(image.src)+1;
+ if(fields.image==="api"&&next>0&&next<candidates.length){image.src=candidates[next];return;}
+ image.style.display="none";
+}
 let previewLoading=false;let previewFailure="";
 let previewRoot:HTMLElement|null=null;
 let previewEnhancementVersion=0;
@@ -245,7 +285,7 @@ onMount(()=>{
 
 <section class="manager card-base">
 <header><div><h2>文章管理</h2><p>列表轻量合并静态索引和 Blob 覆盖；打开单篇时才读取 Git 基线。</p></div><div class="actions"><button onclick={()=>refresh()} disabled={loading}>刷新</button><button class="primary" onclick={createNew}>新建</button></div></header>
-<div class="layout">
+<div class="layout" class:docked={dockedPreview}>
 <aside><input class="search" type="search" bind:value={query} placeholder="搜索文章"/><div class="list">{#if loading}<p>读取中...</p>{:else}{#each filtered() as row}<button class:active={row.id===currentId} onclick={()=>open(row)}><strong>{row.title}</strong><span>{row.category||"未分类"} · {row.live?"实时":"Git"}</span><small>{row.path}</small></button>{/each}{/if}</div>{#if deletedRows.length}<div class="deleted-entries"><strong>已删除 ({deletedRows.length})</strong>{#each deletedRows as item}<button type="button" onclick={()=>openDeleted(item)} title="查看历史并恢复">{item.id} · 恢复</button>{/each}</div>{/if}</aside>
 <div class="editor">
 <div class="grid">
@@ -270,7 +310,7 @@ onMount(()=>{
 </div>
 <div class="checks"><label><input type="checkbox" bind:checked={fields.draft}/>草稿</label><label><input type="checkbox" bind:checked={fields.pinned}/>置顶</label><label><input type="checkbox" bind:checked={fields.comment}/>评论</label></div>
 <label class="image-upload"><span>插入图片</span><input type="file" accept="image/*" onchange={uploadEditorImage} disabled={imageUploading}/>{#if imageUploading}<small>上传中，请勿关闭页面...</small>{/if}</label>
-<label class="body"><span>正文 Markdown / MDX</span><textarea bind:this={editorTextarea} bind:value={body} oninput={schedulePreview}></textarea></label>
+<label class="body"><span>正文 Markdown / MDX</span><textarea bind:this={editorTextarea} bind:value={body} oninput={schedulePreview} onscroll={()=>syncDockedScroll("source")}></textarea></label>
 {#if needsStaticSecurityRebuild()}
 <div class="security-warning">这篇文章已经存在于当前静态构建中。实时层可以立刻把它从索引隐藏并让正常浏览跳转 404，但旧 HTML 仍可能被直接缓存或读取；密码保护/真正下线需要后续 Git 归档并重新构建后才彻底生效。</div>
 {/if}
@@ -294,6 +334,7 @@ onMount(()=>{
  {#if previewFailure}<p role="alert" class="security-warning">预览失败：{previewFailure}</p>{/if}
  <div class="preview-heading">
   <strong>实时排版预览</strong>
+  <button type="button" class="dock-toggle" class:active={dockedPreview} aria-pressed={dockedPreview} onclick={toggleDockedPreview}>{dockedPreview?"退出贴近模式":"贴近模式 ⇄"}</button>
   <div class="preview-switch" role="group" aria-label="写作预览样式">
    <button type="button" class:active={previewPresentation==="article"} onclick={()=>previewPresentation="article"}>正式文章版式</button>
    <button type="button" class:active={previewPresentation==="body"} onclick={()=>previewPresentation="body"}>只看正文</button>
@@ -303,7 +344,7 @@ onMount(()=>{
    <button type="button" class:active={previewViewport==="mobile"} onclick={()=>previewViewport="mobile"}>手机</button>
   </div>
  </div>
- <div class="preview-viewport" class:mobile-preview={previewViewport==="mobile"}>
+ <div class="preview-viewport" class:mobile-preview={previewViewport==="mobile"} bind:this={previewScrollPanel} onscroll={()=>syncDockedScroll("preview")}>
  {#if previewPresentation==="article"}
   <article class="article-preview card-base relative w-full" aria-label="文章正式版式预览">
    <header class="article-preview-header">
@@ -317,7 +358,7 @@ onMount(()=>{
      {#if fields.password}<span class="draft-label">受保护</span>{/if}
     </div>
     {#if tagsText.trim()}<div class="article-tags">{#each tagsText.split(/[,\n]/).map(tag=>tag.trim()).filter(Boolean) as tag}<span>#{tag}</span>{/each}</div>{/if}
-    {#if fields.image}<img class="article-cover" src={fields.image} alt={fields.title || "文章封面"} loading="lazy"/>{/if}
+    {#if fields.image}<img class="article-cover" src={previewCoverUrl()} alt={fields.title || "文章封面"} loading="lazy" referrerpolicy="no-referrer" onerror={retryCover} onload={(event)=>{event.currentTarget.style.display="";}}/>{/if}
    </header>
    <div class="prose prose-base max-w-none! custom-md dark:prose-invert mb-6 markdown-content" bind:this={previewRoot} data-preview-body>{@html previewHtml}</div>
   </article>
@@ -406,6 +447,31 @@ onMount(()=>{
  .article-preview{padding:.75rem}
  .preview-heading{padding:.6rem}
  .preview-switch button{font-size:.74rem}
+}
+
+
+/* Paired source/preview editing; scrolling is synchronized in both directions. */
+.layout.docked{grid-template-columns:minmax(0,1fr) minmax(0,1fr);height:min(82vh,960px);min-height:440px;overflow:hidden}
+.layout.docked>aside{display:none}
+.layout.docked>.editor,.layout.docked>.preview{min-width:0;min-height:0;overflow:hidden}
+.layout.docked>.editor{display:flex;flex-direction:column;gap:.55rem}
+.layout.docked>.editor>:not(.body):not(.image-upload):not(.status){display:none}
+.layout.docked>.editor>.body{display:flex;flex:1;min-height:0;flex-direction:column}
+.layout.docked>.editor>.body textarea{flex:1;min-height:0;height:100%;resize:none;overflow-y:auto;overscroll-behavior:contain;font-family:var(--font-jetbrains-mono),ui-monospace,monospace;line-height:1.7}
+.layout.docked>.preview{display:flex;flex-direction:column;gap:.4rem}
+.layout.docked>.preview>.preview-viewport{flex:1;max-height:none;min-height:0;overflow-y:auto;overflow-x:hidden;overscroll-behavior:contain;scrollbar-gutter:stable}
+.layout.docked>.preview>.preview-heading{flex:none;position:static}
+.dock-toggle{border-color:var(--primary);color:var(--primary);background:color-mix(in srgb,var(--primary) 7%,var(--card-bg))}
+.dock-toggle.active{background:var(--primary);color:white}
+@media(max-width:760px){
+ .layout.docked{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);height:76vh;min-height:390px}
+ .layout.docked>.editor,.layout.docked>.preview{padding:.35rem}
+ .layout.docked>.editor>.body textarea{font-size:13px;padding:.4rem}
+ .layout.docked>.preview .preview-heading{padding:.4rem}
+ .layout.docked>.preview .preview-heading strong,.layout.docked>.preview .preview-switch{display:none}
+ .layout.docked>.preview-viewport .article-preview{padding:.45rem}
+ .layout.docked>.preview-viewport{padding:.2rem}
+ .layout.docked .image-upload{display:none}
 }
 
 </style>
