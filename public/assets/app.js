@@ -111,8 +111,12 @@ function draw(){
   // Thumbnail fallback is lazy, never load giant originals merely to populate the wall.
   document.querySelectorAll('[data-card-art]').forEach(img=>img.addEventListener('error',()=>{
     const w=byId(img.dataset.cardArt);
-    if(img.dataset.fallback==='preview'||!w){img.style.opacity='.13';img.alt='外部图源加载失败，点击卡片可重试';return}
-    img.dataset.fallback='preview';img.src=w.preview;
+    if(!w)return;
+    const attempt=img.dataset.fallback||'primary';
+    if(attempt==='primary'){img.dataset.fallback='mirror';img.src=mirrorUrl(w.card,1)||w.preview;return}
+    if(attempt==='mirror'){img.dataset.fallback='preview';img.src=w.preview;return}
+    if(attempt==='preview'){img.dataset.fallback='preview-mirror';img.src=mirrorUrl(w.preview,1)||w.preview;return}
+    img.style.opacity='.12';img.alt='外部图片源失效 · 点击可在阅图器重试';
   }));
   document.querySelectorAll('[data-route]').forEach(b=>b.classList.toggle('on',b.dataset.route===state.route));
   document.querySelectorAll('[data-filter]').forEach(b=>b.classList.toggle('on',b.dataset.filter===state.filter));
@@ -137,6 +141,30 @@ function markMedia(kind,message='',detail=''){
  if(kind==='loading'){$('mediaLoadTitle').textContent=message||'正在载入作品…';$('mediaLoadSub').textContent=detail||'已经保留图片浏览状态'}
  if(kind==='failed'){$('mediaLoadTitle').textContent='加载失败';}
 }
+
+/* Community image proxy failover: same Pixiv path, only change verified mirror host. */
+const MIRRORS=['i.pixiv.re','i.pixiv.nl','i.pixiv.cat'];
+function mirrorUrl(input,index=1){
+ try{
+  const u=new URL(input);
+  if(u.protocol!=='https:'||!MIRRORS.includes(u.hostname))return null;
+  u.hostname=MIRRORS[index]||MIRRORS[0];return u.toString();
+ }catch{return null}
+}
+async function imageWithFailover(url,timeout=7000,refresh=false){
+ const original=new URL(url);
+ const tried=new Set();
+ const candidates=[url,mirrorUrl(url,1),mirrorUrl(url,2)].filter(Boolean);
+ let lastError=new Error('no_image_mirror');
+ for(let i=0;i<candidates.length;i++){
+  const candidate=candidates[i];
+  if(tried.has(candidate))continue;tried.add(candidate);
+  try{return await pictureRequest(candidate,i?5500:timeout,refresh&&i===0)}
+  catch(error){lastError=error}
+ }
+ throw lastError;
+}
+
 function pictureRequest(url,timeout=8500,refresh=false){
  if(!url)return Promise.reject(new Error('invalid_source'));
  if(!refresh&&warmImages.has(url))return warmImages.get(url);
@@ -144,7 +172,7 @@ function pictureRequest(url,timeout=8500,refresh=false){
   const img=new Image();img.referrerPolicy='no-referrer';img.decoding='async';
   let done=false;const finish=(error)=>{
    if(done)return;done=true;clearTimeout(timer);img.onload=img.onerror=null;
-   if(error)reject(new Error(error));else resolve({url:img.currentSrc||img.src,naturalWidth:img.naturalWidth,naturalHeight:img.naturalHeight,img});
+   if(error){try{img.src=''}catch{}reject(new Error(error))}else resolve({url:img.currentSrc||img.src,naturalWidth:img.naturalWidth,naturalHeight:img.naturalHeight,img});
   };
   img.onload=()=>{if(img.naturalWidth>0&&img.naturalHeight>0)finish(null);else finish('empty_image')};
   img.onerror=()=>finish('image_failed');
@@ -190,7 +218,7 @@ async function loadWorkPreview(w,{force=false,source=null}={}){
  try{
   let chosen=null;let isThumb=false;
   for(const c of candidates){
-   try{chosen=await pictureRequest(c.url,c.url===w.card?5600:8400,c.refresh);isThumb=c.url===w.card;break}catch(error){console.warn('KIRA image retry',error.message);}
+   try{chosen=await imageWithFailover(c.url,c.url===w.card?4800:6600,c.refresh);isThumb=c.url===w.card;break}catch(error){console.warn('KIRA image retry',error.message);}
    if(seq!==mediaSequence||state.focus?.id!==w.id)return;
   }
   if(seq!==mediaSequence||state.focus?.id!==w.id)return;
@@ -376,7 +404,7 @@ async function toggleOriginal(){
  // The displayed image never disappears while the large original transfers.
  markMedia('loading',next?'原图正在传输…':'切换预览尺寸…','保留当前图片，下载完成后无缝替换');
  try{
-  const candidate=await pictureRequest(target,next?16000:8500);
+  const candidate=await imageWithFailover(target,next?9800:7500);
   if(seq!==originalRequestSequence||viewSeq!==mediaSequence||state.focus?.id!==w.id)return;
   setVisibleImage(candidate);markMedia('idle');
   state.original=next;resetZoom();
