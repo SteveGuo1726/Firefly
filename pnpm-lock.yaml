@@ -4,6 +4,9 @@ settings:
   autoInstallPeers: true
   excludeLinksFromLockfile: false
 
+patchedDependencies:
+  '@expressive-code/plugin-shiki@0.44.2': 93257247038e7946ca88dd32d7d0050d63377f6b37d8bee46bbd7a9ed68562bb
+
 importers:
 
   .:
@@ -8195,7 +8198,7 @@ snapshots:
     dependencies:
       '@expressive-code/core': 0.44.2
 
-  '@expressive-code/plugin-shiki@0.44.2':
+  '@expressive-code/plugin-shiki@0.44.2(patch_hash=93257247038e7946ca88dd32d7d0050d63377f6b37d8bee46bbd7a9ed68562bb)':
     dependencies:
       '@expressive-code/core': 0.44.2
       shiki: 4.4.3
@@ -10505,7 +10508,7 @@ snapshots:
     dependencies:
       '@expressive-code/core': 0.44.2
       '@expressive-code/plugin-frames': 0.44.2
-      '@expressive-code/plugin-shiki': 0.44.2
+      '@expressive-code/plugin-shiki': 0.44.2(patch_hash=93257247038e7946ca88dd32d7d0050d63377f6b37d8bee46bbd7a9ed68562bb)
       '@expressive-code/plugin-text-markers': 0.44.2
 
   extend-shallow@2.0.1:
