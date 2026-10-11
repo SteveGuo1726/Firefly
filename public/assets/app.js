@@ -34,7 +34,7 @@ function normalizeSnapshot(snapshot){
     const tagSet=new Set([group]),facets=facet(tags,tagSet);
     records.set(id,{
       id,pid:a.pid,title:String(a.title||'无标题').slice(0,140),artist:String(a.author||'未知画师').slice(0,100),
-      imageWidth:Math.max(1,Number(a.width)||0),imageHeight:Math.max(1,Number(a.height)||0),
+      imageWidth:Number(a.width)>0?Number(a.width):null,imageHeight:Number(a.height)>0?Number(a.height):null,
       tags,facets,character:facets.character,mood:facets.mood,color:/^(蓝|紫|粉|红|金|绿|黑|白|灰|暖)$/.test(a.dominant_tone||'')?a.dominant_tone:facets.color,
       dominantHex:/^#[a-fA-F0-9]{6}$/.test(a.dominant_hex||'')?a.dominant_hex:null,
       artistKey:Number.isSafeInteger(a.uid)&&a.uid>0?'pixiv:'+a.uid:'name:'+String(a.author||'未知画师'),
