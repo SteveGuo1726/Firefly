@@ -1,8 +1,8 @@
 {
-	"name": "firefly-blog",
-	"compatibility_date": "2025-01-01",
-	"compatibility_flags": ["nodejs_compat"],
-	"assets": {
-		"directory": "./dist"
-	}
+  "name": "kira-jump-static-dev",
+  "compatibility_date": "2026-10-10",
+  "assets": {
+    "directory": "./public",
+    "not_found_handling": "404-page"
+  }
 }

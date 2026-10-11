@@ -1,0 +1,10 @@
+CREATE TABLE IF NOT EXISTS creators (id TEXT PRIMARY KEY,handle TEXT NOT NULL UNIQUE,display_name TEXT NOT NULL,avatar_url TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS works (id TEXT PRIMARY KEY,creator_id TEXT NOT NULL REFERENCES creators(id),title TEXT NOT NULL,description TEXT NOT NULL DEFAULT '',content_rating TEXT NOT NULL DEFAULT 'general' CHECK(content_rating IN ('general','sensitive')),status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','pending','published','hidden')),like_count INTEGER NOT NULL DEFAULT 0,published_at TEXT,created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,CHECK(like_count>=0));
+CREATE TABLE IF NOT EXISTS assets (id TEXT PRIMARY KEY,work_id TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,position INTEGER NOT NULL,media_type TEXT NOT NULL DEFAULT 'image',mime_type TEXT,width INTEGER,height INTEGER,bytes INTEGER,thumbnail_url TEXT NOT NULL,preview_url TEXT NOT NULL,original_url TEXT NOT NULL,UNIQUE(work_id,position));
+CREATE TABLE IF NOT EXISTS work_facets (work_id TEXT NOT NULL REFERENCES works(id) ON DELETE CASCADE,axis TEXT NOT NULL CHECK(axis IN ('character','color','mood','series','tag')),value TEXT NOT NULL,PRIMARY KEY(work_id,axis,value));
+CREATE INDEX IF NOT EXISTS idx_works_feed ON works(status,content_rating,published_at DESC,id DESC);
+CREATE INDEX IF NOT EXISTS idx_works_hot ON works(status,content_rating,like_count DESC,id DESC);
+CREATE INDEX IF NOT EXISTS idx_facets_lookup ON work_facets(axis,value,work_id);
+CREATE INDEX IF NOT EXISTS idx_assets_work ON assets(work_id,position);
+CREATE TABLE IF NOT EXISTS schema_migrations (version INTEGER PRIMARY KEY,applied_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP);
+INSERT OR IGNORE INTO schema_migrations(version) VALUES (1);
