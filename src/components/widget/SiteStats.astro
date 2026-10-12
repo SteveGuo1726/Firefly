@@ -60,7 +60,7 @@ function formatNumber(num: number): string {
 const activityBaseline = [
 	...posts.filter((post) => !post.data.password).map((post) => ({
 		kind: "post" as const,
-		id: post.id.replace(/\\.(?:md|mdx)$/i, ""),
+		id: post.id.replace(/\.(?:md|mdx)$/i, ""),
 		published: post.data.published.toISOString(),
 		updated: post.data.updated?.toISOString() || null,
 	})),
