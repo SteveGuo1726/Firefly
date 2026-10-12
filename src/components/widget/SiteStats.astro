@@ -1,7 +1,9 @@
 ---
 import { Icon } from "astro-icon/components";
+import { getCollection } from "astro:content";
 import WidgetLayout from "@/components/common/WidgetLayout.astro";
 import { siteConfig } from "@/config";
+import { dynamicSlug } from "@/utils/dynamic-utils";
 import I18nKey from "@/i18n/i18nKey";
 import { i18n } from "@/i18n/translation";
 import type { WidgetComponentConfig } from "@/types/config";
@@ -25,7 +27,7 @@ const showTitle = widgetConfig?.showTitle !== false;
 const siteStartDate = siteConfig.siteStartDate || "2025-01-01";
 
 // 获取所有文章
-const posts = await getSortedPosts();
+const [posts, dynamics] = await Promise.all([getSortedPosts(), getCollection("dynamic")]);
 const categories = await getCategoryList();
 const tags = await getTagList();
 
@@ -53,21 +55,22 @@ function formatNumber(num: number): string {
 	return num.toLocaleString();
 }
 
-// 获取「最后活动」时间：取每篇文章 published 与 updated 中较新的那个，再从全站所有文章里取最大值。这样新发文章和修改老文章都会刷新该字段。
-const getActivityDate = (post: (typeof posts)[number]): Date => {
-	const { published, updated } = post.data;
-	if (updated && updated > published) return updated;
-	return published;
-};
-
-const lastActivityDate = posts.reduce<Date | null>((latest, post) => {
-	const current = getActivityDate(post);
-	if (!latest || current > latest) return current;
-	return latest;
-}, null);
-
-const lastPostDate = lastActivityDate ? lastActivityDate.toISOString() : null;
-
+// 只包含公开内容的时间索引，不把后端构建/部署时间当作博客活动。
+// 后台实时保存的文章、动态会在客户端通过公共 live-content index 覆盖此基线。
+const activityBaseline = [
+	...posts.filter((post) => !post.data.password).map((post) => ({
+		kind: "post" as const,
+		id: post.id.replace(/\\.(?:md|mdx)$/i, ""),
+		published: post.data.published.toISOString(),
+		updated: post.data.updated?.toISOString() || null,
+	})),
+	...dynamics.map((dynamic) => ({
+		kind: "dynamic" as const,
+		id: dynamicSlug(dynamic.id),
+		published: dynamic.data.published.toISOString(),
+		updated: dynamic.data.updated?.toISOString() || null,
+	})),
+];
 const todayText = i18n(I18nKey.today);
 
 const stats = [
@@ -112,7 +115,13 @@ const stats = [
 ---
 
 <WidgetLayout name={i18n(I18nKey.siteStats)} showTitle={showTitle} id="site-stats" class={className} style={style}>
-  <div class="flex flex-col gap-2">
+  <div
+    class="flex flex-col gap-2"
+    data-site-stats-root
+    data-activity-baseline={JSON.stringify(activityBaseline)}
+    data-site-start-date={siteStartDate}
+    data-activity-today={todayText}
+  >
     {stats.map((stat) => (
       <div class="flex items-center justify-between px-3 py-1.5">
         <div class="flex items-center gap-2.5">
@@ -141,52 +150,98 @@ const stats = [
   </div>
 </WidgetLayout>
 
-<script is:inline define:vars={{ siteStartDate, lastPostDate, todayText }}>
-  function updateDynamicStats() {
-    const today = new Date();
+<script>
+  import { lastPublicContentActivity, siteActivityTimestamp } from "@/utils/site-activity.js";
 
-    // 更新运行天数
-    const startDate = new Date(siteStartDate);
-    const diffTime = Math.abs(today.getTime() - startDate.getTime());
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  type PublicActivityItem = {
+    kind: "post" | "dynamic";
+    id: string;
+    published?: string | null;
+    updated?: string | null;
+  };
+  type LiveActivityItem = {
+    id: string;
+    deleted?: boolean;
+    hidden?: boolean;
+    updatedAt?: string;
+    meta?: { published?: string; updated?: string; draft?: boolean; protected?: boolean };
+  };
+  type StatsController = typeof window & {
+    __fireflySiteStatsRefresh?: () => void;
+  };
+  const controller = window as StatsController;
+  if (controller.__fireflySiteStatsRefresh) {
+    // Swup might execute a page script twice: update without new listeners.
+    controller.__fireflySiteStatsRefresh();
+  } else {
+    const cached: { post: LiveActivityItem[] | null; dynamic: LiveActivityItem[] | null } = {
+      post: null,
+      dynamic: null,
+    };
+    const DAY_MS = 86_400_000;
+    let lastIndexFetch = 0;
 
-    const runningDaysElements = document.querySelectorAll('[data-stat-id="running-days"]');
-    runningDaysElements.forEach((element) => {
-      element.textContent = diffDays.toString();
-    });
+    function render() {
+      const now = Date.now();
+      for (const block of document.querySelectorAll<HTMLElement>("[data-site-stats-root]")) {
+        let baseline: PublicActivityItem[] = [];
+        try {
+          const parsed = JSON.parse(block.dataset.activityBaseline || "[]");
+          if (Array.isArray(parsed)) baseline = parsed;
+        } catch { /* render still works with available live data */ }
 
-    // 更新最后活动时间
-    if (lastPostDate) {
-      const lastPost = new Date(lastPostDate);
-      const timeSinceLastPost = Math.abs(today.getTime() - lastPost.getTime());
-      const daysSinceLastUpdate = Math.floor(timeSinceLastPost / (1000 * 60 * 60 * 24));
+        const siteStart = siteActivityTimestamp(block.dataset.siteStartDate);
+        const daysRunning = siteStart ? Math.max(0, Math.ceil((now - siteStart) / DAY_MS)) : 0;
+        block.querySelectorAll<HTMLElement>('[data-stat-id="running-days"]')
+          .forEach((item) => { item.textContent = String(daysRunning); });
 
-      const lastUpdateElements = document.querySelectorAll('[data-stat-id="last-update"]');
-      lastUpdateElements.forEach((element) => {
-        if (daysSinceLastUpdate === 0) {
-          element.textContent = todayText;
-          if (element.nextElementSibling) {
-            element.nextElementSibling.style.display = 'none';
-          }
-        } else {
-          element.textContent = daysSinceLastUpdate.toString();
-          if (element.nextElementSibling) {
-            element.nextElementSibling.style.display = '';
-          }
-        }
-      });
+        const latest = lastPublicContentActivity(baseline, cached, now);
+        const elapsed = latest === null ? null : Math.max(0, Math.floor((now - latest) / DAY_MS));
+        block.querySelectorAll<HTMLElement>('[data-stat-id="last-update"]')
+          .forEach((element) => {
+            const suffix = element.nextElementSibling as HTMLElement | null;
+            if (elapsed === null) {
+              element.textContent = "—";
+              if (suffix) suffix.style.display = "none";
+            } else if (elapsed === 0) {
+              element.textContent = block.dataset.activityToday || "今天";
+              if (suffix) suffix.style.display = "none";
+            } else {
+              element.textContent = String(elapsed);
+              if (suffix) suffix.style.display = "";
+            }
+          });
+      }
     }
-  }
 
-  // 页面加载时更新
-  updateDynamicStats();
+    async function getPublicIndex(kind: "post" | "dynamic") {
+      try {
+        const response = await fetch(`/api/live-content/index?kind=${kind}`, { cache: "no-store" });
+        if (!response.ok) return;
+        const value: unknown = await response.json();
+        if (!value || typeof value !== "object") return;
+        const entries = (value as { entries?: unknown }).entries;
+        if (Array.isArray(entries)) cached[kind] = entries as LiveActivityItem[];
+      } catch {
+        // No live store configured: keep the build-time article and dynamic baseline.
+      }
+    }
 
-  // 防止 Swup 切页重跑脚本时重复注册监听器
-  if (!window.__siteStatsInit) {
-    window.__siteStatsInit = true;
-    // 页面切换时重新更新
+    async function refresh() {
+      render(); // Fast initial paint, even before network index is available.
+      if (Date.now() - lastIndexFetch < 90_000) return;
+      lastIndexFetch = Date.now();
+      await Promise.all([getPublicIndex("post"), getPublicIndex("dynamic")]);
+      render();
+    }
+    controller.__fireflySiteStatsRefresh = () => { void refresh(); };
     document.addEventListener("swup:contentReplaced", () => {
-      setTimeout(updateDynamicStats, 100);
+      // Re-query current sidebar DOM (some layouts keep the sidebar mounted).
+      setTimeout(() => { void refresh(); }, 100);
     });
+    document.addEventListener("visibilitychange", () => {
+      if (!document.hidden) void refresh();
+    });
+    controller.__fireflySiteStatsRefresh();
   }
 </script>
