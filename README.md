@@ -65,7 +65,7 @@
       <sub>✨ 遐蝶图集 · 本站公开相册实景</sub>
     </td>
     <td width="50%" align="center">
-      <a href="https://blog.casto.top/gallery/wei-wei-an/"><img src="https://img.casto.top/file/photos/wei-wei-an/wwa1.png" width="100%" alt="本站公开相册：薇薇安" /></a>
+      <a href="https://blog.casto.top/gallery/live/?album=wei-wei-an"><img src="https://img.casto.top/file/photos/wei-wei-an/wwa1.png" width="100%" alt="本站公开相册：薇薇安" /></a>
       <sub>🌸 薇薇安 · 本站公开相册实景</sub>
     </td>
   </tr>

@@ -30,6 +30,8 @@ test("README describes real production, credits Firefly and uses existing assets
  assert.match(readme,/腾讯云 EdgeOne Pages/);
  assert.match(readme,/CuteLeaf \/ Firefly/);
  assert.match(readme,/master/);
+ assert.match(readme,/gallery\/live\/\?album=wei-wei-an/);
+ assert.doesNotMatch(readme,/gallery\/wei-wei-an\//);
  assert.doesNotMatch(readme,/github\.com\/CuteLeaf\/Firefly\/stargazers/);
  for(const ref of readme.matchAll(/src="(\.\/[^"]+)"/g))
   assert.ok(existsSync(path.join(root,ref[1])),"Missing README image: "+ref[1]);
