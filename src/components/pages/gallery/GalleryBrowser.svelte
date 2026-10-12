@@ -21,10 +21,14 @@ let loading = $state(true);
 let query = $state("");
 let selectedTag = $state("all");
 let imageRoute = $state<GalleryImageRoute>("auto");
-function changeImageRoute(event:Event){
- const target=event.currentTarget as HTMLSelectElement;
- imageRoute=parseGalleryRoute(target.value);
- saveGalleryRoute(imageRoute);
+const routeOptions: { value:GalleryImageRoute; icon:string; title:string; subtitle:string }[] = [
+ {value:"auto",icon:"✦",title:"智能加速",subtitle:"轻盈缩略图优先"},
+ {value:"cloudflare",icon:"☁",title:"缓存线路",subtitle:"Cloudflare 图片缓存"},
+ {value:"original",icon:"↗",title:"直连原图",subtitle:"直接从图床读取"},
+];
+function changeImageRoute(next:GalleryImageRoute){
+ imageRoute=next;
+ saveGalleryRoute(next);
 }
 function onGalleryCoverError(event:Event,original:string){
  const element=event.currentTarget as HTMLImageElement;
@@ -88,15 +92,23 @@ onMount(async () => {
 </script>
 
 {#if albums.length > 0}
-	<div class="route-control" aria-label="图片访问线路">
- <label for="gallery-image-route">图片线路</label>
- <select id="gallery-image-route" value={imageRoute} onchange={changeImageRoute}>
-  <option value="auto">智能：缩略图优先（推荐）</option>
-  <option value="cloudflare">Cloudflare：缓存原图（实验）</option>
-  <option value="original">原图：直接访问 ImageBed</option>
- </select>
- <span>点击大图始终查看原始分辨率；切换只影响访问路径，不修改照片。</span>
-</div>
+<section class="route-control" aria-label="图片访问线路">
+ <div class="route-heading">
+  <div class="route-heading-copy"><span class="route-eyebrow">PHOTO DELIVERY</span><h2>图片加载线路 <span aria-hidden="true">✧</span></h2></div>
+  <p>选择更适合你的加载方式，照片品质始终如一。</p>
+ </div>
+ <div class="route-options" role="group" aria-label="选择图片加载线路">
+  {#each routeOptions as option (option.value)}
+   <button type="button" class:route-active={imageRoute===option.value} aria-pressed={imageRoute===option.value}
+    onclick={()=>changeImageRoute(option.value)} title={option.subtitle}>
+    <span class="route-symbol" aria-hidden="true">{option.icon}</span>
+    <span class="route-option-content"><span class="route-option-name">{option.title}</span><span class="route-option-desc">{option.subtitle}</span></span>
+    {#if option.value==="auto"}<span class="route-recommend">推荐</span>{/if}
+   </button>
+  {/each}
+ </div>
+ <p class="route-footnote"><span aria-hidden="true">ⓘ</span> 切换线路只影响加载方式，大图保持原始分辨率；你的选择会自动保存。</p>
+</section>
 <div class="filters">
 		<label class="search-field">
 			<span aria-hidden="true">⌕</span>
@@ -155,10 +167,27 @@ onMount(async () => {
 {/if}
 
 <style>
- .route-control{display:flex;flex-wrap:wrap;gap:.6rem;align-items:center;margin-bottom:.85rem;font-size:.83rem}
- .route-control label{font-weight:650}
- .route-control select{max-width:100%;min-width:11rem;border:1px solid var(--line-divider, #9995);border-radius:.6rem;padding:.4rem .55rem;background:var(--card-bg,transparent);color:inherit}
- .route-control span{opacity:.65;font-size:.76rem}
+ .route-control{margin:0 0 1.3rem;padding:1.05rem 1.15rem 1rem;border:1px solid color-mix(in srgb,var(--primary) 15%,var(--line-divider,#9995));border-radius:1.15rem;background:linear-gradient(135deg,color-mix(in srgb,var(--primary) 7%,transparent),transparent 65%),var(--card-bg,rgba(128,128,128,.045));box-shadow:0 8px 24px rgb(0 0 0/.035)}
+ .route-heading{display:flex;align-items:end;justify-content:space-between;gap:.6rem 1.2rem;flex-wrap:wrap;margin-bottom:.85rem}
+ .route-heading-copy{display:grid;gap:.05rem}
+ .route-eyebrow{font-size:.6rem;font-weight:800;letter-spacing:.18em;color:var(--primary);opacity:.8}
+ .route-heading h2{font-size:1rem;font-weight:760;line-height:1.5;margin:0}
+ .route-heading h2 span{color:var(--primary)}
+ .route-heading p{font-size:.75rem;opacity:.65;margin:0}
+ .route-options{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:.55rem}
+ .route-options button{position:relative;display:flex;align-items:center;gap:.65rem;min-width:0;min-height:4.2rem;padding:.65rem .75rem;text-align:left;cursor:pointer;color:inherit;border:1px solid var(--line-divider,#9995);border-radius:.85rem;background:color-mix(in srgb,var(--card-bg,transparent) 90%,transparent);transition:background .18s,border-color .18s,box-shadow .18s,transform .18s}
+ .route-options button:hover{transform:translateY(-2px);border-color:color-mix(in srgb,var(--primary) 45%,var(--line-divider,#9995))}
+ .route-options button:focus-visible{outline:3px solid var(--primary);outline-offset:3px}
+ .route-options button.route-active{border-color:var(--primary);background:color-mix(in srgb,var(--primary) 12%,var(--card-bg,transparent));box-shadow:0 0 0 1px color-mix(in srgb,var(--primary) 18%,transparent)}
+ .route-symbol{flex:none;display:grid;place-items:center;width:2.3rem;height:2.3rem;border-radius:.67rem;font-size:1.13rem;background:color-mix(in srgb,var(--primary) 10%,transparent);color:var(--primary)}
+ .route-active .route-symbol{background:var(--primary);color:white}
+ .route-option-content{display:flex;flex-direction:column;min-width:0;gap:.15rem}
+ .route-option-name{font-size:.86rem;font-weight:740;line-height:1.3}
+ .route-option-desc{font-size:.71rem;line-height:1.4;opacity:.63}
+ .route-recommend{position:absolute;right:.45rem;top:.3rem;color:var(--primary);font-size:.59rem;font-weight:800}
+ .route-footnote{margin:.72rem 0 0;font-size:.72rem;opacity:.64;display:flex;align-items:baseline;gap:.35rem}
+ @media(max-width:700px){.route-control{padding:.8rem}.route-options{gap:.4rem}.route-options button{flex-direction:column;align-items:flex-start;justify-content:center;gap:.38rem;min-height:6rem;padding:.55rem}.route-symbol{width:1.9rem;height:1.9rem;font-size:1rem}.route-option-name{font-size:.77rem}.route-option-desc{font-size:.64rem}.route-recommend{right:.3rem;top:.25rem}}
+ @media(prefers-reduced-motion:reduce){.route-options button{transition:none}.route-options button:hover{transform:none}}
 
 	.filters { margin-bottom: 1.25rem; }
 	.search-field { position: relative; display: block; margin-bottom: 0.7rem; }

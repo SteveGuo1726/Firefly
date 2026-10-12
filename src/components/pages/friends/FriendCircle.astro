@@ -192,18 +192,19 @@ const description = friendCircleConfig.description || "";
 					});
 				};
 
-				const fetchJson = (url) => {
+				const fetchJson = async (url) => {
 					const controller = new AbortController();
 					const timer = window.setTimeout(() => controller.abort(), 4000);
-					return fetch(url, {
-						signal: controller.signal,
-						headers: { Accept: "application/json" },
-					})
-						.then((response) => {
-							if (!response.ok) throw new Error(`HTTP ${response.status}`);
-							return response.json();
-						})
-						.finally(() => window.clearTimeout(timer));
+					try {
+						const response = await fetch(url, {
+							signal: controller.signal,
+							headers: { Accept: "application/json" },
+						});
+						if (!response.ok) throw new Error("HTTP " + response.status);
+						return await response.json();
+					} finally {
+						window.clearTimeout(timer);
+					}
 				};
 
 				const loadScriptData = (url) => new Promise((resolve, reject) => {

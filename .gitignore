@@ -44,3 +44,7 @@ package/
 
 # Preview-only derivative images generated at build time; source originals are immutable.
 public/gallery-thumbs/
+
+# Local configuration history and development logs are not source files
+.firefly-config-manager-backups/
+.write-dev.*.log
