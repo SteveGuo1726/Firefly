@@ -31,6 +31,7 @@ type PostData = {
 
 type DynamicData = {
 	published: Date;
+	updated?: Date;
 	pinned: boolean;
 	location: string;
 };
@@ -100,6 +101,7 @@ const dynamicCollection: ContentCollection<DynamicData> = defineCollection({
 	loader: glob({ pattern: "**/*.md", base: "./src/content/dynamic" }),
 	schema: z.object({
 		published: z.date(),
+		updated: z.date().optional(),
 		pinned: z.boolean().optional().default(false),
 		location: z.string().optional().default(""),
 	}),
