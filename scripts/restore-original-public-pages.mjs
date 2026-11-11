@@ -9,7 +9,9 @@ import {createHash} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 
 const root=resolve(fileURLToPath(new URL('../recovery/original-public/',import.meta.url)));
-const BASE='https://firefly-blog-dpo6mvx7243c.edgeone.dev';
+// The pinned immutable deployment is authoritative; production is an opt-in
+// byte-identical mirror for environments where the old preview now needs auth.
+const BASE=process.env.FIREFLY_ORIGINAL_PUBLIC_BASE||'https://firefly-blog-dpo6mvx7243c.edgeone.dev';
 const EXPECTED_ROUTES=['gallery','gallery/castorice-2026','gallery/firefly-2026','friends'];
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 const approved=p=>/^\/(?:_astro\/[A-Za-z0-9_.-]+\.(?:js|css|webp|avif|png|jpe?g)|gallery-thumbs\/[A-Za-z0-9_.-]+\.(?:webp|avif|jpe?g|png))$/.test(p);
@@ -34,7 +36,14 @@ async function ensureAsset(item){
 }
 async function ensurePage(item){
  if(!EXPECTED_ROUTES.includes(item.route))throw Error('Unexpected original public route');
- return checkedDownload('/'+item.route+'/',item.sha256,item.bytes);
+ const file=join(root,'pages',item.route+'.html');
+ let value=await readFile(file).catch(()=>null);
+ if(value && (value.length!==item.bytes || sha256(value)!==item.sha256))throw Error('Cached original page corrupted: '+item.route);
+ if(!value){
+  value=await checkedDownload('/'+item.route+'/',item.sha256,item.bytes);
+  await mkdir(dirname(file),{recursive:true});await writeFile(file,value);
+ }
+ return value;
 }
 async function apply(dist){
  const manifest=JSON.parse(await readFile(join(root,'manifest.json'),'utf8'));

@@ -81,7 +81,7 @@ async function fetchRepositoryData(repo: string): Promise<GithubCardData> {
 async function main() {
 	const existingCache = await readCache();
 	const repositories = await findRepositories();
-	const nextCache: GithubCardCache = {};
+	const nextCache: GithubCardCache = { ...existingCache };
 	let updated = 0;
 
 	for (const [cacheKey, repo] of repositories) {

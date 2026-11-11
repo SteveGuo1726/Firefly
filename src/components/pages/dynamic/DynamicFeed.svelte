@@ -291,7 +291,8 @@ onMount(() => {
 				const response = await fetch(source);
 				if (!response.ok) throw new Error(`HTTP ${response.status}`);
 				entries = (await response.json()) as DynamicData[];
-				if(!Array.isArray(entries)||entries.length===0){const backup=await fetch("/assets/recovered-public-dynamic.json");if(backup.ok)entries=(await backup.json()) as DynamicData[];}
+				// 不为空数组回退静态基线：空结果可能代表 CMS 已删除全部动态。
+				if (!Array.isArray(entries)) entries = [];
 			}
 			// 更新页面计数
 			const countEl = document.querySelector("[data-dynamic-page-count]");

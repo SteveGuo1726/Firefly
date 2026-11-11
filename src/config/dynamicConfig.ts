@@ -16,11 +16,9 @@ export const dynamicConfig: DynamicConfig = {
 	// 每页显示的动态数量
 	itemsPerPage: 20,
 
-	// 动态数据 json 地址，本地默认 "/api/dynamic.json"
-	// 可改为第三方接口地址，如 "https://firefly.cuteleaf.cn/api/dynamic.json"
-	// 数据结构可打开上方链接地址参考
-	// 当 memos.enable 为 true 时，此配置会被忽略
-	apiUrl: "/api/dynamic.json",
+	// 动态数据 json 地址；EdgeOne 运行时接口会叠加 CMS 内容并处理删除/私密墓碑，
+	// 存储不可用时由接口或前端回退到静态基线。
+	apiUrl: "/api/firefly/dynamic-feed-public",
 
 	// ========== Memos 配置 ==========
 	// 启用后客户端会直接从 Memos API 实时获取数据，apiUrl 配置将被忽略

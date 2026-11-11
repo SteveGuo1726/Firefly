@@ -34,7 +34,7 @@ js+=`
 function fireflyIsPreview(){
  if(typeof window==="undefined")return false;
  const host=window.location.hostname.toLowerCase();
- return host.endsWith(".edgeone.cool")||host.endsWith(".pages.dnsoe5.com")||host.endsWith(".vercel.run");
+ return host.endsWith(".edgeone.cool")||host.endsWith(".edgeone.dev")||host.endsWith(".edgeone.site")||host.endsWith(".pages.dnsoe5.com")||host.endsWith(".vercel.run")||host==="localhost"||host==="127.0.0.1"||host.endsWith(".localhost");
 }
 function fireflyDisplaySession(){
  if(!fireflyIsPreview())return et();

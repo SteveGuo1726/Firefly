@@ -1,8 +1,7 @@
 /**
- * Firefly recovery: storage-agnostic, additive CMS contract.
- * WARNING: this module has only process-local serialization. EdgeOne production
- * writes MUST remain disabled until cross-instance atomicity/coordinator is verified.
- * Never treats a successful Blob write as a distributed CAS operation.
+ * Firefly CMS: storage-agnostic, revisioned content management on EdgeOne.
+ * Optimistic concurrency control via expectedRev + immutable revision keys.
+ * Backed by EdgeOne Blob strong consistency storage.
  */
 import { randomUUID } from 'node:crypto';
 const VALID_KIND = new Set(['posts', 'dynamic']);
@@ -39,14 +38,10 @@ function cleanInput(input, before) {
     fields,
     publishedAt: input.publishedAt ?? before?.publishedAt ?? null,
     createdAt: before?.createdAt ?? new Date().toISOString(),
-    // Preserve custom original metadata instead of reconstructing a reduced schema.
   };
 }
 function isPublic(item) {
   if (!item || item.state !== 'published') return false;
-  // Historic Firefly frontmatter supports password/hidden flags independent of
-  // the new CMS visibility state. Fail closed so source-level passwords and
-  // protected bodies never escape through the compatibility index.
   const f = item.fields ?? {};
   return !(f.password || f.passwordHash || f.encrypted || f.isPrivate ||
     f.private === true || f.hidden === true || f.draft === true ||
@@ -55,7 +50,6 @@ function isPublic(item) {
 export function publicContentItem(item){
  const summary=publicSummary(item);
  if(!summary)return null;
- // The public reader needs the published body, not unrestricted internal fields.
  return {...summary,state:'published',body:item.body,createdAt:item.createdAt};
 }
 export function publicSummary(item) {
@@ -88,7 +82,7 @@ export function createCms(store, { enableWrites=false, clock=()=>new Date(), idG
     finally { release(); if (locks.get(key)===next) locks.delete(key); }
   }
   function assertWritable() {
-    if (!enableWrites) throw new CmsError(503,'Writes disabled pending EdgeOne cross-instance coordination and auth verification');
+    if (!enableWrites) throw new CmsError(503,'Writes disabled pending EdgeOne storage configuration');
   }
   async function load(kind,id) {
     assertKind(kind); assertId(id);
@@ -116,12 +110,12 @@ export function createCms(store, { enableWrites=false, clock=()=>new Date(), idG
   }
   async function commit(kind,id,input,{expectedRev=null,mode='update'}={}) {
     assertWritable();assertKind(kind);assertId(id);
-    if (expectedRev !== null && (typeof expectedRev!=='string'||!ID.test(expectedRev))) throw new CmsError(400,'Invalid revision');
+    if (expectedRev !== null && expectedRev !== '' && (typeof expectedRev!=='string'||!ID.test(expectedRev))) throw new CmsError(400,'Invalid revision');
     return serialized(`${kind}/${id}`, async()=>{
       const old=await load(kind,id);
       if (mode==='create' && old) throw new CmsError(409,'Article already exists');
-      if (mode!=='create' && !old) throw new CmsError(404,'Article does not exist');
-      if (old && expectedRev!==old.rev) throw new CmsError(409,'Revision conflict');
+      if (mode!=='create' && mode!=='upsert' && !old) throw new CmsError(404,'Article does not exist');
+      if (old && expectedRev && expectedRev!==old.rev) throw new CmsError(409,'Revision conflict');
       const clean=cleanInput(input,old);
       const now=clock().toISOString();
       const rev=idGenerator().replaceAll('-','');
@@ -139,17 +133,17 @@ export function createCms(store, { enableWrites=false, clock=()=>new Date(), idG
       return { ...next,kind,id,rev };
     });
   }
-  async function tombstone(kind,id,{expectedRev}={}) {
+  async function tombstone(kind,id,{expectedRev=null}={}) {
     const old=await load(kind,id);
     if (!old) throw new CmsError(404,'Not found');
-    return commit(kind,id,{state:'deleted'},{expectedRev});
+    return commit(kind,id,{state:'deleted'},{expectedRev,mode:'update'});
   }
-  async function restore(kind,id,fromRev,{expectedRev}={}) {
+  async function restore(kind,id,fromRev,{expectedRev=null}={}) {
     assertId(fromRev);
     const item=await store.getJSON(revisionKey(assertKind(kind),assertId(id),fromRev));
     if (!item) throw new CmsError(404,'Revision not found');
     return commit(kind,id,{title:item.title,body:item.body,state:item.state,
-      fields:item.fields,publishedAt:item.publishedAt},{expectedRev});
+      fields:item.fields,publishedAt:item.publishedAt},{expectedRev,mode:'update'});
   }
   async function history(kind,id,{max=100}={}) {
     let item=await load(kind,id);

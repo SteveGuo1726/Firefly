@@ -228,6 +228,66 @@
       "url": "/_astro/markdown-extend.BwJBj4jr.css",
       "sha256": "795243c912381ba3c1e1cf5635ba082b200fe8e1017fd3b4f5231945db09869e",
       "bytes": 20529
+    },
+    {
+      "url": "/_astro/icon.DNEsxvyB_Z1gMA5V.webp",
+      "bytes": 1016,
+      "sha256": "492c038f97d742906d478cf20bf1ea9128f341dcdda157d3301e55e90b9aadc7"
+    },
+    {
+      "url": "/_astro/icon.DNEsxvyB_ZpE4nb.webp",
+      "bytes": 2240,
+      "sha256": "3daf51f8c59ad4c0c1b2c39a1c698dc93caf69b104aeec7c50edd472177f4d0d"
+    },
+    {
+      "url": "/_astro/m1.7GkZSNaY_ZsKogH.webp",
+      "bytes": 57350,
+      "sha256": "8feb00d36e3ad67cbae8667f5ed915fd293524e461b9bf63030e6c3ca333e746"
+    },
+    {
+      "url": "/_astro/m2.KUzx68h9_Z91dE7.webp",
+      "bytes": 87698,
+      "sha256": "0903b47907ee81d01aa565a943c0c9795532f6adc2b564f4d9e1c28afbff7a62"
+    },
+    {
+      "url": "/_astro/m3.B89B0hr1_Z18reaK.webp",
+      "bytes": 83148,
+      "sha256": "a8e1c8a42e5f697b57ddb650a564826a83c8668257a99931ff16db2a76dc1b32"
+    },
+    {
+      "url": "/_astro/d1.BQFDgVOj_oS1Va.webp",
+      "bytes": 101086,
+      "sha256": "820653619bc91719816585b832a07b4433aed37ce4d643a0b6c42ac3621e4379"
+    },
+    {
+      "url": "/_astro/d2.ClldUe-n_Z16KKq.webp",
+      "bytes": 117388,
+      "sha256": "920bdafb16f10a99f54818d94f37e148a48e9e6ed8eff93765db8f62d6c3bd98"
+    },
+    {
+      "url": "/_astro/d3.DHjKXQVe_Z1v2IJU.webp",
+      "bytes": 106298,
+      "sha256": "3b33894b7d3e2bc67e76fdffdd3bb6da6dfebc2266d64d38ad2e2aab5fbbf007"
+    },
+    {
+      "url": "/_astro/avatar.BmbZMO2d_Z1ed0Se.webp",
+      "bytes": 21182,
+      "sha256": "58b4b39b4d1e0f405573ea1cdd83dc53b211411f6a7040823bdf46361a4cd8a4"
+    },
+    {
+      "url": "/_astro/sakura.worker-S4lNqkzx.js",
+      "bytes": 4892,
+      "sha256": "6448b8b456d289be151f89b0c8be942354214113335f6e9f6b3c839caaeb4cf4"
+    },
+    {
+      "url": "/_astro/toc-utils.DnCLv70A.js",
+      "bytes": 5917,
+      "sha256": "8b06bc1f9386d8b2ba2852bca77ed17b0aa6b034e79d8f3a236c9f5f5668c38a"
     }
-  ]
+  ],
+  "extended": {
+    "at": "2026-10-26T06:28:54.470Z",
+    "from": "https://blog.casto.top",
+    "reason": "responsive image variants and JS chunks referenced by the restored pages"
+  }
 }

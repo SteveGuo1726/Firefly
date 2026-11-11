@@ -2,12 +2,28 @@ import {mkdtemp,mkdir,readFile,writeFile,rm,cp,stat} from "node:fs/promises";
 import {tmpdir} from "node:os";
 import {join,resolve} from "node:path";
 import {createHash} from "node:crypto";
-import {execFileSync} from "node:child_process";
+import {spawnSync} from "node:child_process";
+import {closeSync,openSync} from "node:fs";
 import {pathToFileURL} from "node:url";
 const ARCHIVE_URL="https://firefly-archive-keeper.guojunyang666666.workers.dev/firefly-original-20261013-bae2cf47.tar.gz";
 const SHA="bae2cf471317ba0813e30df964c044b81ec13f11f990da24067878c6b36e764b",BYTES=6907376;
 const modules=["AdminApp.BvivyVgR.js","AdminDashboard.vfh0FXr2.js","AdminPostManager.BFNSyUTB.js","AdminDynamicManager.DmUPNvw0.js","GalleryAdminManager.DgIVl1e9.js","AdminSiteSettings.u4IzuQYO.js","AdminBackup.y-T-uhdG.js"];
 const CACHE_FILE=resolve("node_modules/.cache/firefly-original-20261013.tar.gz");
+// Git Bash resolves `tar` to GNU tar, which cannot open C:\... paths. Use the
+// Windows system bsdtar explicitly; Linux/EdgeOne builds keep using `tar`.
+const TAR=process.platform==="win32"?join(process.env.SystemRoot||"C:\\Windows","System32","tar.exe"):"tar";
+// Spawn tar without pipe capture. Sandboxed Windows builds (and some CI
+// wrappers) deny named-pipe handles, so execFileSync's default stdout capture
+// fails with EPERM; redirect stdout to a regular file instead.
+function runTar(args,{timeout=30000,stdoutFile=null}={}){
+ let fd=null;
+ try{
+  if(stdoutFile)fd=openSync(stdoutFile,"w");
+  const result=spawnSync(TAR,args,{timeout,stdio:["ignore",fd??"ignore","inherit"]});
+  if(result.error)throw result.error;
+  if(result.status!==0)throw Error(`tar ${args[0]} failed with exit code ${result.status}`);
+ }finally{if(fd!==null)closeSync(fd)}
+}
 async function obtainVerifiedArchive(fetcher=fetch){
  const env=process.env.FIREFLY_ORIGINAL_ARCHIVE;
  let bytes=env?await readFile(env):await readFile(CACHE_FILE).catch(()=>null);
@@ -27,7 +43,7 @@ export async function prepareOriginalMedia({fetcher=fetch}={}){
  const archive=await obtainVerifiedArchive(fetcher);
  const temp=await mkdtemp(join(tmpdir(),"firefly-original-media-"));
  try{
-  execFileSync("tar",["-xzf",archive,"-C",temp,"firefly-original-media/"],{timeout:30000});
+  runTar(["-xzf",archive,"-C",temp,"firefly-original-media/"]);
   const target=resolve("public/assets/casto-original");
   await mkdir(target,{recursive:true});
   for(const name of ["favicon.ico","logo.png","avatar.webp","desktop-1.webp","desktop-2.webp","desktop-3.webp","mobile-1.webp","mobile-2.webp","mobile-3.webp"])
@@ -41,9 +57,11 @@ export async function restoreOriginalAdmin(dist="dist",{fetcher=fetch}={}){
  const temp=await mkdtemp(join(tmpdir(),"firefly-20261013-"));
  try{
   const archive=await obtainVerifiedArchive(fetcher);
-  const files=execFileSync("tar",["-tzf",archive],{encoding:"utf8",maxBuffer:3000000}).split("\n").filter(Boolean);
+  const listFile=join(temp,"archive-listing.txt");
+  runTar(["-tzf",archive],{stdoutFile:listFile});
+  const files=(await readFile(listFile,"utf8")).split("\n").filter(Boolean);
   if(files.some(x=>x.startsWith("/")||x.split("/").includes("..")||!/^firefly-original-(20261013|media)(\/|$)/.test(x)))throw Error("Unsafe original archive");
-  execFileSync("tar",["-xzf",archive,"-C",temp],{timeout:30000});
+  runTar(["-xzf",archive,"-C",temp]);
   const root=join(temp,"firefly-original-20261013"),manifest=JSON.parse(await readFile(join(root,"capture-manifest.json"),"utf8"));
   if(manifest.originalDeploymentId!=="dpo6mvx7243c"||manifest.assets.length<480)throw Error("Wrong original backend build");
   const has=new Set(manifest.assets.map(x=>x.path));

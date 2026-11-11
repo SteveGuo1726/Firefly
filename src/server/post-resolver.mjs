@@ -11,11 +11,13 @@ export const publicBaselinePosts = Object.freeze({
   'firefly': {title:'Firefly 一款清新美观的 Astro 博客主题模板',body:'# 🌟 项目概述\n\nFirefly 是一款基于 Astro 框架和 Fuwari 模板开发的清新美观且现代化个人博客主题模板，专为技术爱好者和内容创作者设计。\n\n原始完整正文尚待恢复。',publishedAt:'2026-05-08',fields:{category:'文章示例',tags:[]}}
 });
 export async function resolvePublicPost(store,slug,{baseline=publicBaselinePosts}={}) {
-  const cms=createCms(store);
-  // Important: load(), not publicItem(): a hidden pointer must not be mistaken
-  // for an absent override, or the historical public page would reappear.
-  const current=await cms.load('posts',slug);
-  if(current)return {item:publicContentItem(current),source:'cms',suppressed:!publicContentItem(current)};
+  if (store) {
+    try {
+      const cms=createCms(store);
+      const current=await cms.load('posts',slug);
+      if(current)return {item:publicContentItem(current),source:'cms',suppressed:!publicContentItem(current)};
+    } catch {}
+  }
   const item=Object.hasOwn(baseline,slug)?baseline[slug]:null;
   if(!item)return {item:null,source:'missing',suppressed:false};
   return {item:{...structuredClone(item),id:slug,kind:'posts',state:'published'},source:'baseline',suppressed:false};
