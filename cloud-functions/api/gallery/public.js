@@ -1,1 +1,4 @@
-export { onRequest, default } from '../gallery-public.js';
+import { onRequest } from '../gallery-public.js';
+
+export { onRequest };
+export default onRequest;

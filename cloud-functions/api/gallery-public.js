@@ -45,3 +45,5 @@ export async function onRequest({request,env={},store=null}){
   },
  });
 }
+
+export default onRequest;
