@@ -14,7 +14,7 @@ import { onRequest as settings } from "../cloud-functions/api/firefly/settings.j
 import { onRequest as gallery } from "../cloud-functions/api/firefly/gallery.js";
 import { onRequest as backup } from "../cloud-functions/api/firefly/backup.js";
 import { onRequest as imagebed } from "../cloud-functions/api/firefly/imagebed.js";
-import { onRequest as fileHandler } from "../cloud-functions/file/[...path].js";
+import { onRequest as fileHandler } from "../cloud-functions/file/[[...path]].js";
 
 const origin = "https://preview.edgeone.cool";
 const env = {

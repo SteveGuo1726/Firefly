@@ -49,7 +49,7 @@ const entries={
   '/api/friend-circle.json':'./cloud-functions/api/friend-circle.json.js',
   '/api/cron/friend-circle':'./cloud-functions/api/cron/friend-circle.js',
 };
-const imports=Object.values(entries).map((p,i)=>'import {onRequest as fn'+i+'} from '+JSON.stringify(p)+';').join('\n')+'\nimport {onRequest as postFn} from "./cloud-functions/posts/[slug].js";\nimport {onRequest as fileFn} from "./cloud-functions/file/[...path].js";';
+const imports=Object.values(entries).map((p,i)=>'import {onRequest as fn'+i+'} from '+JSON.stringify(p)+';').join('\n')+'\nimport {onRequest as postFn} from "./cloud-functions/posts/[[...slug]].js";\nimport {onRequest as fileFn} from "./cloud-functions/file/[[...path]].js";';
 const dispatch=Object.keys(entries).map((p,i)=>'  '+JSON.stringify(p)+': fn'+i+',').join('\n');
 const source=`${imports}
 const routes={
