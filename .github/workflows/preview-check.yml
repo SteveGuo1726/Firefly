@@ -1,0 +1,54 @@
+name: Preview Branch Check
+
+on:
+  workflow_dispatch:
+  # One explicit CI run for preview safety work. Ordinary code pushes stay quiet.
+  push:
+    branches: [ai/preview-test]
+    paths:
+      - .github/workflows/preview-check.yml
+
+concurrency:
+  group: preview-check-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  check-and-build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Enforce experimental branch boundary
+        run: test "$GITHUB_REF_NAME" = "ai/preview-test"
+
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+
+      - name: Setup Node.js
+        uses: actions/setup-node@cdca7365b2dadb8aad0a33bc7601856ffabcc48e
+        with:
+          node-version: 22
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@a7487c7e89a18df4991f7f222e4898a00d66ddda
+        with:
+          run_install: false
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Live content service tests
+        run: pnpm test:live-content
+
+      - name: Verify Worker and EdgeOne runtime isolation
+        run: pnpm verify:runtimes
+
+      - name: Astro check
+        run: pnpm astro check
+
+      - name: Fast preview build guard
+        env:
+          PUBLIC_GITHUB_ADMIN_BRANCH: ai/preview-test
+          PUBLIC_FIREFLY_PREVIEW_DEMO: 'true'
+        run: pnpm build:preview
