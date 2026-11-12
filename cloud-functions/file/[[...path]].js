@@ -18,7 +18,8 @@ export async function onRequest({request,params={},env={},store=null}){
   return new Response('Method not allowed',{status:405});
  }
 
- const rawPath=params.path||new URL(request.url).pathname.replace(/^\/file\//,'');
+ const pathname=new URL(request.url).pathname;
+ const rawPath=pathname.startsWith('/file/')?pathname.slice(6):(Array.isArray(params.path)?params.path.join('/'):(params.path||''));
  const key=decodeURIComponent(rawPath).replace(/^\/+/,'');
 
  if(!key||key.includes('..')||!/^[a-zA-Z0-9_\-./]+$/.test(key)){
