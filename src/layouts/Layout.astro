@@ -12,6 +12,7 @@ import MusicPlayerView from "@components/features/MusicPlayerView.astro";
 import SakuraEffect from "@components/features/SakuraEffect.astro";
 import WavesEffect from "@components/features/WavesEffect.astro";
 import ConfigCarrier from "@components/layout/ConfigCarrier.astro";
+import { sakuraConfig } from "@/config/effectsConfig";
 
 import {
 	analyticsConfig,
@@ -55,6 +56,12 @@ interface Props {
 	ogImageAlt?: string;
 	hasWallpaper?: boolean;
 }
+
+const isWavesEnabled = Boolean(
+	typeof backgroundWallpaper.common?.waves?.enable === "object"
+		? (backgroundWallpaper.common?.waves?.enable.desktop || backgroundWallpaper.common?.waves?.enable.mobile)
+		: backgroundWallpaper.common?.waves?.enable,
+);
 
 let {
 	title,
@@ -565,10 +572,10 @@ const ogImageAlt = propsOgImageAlt ?? pageTitle;
 
 
     <!-- Sakura Effect -->
-    <SakuraEffect />
+    {sakuraConfig.enable && <SakuraEffect />}
 
     <!-- Water Waves Effect -->
-    <WavesEffect />
+    {isWavesEnabled && <WavesEffect />}
 
     <!-- Fancybox Manager -->
     <FancyboxManager />

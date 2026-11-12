@@ -204,9 +204,10 @@ export const LinkPresets: Record<string, NavBarLink> = {
 		pageKey: "gallery",
 	},
 	Imagebed: {
-		name: "图床画廊",
-		url: "/imagebed/",
+		name: "外部图床",
+		url: "https://img.casto.top/",
 		icon: "material-symbols:imagesmode",
+		external: true,
 	},
 	Booknav: {
 		name: "书签导航",

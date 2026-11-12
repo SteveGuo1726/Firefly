@@ -8,7 +8,6 @@ import MainGridLayout from "@/layouts/MainGridLayout.astro";
 import "@/styles/pages/common.css";
 import "@/styles/pages/card-grid.css";
 import { getAlbumCover, scanAlbumPhotos } from "@/utils/gallery-utils";
-import { url } from "@/utils/url-utils";
 
 // 检查页面是否启用
 if (!siteConfig.pages.gallery) {
@@ -45,11 +44,13 @@ const allTags = [...new Set(albums.flatMap((a) => a.tags || []))].sort();
         </div>
         <div>
           <a
-            href={url("/imagebed/")}
+            href="https://img.casto.top/"
+            target="_blank"
+            rel="noopener noreferrer"
             class="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl text-sm font-medium text-(--primary) bg-(--primary)/10 hover:bg-(--primary)/20 transition-all duration-200"
           >
             <Icon name="material-symbols:imagesmode" class="text-base" />
-            <span>进入图床画廊</span>
+            <span>外部图床画廊 ↗</span>
           </a>
         </div>
       </div>

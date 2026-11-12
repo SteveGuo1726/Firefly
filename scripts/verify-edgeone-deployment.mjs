@@ -15,8 +15,7 @@ for(const route of [
  '/api/gallery-image','/api/admin-content-index.json','/api/admin/private-index',
  '/api/live-content/index','/api/live-content/item','/api/live-content/history',
  '/api/live-content/export','/api/live-content/restore','/api/live-content/undo-delete',
- '/api/dynamic.json',
- '/api/imagebed/upload','/api/imagebed/list','/api/imagebed/delete'
+ '/api/dynamic.json'
 ])assert(config.routes.some(entry=>entry.dest===route),'Missing EdgeOne build-output route: '+route);
 assert(config.routes.some(entry=>entry.dest==='/file/:path'),'Missing EdgeOne build-output route: /file/:path');
 assert(config.routes.some(entry=>entry.dest==='/posts/:slug'),'Missing EdgeOne build-output route: /posts/:slug');

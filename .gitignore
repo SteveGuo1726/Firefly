@@ -50,3 +50,5 @@ package/
 
 # Generated EdgeOne Build Output API artifacts
 .edgeone/
+scratch/
+
