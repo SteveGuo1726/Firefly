@@ -11,7 +11,7 @@ import {fileURLToPath} from 'node:url';
 const root=resolve(fileURLToPath(new URL('../recovery/original-public/',import.meta.url)));
 // The pinned immutable deployment is authoritative; production is an opt-in
 // byte-identical mirror for environments where the old preview now needs auth.
-const BASE=process.env.FIREFLY_ORIGINAL_PUBLIC_BASE||'https://firefly-blog-dpo6mvx7243c.edgeone.dev';
+const BASE=process.env.FIREFLY_ORIGINAL_PUBLIC_BASE||'https://blog.casto.top';
 const EXPECTED_ROUTES=['gallery','gallery/castorice-2026','gallery/firefly-2026','friends'];
 const sha256=b=>createHash('sha256').update(b).digest('hex');
 const approved=p=>/^\/(?:_astro\/[A-Za-z0-9_.-]+\.(?:js|css|webp|avif|png|jpe?g)|gallery-thumbs\/[A-Za-z0-9_.-]+\.(?:webp|avif|jpe?g|png))$/.test(p);
