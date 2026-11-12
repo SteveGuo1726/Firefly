@@ -8,7 +8,7 @@ import {createEdgeOneStore} from '../../src/server/edgeone-store.mjs';
 import {publicBaselinePosts} from '../../src/server/post-resolver.mjs';
 
 const json=(v,status=200)=>Response.json(v,{status,headers:{'cache-control':'private,no-store','x-content-type-options':'nosniff'}});
-export async function onRequest({request,env={},store=null}){
+export async function getAdminContentIndex({request,env={},store=null}){
  if(request.method!=='GET')return json({error:'Method not allowed'},405);
  const config={...process.env,...env};
  if(!isAuthenticated(request,config))return json({error:'Unauthorized'},401);
@@ -39,4 +39,8 @@ export async function onRequest({request,env={},store=null}){
      published:x.publishedAt||'',pinned:x.fields?.pinned===true}))
   });
  }catch{return json({error:'Content storage unavailable'},503)}
+}
+
+export async function onRequest(context){
+ return getAdminContentIndex(context);
 }
