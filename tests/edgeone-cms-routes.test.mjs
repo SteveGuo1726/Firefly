@@ -14,6 +14,9 @@ import { onRequest as settings } from "../cloud-functions/api/firefly/settings.j
 import { onRequest as gallery } from "../cloud-functions/api/firefly/gallery.js";
 import { onRequest as backup } from "../cloud-functions/api/firefly/backup.js";
 import { onRequest as imagebed } from "../cloud-functions/api/firefly/imagebed.js";
+import { onRequest as imgbedUpload } from "../cloud-functions/api/imagebed/upload.js";
+import { onRequest as imgbedList } from "../cloud-functions/api/imagebed/list.js";
+import { onRequest as imgbedDelete } from "../cloud-functions/api/imagebed/delete.js";
 import { onRequest as fileHandler } from "../cloud-functions/file/[[...path]].js";
 
 const origin = "https://preview.edgeone.cool";
@@ -376,4 +379,72 @@ test("imagebed native store handles authenticated list and rejects unauthorized"
 	});
 	assert.equal(badDelete.status, 400);
 });
+
+test("edgeone imagebed api: list, upload, and delete handlers", async () => {
+	const map = new Map();
+	map.set("imagebed/photos/upload/test.webp", { size: 1024 });
+
+	const mockStore = {
+		store: {
+			async list({ prefix }) {
+				const blobs = [];
+				for (const [k, v] of map.entries()) {
+					if (k.startsWith(prefix)) blobs.push({ key: k, size: v.size });
+				}
+				return { blobs };
+			},
+			async set(key, val) {
+				map.set(key, { size: val.byteLength || 512 });
+			},
+			async delete(key) {
+				map.delete(key);
+			},
+		},
+	};
+
+	// 1. List
+	const listRes = await imgbedList({
+		request: req("/api/imagebed/list", "GET", false),
+		env,
+		store: mockStore,
+	});
+	assert.equal(listRes.status, 200);
+	const listData = await listRes.json();
+	assert.equal(listData.ok, true);
+	assert.equal(listData.total, 1);
+	assert.equal(listData.data[0].key, "photos/upload/test.webp");
+	assert.equal(listData.data[0].url, "/file/photos/upload/test.webp");
+
+	// 2. Upload
+	const form = new FormData();
+	const dummyBlob = new Blob(["test image content"], { type: "image/webp" });
+	form.append("file", dummyBlob, "my_photo.webp");
+	const uploadRes = await imgbedUpload({
+		request: new Request(origin + "/api/imagebed/upload", {
+			method: "POST",
+			headers: { cookie },
+			body: form,
+		}),
+		env,
+		store: mockStore,
+	});
+	assert.equal(uploadRes.status, 200);
+	const uploadData = await uploadRes.json();
+	assert.equal(uploadData.ok, true);
+	assert(uploadData.data.url.startsWith("/file/photos/upload/"));
+
+	// 3. Delete
+	const delRes = await imgbedDelete({
+		request: req("/api/imagebed/delete", "POST", true, {
+			headers: { "content-type": "application/json" },
+			body: JSON.stringify({ key: uploadData.data.key }),
+		}),
+		env,
+		store: mockStore,
+	});
+	assert.equal(delRes.status, 200);
+	const delData = await delRes.json();
+	assert.equal(delData.ok, true);
+});
+
 

@@ -46,6 +46,9 @@ const entries={
   '/api/dynamic.json':'./cloud-functions/api/dynamic.json.js',
   '/api/gallery-public':'./cloud-functions/api/gallery-public.js',
   '/api/gallery-image':'./cloud-functions/api/gallery-image.js',
+  '/api/imagebed/upload':'./cloud-functions/api/imagebed/upload.js',
+  '/api/imagebed/list':'./cloud-functions/api/imagebed/list.js',
+  '/api/imagebed/delete':'./cloud-functions/api/imagebed/delete.js',
   '/api/friend-circle.json':'./cloud-functions/api/friend-circle.json.js',
   '/api/cron/friend-circle':'./cloud-functions/api/cron/friend-circle.js',
 };

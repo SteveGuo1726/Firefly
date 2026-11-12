@@ -1,0 +1,13 @@
+---
+import ImagebedGallery from "@/components/pages/imagebed/ImagebedGallery.svelte";
+import MainGridLayout from "@/layouts/MainGridLayout.astro";
+
+const title = "图床画廊";
+const description = "基于 EdgeOne 原生 Blob 存储与国内 BGP CDN，毫秒级响应，流水瀑布流展示。";
+---
+
+<MainGridLayout title={title} description={description}>
+	<div class="page-shell">
+		<ImagebedGallery client:load />
+	</div>
+</MainGridLayout>
