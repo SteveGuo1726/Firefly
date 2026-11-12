@@ -51,38 +51,44 @@ export function scanAlbumPhotos(albumId: string): string[] {
 		}
 	}
 
-	// 检查 EdgeOne 托管相册种子数据
-	const managed = galleryManagedSeed.albums.find((a) => a.id === albumId);
-	const managedPhotos = managed?.photoOrder?.map((key) => {
-		if (/^(https?:)?\/\//i.test(key) || key.startsWith("/file/")) return key;
-		return "/file/" + key.split("/").map(encodeURIComponent).join("/");
-	}) || [];
-
-	const combined = [...localPhotos];
-	for (const p of managedPhotos) {
-		if (!combined.includes(p)) {
-			combined.push(p);
-		}
+	// 如果本地已经有图片，优先使用本地文件，避免追加重复或跨域的远程种子
+	if (localPhotos.length > 0) {
+		return localPhotos;
 	}
 
-	return combined;
+	// 检查 EdgeOne 托管相册种子数据（作为本地无文件时的远程回退）
+	const managed = galleryManagedSeed.albums.find((a) => a.id === albumId);
+	const managedPhotos =
+		managed?.photoOrder?.map((key) => {
+			if (/^(https?:)?\/\//i.test(key)) return key;
+			if (key.startsWith("/file/")) return `https://img.casto.top${key}`;
+			return "https://img.casto.top/file/" + key.split("/").map(encodeURIComponent).join("/");
+		}) || [];
+
+	return managedPhotos;
 }
 
 /**
  * 获取相册封面图
- * 优先级：手动指定 > 托管种子封面 > cover.* 文件 > 第一张图片
+ * 优先级：手动指定 > 本地 cover.* 文件 > 本地第一张图片 > 托管种子封面
  */
 export function getAlbumCover(album: GalleryAlbum, photos: string[]): string {
 	if (album.cover) return withBase(album.cover);
 
+	const coverFile = photos.find((p) => /\/cover\./i.test(p));
+	if (coverFile) return coverFile;
+
+	if (photos.length > 0 && photos[0]) {
+		return photos[0];
+	}
+
 	const managed = galleryManagedSeed.albums.find((a) => a.id === album.id);
 	if (managed?.cover) {
 		const c = managed.cover;
-		return /^(https?:)?\/\//i.test(c) || c.startsWith("/file/")
-			? c
-			: "/file/" + c.split("/").map(encodeURIComponent).join("/");
+		if (/^(https?:)?\/\//i.test(c)) return c;
+		if (c.startsWith("/file/")) return `https://img.casto.top${c}`;
+		return "https://img.casto.top/file/" + c.split("/").map(encodeURIComponent).join("/");
 	}
 
-	const coverFile = photos.find((p) => /\/cover\./i.test(p));
-	return coverFile || photos[0] || "";
+	return "";
 }

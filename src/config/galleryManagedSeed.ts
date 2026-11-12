@@ -4,7 +4,7 @@ import type {
 	PublicGalleryAlbum,
 } from "@/types/galleryAdmin";
 
-const DEFAULT_GALLERY_IMAGE_BASE_URL = "/file";
+const DEFAULT_GALLERY_IMAGE_BASE_URL = "https://img.casto.top/file";
 
 function imageBedUrl(
 	key: string,

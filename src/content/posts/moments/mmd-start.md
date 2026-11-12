@@ -4,7 +4,7 @@ published: 2026-05-23
 updated: 2026-05-24
 pinned: false
 description: 众所周知：做mmd死路一条……
-image: /file/posts/mmdcasto1.png
+image: /posts/mmdcasto1.png
 tags: ["mmd", "教程"]
 category: 日常
 draft: false
@@ -20,9 +20,9 @@ comment: true
 
 老师的教程给我的最大的助力其实是插件的.py文件，是基于blender 高版本写的。又是众所周知，blender每个版本的api和节点都可能不一样，还有mmd_tool这个插件过于老旧（但不知为何最近好像更新了一版），mmd模型和渲染节点往往存在很多兼容性问题（其实主渲染节点组的创建没有成功在5.x运行，产生报错了，老师可能是在4.x写的这个节点组，后续在5.x写了渐变节点组）。基于这个成功的可创建节点组的插件代码，我丢给GPT5.5配合codex去让他详细参考并写一个新的更加接近游戏内的（角色呈现页）渲染效果。结果是到了第五版才终于完成。
 原本一开始我就在找官方没有的贴图资源，顺带看看其他老师的渲染主shader，感谢google内置的gemini，一下子理解了我的意思并找到一个解包游戏资源的网站（[AEP](https://assets.escartem.moe/repo)）(里面有原神和崩铁、鸣潮等游戏的解包资源，但是除了前两者外其他的很久没更新，但是资源足够多，好像看到有游戏场景、怪物、特效、语音等资源，为后续给遐蝶加特效埋下伏笔bushi)，和几个热门的仿崩铁渲染的主shader（其中有之前就加了频道的festival）。前几版GPT一直失败，原因是不是各个部位都有lightmap和mask的贴图，GPT没有处理好不同部位的情况。后续他查阅到github上别人分享的崩铁渲染管线以及贴图信息后，终于达到很好的效果，如图：
-![](/file/posts/mmdcasto1.png)
+![](/posts/mmdcasto1.png)
 
-![](/file/posts/mmdcasto2.png)
+![](/posts/mmdcasto2.png)
 
 ## 🌟后续目标
 
