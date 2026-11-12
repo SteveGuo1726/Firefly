@@ -4,7 +4,7 @@
  type Album={id:string;name:string;description?:string;date?:string;location?:string;tags?:string[];encrypted?:boolean;password?:string;private?:boolean;cover?:string;coverUrl?:string;photos?:Photo[];photoOrder?:string[];photoCount?:number};
  let {albumId=''}:{albumId?:string}=$props();
  let albums:Album[]=$state([]);let loading=$state(true);let problem=$state('');let route=$state<'smart'|'cache'|'direct'>('smart');let query=$state('');let tag=$state('');let active:Photo|null=$state(null);let activeIndex=$state(0);
- const origin='https://img.casto.top/file/';
+ const origin='/file/';
  function imageUrl(key:string){return origin+key.split('/').map(encodeURIComponent).join('/')}
  function sourcePhoto(p:Photo){if(!p?.key)return '';if(route==='direct')return p.url||imageUrl(p.key);return `/api/gallery-image?key=${encodeURIComponent(p.key)}`}
  function normalize(raw:any):Album|null {if(!raw||!raw.id||!raw.name)return null;const protectedAlbum=Boolean(raw.encrypted||raw.private||raw.protected||raw.password||raw.passwordHash);const keys=Array.isArray(raw.photoOrder)?raw.photoOrder.filter((x:any)=>typeof x==='string'):[];const photos:Photo[]=protectedAlbum?[]:Array.isArray(raw.photos)?raw.photos.filter((x:any)=>typeof x?.key==='string').map((x:any)=>({key:x.key,url:x.url||imageUrl(x.key),name:x.name,width:x.width,height:x.height})):keys.map((key:string)=>({key,url:imageUrl(key)}));return {id:String(raw.id),name:String(raw.name),description:String(raw.description||''),date:String(raw.date||''),location:String(raw.location||''),tags:Array.isArray(raw.tags)?raw.tags:[],encrypted:protectedAlbum,cover:raw.cover,coverUrl:raw.coverUrl||(!protectedAlbum&&raw.cover?imageUrl(raw.cover):''),photos,photoCount:Number(raw.photoCount||photos.length)}}

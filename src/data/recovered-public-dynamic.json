@@ -60,7 +60,7 @@
     "images": [
       {
         "alt": "image.webp",
-        "src": "https://img.casto.top/file/dynamic/image.webp"
+        "src": "/file/dynamic/image.webp"
       }
     ],
     "searchText": "初步完成在线编辑动态的功能",

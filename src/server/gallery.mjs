@@ -4,7 +4,7 @@ const MANIFEST_KEY='firefly/gallery/manifest/v1.json';
 const ID=/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,119}$/;
 export class GalleryError extends Error {constructor(status,message){super(message);this.status=status;}}
 const isProtected=a=>!!(a.password||a.passwordHash||a.encrypted||a.private||a.protected);
-const fileUrl=key=>`https://img.casto.top/file/${key.split('/').map(encodeURIComponent).join('/')}`;
+const fileUrl=key=>`/file/${key.split('/').map(encodeURIComponent).join('/')}`;
 
 export function validateManifest(manifest) {
  if(!manifest||typeof manifest!=='object'||!Array.isArray(manifest.albums)||manifest.albums.length>200)throw new GalleryError(400,'Invalid gallery manifest');
