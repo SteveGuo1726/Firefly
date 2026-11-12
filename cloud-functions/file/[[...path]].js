@@ -12,6 +12,7 @@ const MIME={
 };
 
 const DEFAULT_UPSTREAM='https://img.casto.top/file/';
+const MAX_FUNCTION_PAYLOAD_BYTES = 5 * 1024 * 1024; // 5 MB threshold to avoid 413 CLOUD_FUNCTION_PAYLOAD_TOO_LARGE
 
 export async function onRequest({request,params={},env={},store=null}){
  if(request.method!=='GET'&&request.method!=='HEAD'){
@@ -22,13 +23,15 @@ export async function onRequest({request,params={},env={},store=null}){
  const rawPath=pathname.startsWith('/file/')?pathname.slice(6):(Array.isArray(params.path)?params.path.join('/'):(params.path||''));
  const key=decodeURIComponent(rawPath).replace(/^\/+/,'');
 
- if(!key||key.includes('..')||!/^[a-zA-Z0-9_\-./]+$/.test(key)){
+ if(!key||key.includes('..')||!/^[a-zA-Z0-9_\-./%()+ ]+$/.test(key)){
   return new Response('Invalid path',{status:400});
  }
 
  const ext=key.split('.').at(-1)?.toLowerCase()||'';
  const contentType=MIME[ext]||'application/octet-stream';
  const config={...process.env,...env};
+ const upstreamOrigin=(config.FIREFLY_IMAGEBED_UPSTREAM_ORIGIN||DEFAULT_UPSTREAM).replace(/\/?$/,'/');
+ const upstreamUrl=upstreamOrigin+key.split('/').map(encodeURIComponent).join('/');
 
  try{
   const storage=store||await createEdgeOneStore({env:config}).catch(()=>null);
@@ -42,6 +45,10 @@ export async function onRequest({request,params={},env={},store=null}){
      });
      const buf=await rawStore.get(candidate,{type:'arrayBuffer'});
      if(buf&&buf.byteLength>0){
+      // For large assets (> 5MB), redirect to upstream CDN to prevent EdgeOne 413 payload limit
+      if(buf.byteLength>MAX_FUNCTION_PAYLOAD_BYTES){
+       return Response.redirect(upstreamUrl, 302);
+      }
       return new Response(request.method==='HEAD'?null:buf,{
        status:200,
        headers:{
@@ -58,7 +65,6 @@ export async function onRequest({request,params={},env={},store=null}){
   }
 
   // Fallback to upstream origin and auto-cache to EdgeOne Blob
-  const upstreamUrl=(config.FIREFLY_IMAGEBED_UPSTREAM_ORIGIN||DEFAULT_UPSTREAM).replace(/\/?$/,'/')+key;
   const res=await fetch(upstreamUrl,{
    headers:{accept:'image/avif,image/webp,image/jpeg,image/png,image/gif,*/*'},
    signal:AbortSignal.timeout(6000),
@@ -68,7 +74,16 @@ export async function onRequest({request,params={},env={},store=null}){
    return new Response('File not found',{status:404});
   }
 
+  const cl=Number(res.headers.get('content-length')||0);
+  if(cl>MAX_FUNCTION_PAYLOAD_BYTES){
+   return Response.redirect(upstreamUrl, 302);
+  }
+
   const buf=await res.arrayBuffer();
+  if(buf.byteLength>MAX_FUNCTION_PAYLOAD_BYTES){
+   return Response.redirect(upstreamUrl, 302);
+  }
+
   const type=(res.headers.get('content-type')||contentType).split(';')[0];
 
   if(storage&&buf.byteLength>0){

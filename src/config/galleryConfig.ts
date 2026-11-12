@@ -17,6 +17,7 @@ export const galleryConfig: GalleryConfig = {
 		// 每添加一个数组项就相当于添加了一个相册，记得在 public/gallery/ 目录下创建对应的子目录并放入图片
 		{id:"castorice-2026",name:"遐蝶图集",description:"星穹漫遐，蝶携清梦。",location:"崩坏：星穹铁道",date:"2026-06-25",tags:[]},
 		{id:"test",name:"test",description:"这是一个用于测试手机同步功能的相册。",date:"2026-07-22",tags:[]},
+		{id:"wei-wei-an",name:"薇薇安",description:"薇薇安相册",date:"2026-07-23",tags:[]},
 		{
 			id: "firefly-2026",
 			name: "可爱流萤",

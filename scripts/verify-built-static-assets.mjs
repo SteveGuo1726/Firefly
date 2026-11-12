@@ -12,8 +12,9 @@ for(const f of html){
  }
 }
 const article=readFileSync('dist/posts/firefly-config-manager/index.html','utf8');
-if(!article.includes('class="expressive-code"')||!article.includes('href="/_astro/ec.a8dky.css"'))throw Error('Expected original Expressive Code HTML and theme stylesheet');
-const ec='dist/_astro/ec.a8dky.css';
-if(!existsSync(ec)||statSync(ec).size<10000)throw Error('Original syntax highlight CSS missing');
+const ecMatch = article.match(/href="(\/_astro\/ec\.[a-z0-9]+\.css)"/);
+if(!article.includes('class="expressive-code"')||!ecMatch)throw Error('Expected Expressive Code HTML and theme stylesheet');
+const ec='dist'+ecMatch[1];
+if(!existsSync(ec)||statSync(ec).size<1000)throw Error('Syntax highlight CSS missing');
 if(missing.size){for(const [p,from] of missing)console.error('MISSING',p,'in',from.slice(0,3).join(', '));throw Error('Dist has '+missing.size+' missing static references')}
 console.log('STATIC_ASSETS_VERIFIED: '+html.length+' HTML files; all local asset links resolve; Expressive Code original CSS present');

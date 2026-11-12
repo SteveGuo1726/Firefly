@@ -1,0 +1,186 @@
+import type {
+	GalleryAdminState,
+	GalleryManifest,
+	ManagedGalleryPhoto,
+	PublicGalleryAlbum,
+} from "@/types/galleryAdmin";
+import { getGitHubAdminSession } from "@/utils/admin/github-session";
+
+type ImageBedListResponse = {
+	files: ManagedGalleryPhoto[];
+	directories: string[];
+};
+
+const DEFAULT_GALLERY_API_ORIGIN = "https://gallery-api.casto.top";
+const GALLERY_PUBLIC_API_ORIGIN = (
+	import.meta.env.PUBLIC_GALLERY_API_ORIGIN?.trim() || DEFAULT_GALLERY_API_ORIGIN
+).replace(/\/+$/, "");
+const GALLERY_ADMIN_API_ORIGIN = (
+	import.meta.env.PUBLIC_GALLERY_ADMIN_API_ORIGIN?.trim() ||
+	DEFAULT_GALLERY_API_ORIGIN
+).replace(/\/+$/, "");
+
+function apiUrl(path: string): URL {
+	return new URL(path, GALLERY_PUBLIC_API_ORIGIN);
+}
+
+/** The isolated blog preview must never write to the live imagebed while
+ * its independent new gallery API and data model are being developed. */
+export function isIsolatedPreviewGallery(): boolean {
+ return typeof window!=="undefined" && (window.location.hostname==="v1-preview.casto.top" || window.location.hostname==="firefly-blog-preview.guojunyang666666.workers.dev");
+}
+function preventPreviewImagebedWrite(): void {
+ if(isIsolatedPreviewGallery())throw new Error("实验站仅允许本机相册草稿，图床上传、重命名、删除和正式清单保存已隔离。");
+}
+
+function adminApiUrl(path: string): URL {
+ const session=getGitHubAdminSession();
+ if(session?.oauth && typeof window!=="undefined"){
+  return new URL(path,window.location.origin);
+ }
+ return new URL(path, GALLERY_ADMIN_API_ORIGIN);
+}
+
+function adminHeaders(contentType?: string): HeadersInit {
+	const session = getGitHubAdminSession();
+	if (!session) throw new Error("GitHub 登录已失效，请重新登录。");
+	return {
+		...(session.oauth ? {} : {Authorization: `Bearer ${session.token}`}),
+		...(contentType ? { "Content-Type": contentType } : {}),
+	};
+}
+
+async function readJson<T>(response: Response): Promise<T> {
+	const payload = (await response.json().catch(() => ({}))) as T & {
+		error?: string;
+		message?: string;
+	};
+	if (!response.ok) {
+		throw new Error(
+			payload.message || payload.error || `请求失败：${response.status}`,
+		);
+	}
+	return payload;
+}
+
+export async function fetchGalleryAdminState(): Promise<GalleryAdminState> {
+	// The existing imagebed rejects requests with the experimental site's
+	// Origin header. Read its PUBLIC album catalog through our same-origin,
+	// server-side-only adapter. No gallery administrator credentials required.
+	if (isIsolatedPreviewGallery()) {
+		const response = await fetch("/api/gallery/preview-state", {
+			credentials: "same-origin",
+			cache: "no-store",
+		});
+		const state = await readJson<GalleryAdminState>(response);
+		if (!state.readOnly || state.source !== "public-gallery-bridge")
+			throw new Error("相册只读接口返回异常，已停止处理以保护图床。");
+		return state;
+	}
+	const response = await fetch(adminApiUrl("/api/admin/gallery/state"), {
+		headers: adminHeaders(),
+		cache: "no-store",
+	});
+	return readJson<GalleryAdminState>(response);
+}
+
+export async function fetchPublicGallery(
+	albumId = "",
+	summary = false,
+): Promise<{ albums: PublicGalleryAlbum[] }> {
+	const url = apiUrl("/api/gallery/public");
+	if (albumId) url.searchParams.set("album", albumId);
+	if (summary) url.searchParams.set("summary", "true");
+	const response = await fetch(url);
+	return readJson<{ albums: PublicGalleryAlbum[] }>(response);
+}
+
+export async function saveGalleryManifest(
+	manifest: GalleryManifest,
+): Promise<GalleryManifest> {
+	preventPreviewImagebedWrite();
+	const response = await fetch(adminApiUrl("/api/admin/gallery/manifest"), {
+		method: "PUT",
+		headers: adminHeaders("application/json"),
+		body: JSON.stringify(manifest),
+	});
+	const payload = await readJson<{ manifest: GalleryManifest }>(response);
+	return payload.manifest;
+}
+
+export async function listImageBedFiles(
+	dir: string,
+): Promise<ImageBedListResponse> {
+	const url = adminApiUrl("/api/admin/imagebed/list");
+	url.searchParams.set("dir", dir);
+	url.searchParams.set("recursive", "true");
+	const response = await fetch(url, {
+		headers: adminHeaders(),
+		cache: "no-store",
+	});
+	return readJson<ImageBedListResponse>(response);
+}
+
+export async function uploadImageBedFile(
+	file: File,
+	folder: string,
+): Promise<ManagedGalleryPhoto> {
+	preventPreviewImagebedWrite();
+	const formData = new FormData();
+	formData.append("file", file);
+	const url = adminApiUrl("/api/admin/imagebed/upload");
+	url.searchParams.set("folder", folder);
+	const response = await fetch(url, {
+		method: "POST",
+		headers: adminHeaders(),
+		body: formData,
+	});
+	return readJson<ManagedGalleryPhoto>(response);
+}
+
+export async function deleteImageBedFile(key: string): Promise<void> {
+	const response = await fetch(adminApiUrl("/api/admin/imagebed/delete"), {
+		method: "POST",
+		headers: adminHeaders("application/json"),
+		body: JSON.stringify({ key }),
+	});
+	await readJson(response);
+}
+
+export async function renameImageBedFile(
+	key: string,
+	newKey: string,
+): Promise<{ newKey: string }> {
+	preventPreviewImagebedWrite();
+	preventPreviewImagebedWrite();
+	const response = await fetch(adminApiUrl("/api/admin/imagebed/rename"), {
+		method: "POST",
+		headers: adminHeaders("application/json"),
+		body: JSON.stringify({ key, newKey }),
+	});
+	return readJson<{ newKey: string }>(response);
+}
+
+export async function deleteImageBedAlbum(sourceDir: string): Promise<void> {
+	const response = await fetch(adminApiUrl("/api/admin/gallery/delete-album"), {
+		method: "POST",
+		headers: adminHeaders("application/json"),
+		body: JSON.stringify({ sourceDir }),
+	});
+	await readJson(response);
+}
+
+export async function renameImageBedAlbum(
+	sourceDir: string,
+	newSourceDir: string,
+): Promise<Record<string, string>> {
+	preventPreviewImagebedWrite();
+	preventPreviewImagebedWrite();
+	const response = await fetch(adminApiUrl("/api/admin/gallery/rename-album"), {
+		method: "POST",
+		headers: adminHeaders("application/json"),
+		body: JSON.stringify({ sourceDir, newSourceDir }),
+	});
+	const payload = await readJson<{ moved: Record<string, string> }>(response);
+	return payload.moved;
+}

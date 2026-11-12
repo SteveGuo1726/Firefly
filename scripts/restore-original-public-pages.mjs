@@ -56,6 +56,8 @@ async function apply(dist){
   if(!old){await mkdir(dirname(dest),{recursive:true});await writeFile(dest,value)}
  }
  for(const item of manifest.pages){
+  // Do not overwrite modern Astro-built gallery pages (supports all 5 albums and EdgeOne /file delivery)
+  if(item.route.startsWith('gallery')) continue;
   let html=(await ensurePage(item)).toString('utf8');
   if(!html.includes('星遐蝶梦')||!html.includes('<!DOCTYPE html>'))throw Error('Invalid original Firefly HTML '+item.route);
   if(item.route==='friends'){

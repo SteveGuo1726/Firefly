@@ -1,0 +1,207 @@
+import { githubAdminConfig } from "@/config/githubAdminConfig";
+import type { GitHubRepoConfig } from "@/utils/write/github";
+
+export const GITHUB_SESSION_CHANGED_EVENT =
+	"firefly:github-admin-session-changed";
+
+const STORAGE_KEY = "FIREFLY_GITHUB_ADMIN_SESSION_V2";
+const LEGACY_STORAGE_KEY = "FIREFLY_GITHUB_ADMIN_SESSION_V1";
+const DAY_MS = 24 * 60 * 60 * 1000;
+let oauthCachedSession: GitHubAdminSession | null = null;
+let oauthSupported = false;
+
+export function isOAuthSupported(): boolean { return oauthSupported; }
+
+export async function refreshOAuthAdminSession(): Promise<GitHubAdminSession | null> {
+ try {
+  const response=await fetch("/api/admin/auth/me",{cache:"no-store",credentials:"same-origin"});
+  oauthSupported=response.ok && response.headers.get("X-Firefly-OAuth") !== "disabled";
+  if(oauthSupported){
+   // OAuth takes precedence: do not revive a previously persisted PAT session.
+   try{sessionStorage.removeItem(STORAGE_KEY);}catch{}
+  }
+  if(!response.ok){oauthCachedSession=null;return null;}
+  const data=await response.json();
+  if(!data?.authenticated || !data.user?.login){oauthCachedSession=null;notifySessionChanged();return null;}
+  oauthCachedSession={
+   login:String(data.user.login),name:String(data.user.login),avatarUrl:"",
+   token:"",oauth:true,
+   owner:githubAdminConfig.owner,repo:githubAdminConfig.repo,branch:githubAdminConfig.branch,
+   expiresAt:Date.now()+8*60*60*1000,
+  };
+  notifySessionChanged();
+  return oauthCachedSession;
+ }catch{
+  oauthCachedSession=null;oauthSupported=false;notifySessionChanged();return null;
+ }
+}
+
+export async function logoutOAuthAdmin(): Promise<void> {
+ const response=await fetch("/api/admin/auth/logout",{
+  method:"POST",credentials:"same-origin",headers:{"Content-Type":"application/json"},
+  body:"{}",
+ });
+ if(!response.ok)throw new Error("OAuth 退出失败，请重试。");
+ oauthCachedSession=null;
+ clearGitHubAdminSession();
+}
+
+
+export type GitHubAdminSession = {
+	login: string;
+	name: string;
+	avatarUrl: string;
+	token: string;
+	oauth?: boolean;
+	owner: string;
+	repo: string;
+	branch: string;
+	expiresAt: number;
+};
+
+type GitHubUserResponse = {
+	login?: string;
+	name?: string | null;
+	avatar_url?: string;
+	message?: string;
+};
+
+type GitHubRepositoryResponse = {
+	full_name?: string;
+	permissions?: {
+		push?: boolean;
+	};
+	message?: string;
+};
+
+function storageAvailable(): boolean {
+	return typeof window !== "undefined" && typeof sessionStorage !== "undefined";
+}
+
+// Never restore bearer credentials from persistent localStorage.
+function discardLegacyPersistentToken(): void {
+ if (typeof window === "undefined") return;
+ try { window.localStorage.removeItem(LEGACY_STORAGE_KEY); }
+ catch { /* Storage can be blocked by the browser. */ }
+}
+
+function notifySessionChanged(): void {
+	if (typeof window === "undefined") return;
+	window.dispatchEvent(new CustomEvent(GITHUB_SESSION_CHANGED_EVENT));
+}
+
+export function getGitHubAdminSession(): GitHubAdminSession | null {
+	if(oauthSupported) return oauthCachedSession && oauthCachedSession.expiresAt>Date.now()?oauthCachedSession:null;
+	if (!storageAvailable()) return null;
+	discardLegacyPersistentToken();
+	const raw = sessionStorage.getItem(STORAGE_KEY);
+	if (!raw) return oauthCachedSession && oauthCachedSession.expiresAt>Date.now() ? oauthCachedSession : null;
+
+	try {
+		const session = JSON.parse(raw) as GitHubAdminSession;
+		if (
+			!session.token ||
+			!session.login ||
+			!session.expiresAt ||
+			Date.now() >= session.expiresAt ||
+			session.login.toLowerCase() !==
+				githubAdminConfig.allowedLogin.toLowerCase()
+		) {
+			clearGitHubAdminSession(false);
+			return null;
+		}
+		return session;
+	} catch {
+		clearGitHubAdminSession(false);
+		return null;
+	}
+}
+
+export function getGitHubRepoConfigFromSession(
+	session: GitHubAdminSession | null = getGitHubAdminSession(),
+): GitHubRepoConfig | null {
+	if (!session || session.oauth) return null;
+	return {
+		owner: session.owner,
+		repo: session.repo,
+		branch: session.branch,
+		token: session.token,
+	};
+}
+
+export function clearGitHubAdminSession(notify = true): void {
+	oauthCachedSession=null;
+	if (storageAvailable()) sessionStorage.removeItem(STORAGE_KEY);
+	if (typeof window !== "undefined" && typeof localStorage !== "undefined") {
+		localStorage.removeItem(LEGACY_STORAGE_KEY);
+	}
+	if (notify) notifySessionChanged();
+}
+
+export async function loginWithGitHubToken(
+	tokenInput: string,
+): Promise<GitHubAdminSession> {
+	const token = tokenInput.trim();
+	if (oauthSupported) throw new Error("站点已启用 OAuth，请使用 GitHub 授权登录。");
+	if (!token) throw new Error("请输入 GitHub Fine-grained PAT。");
+
+	const headers = {
+		Accept: "application/vnd.github+json",
+		Authorization: `Bearer ${token}`,
+		"X-GitHub-Api-Version": "2022-11-28",
+	};
+	const userResponse = await fetch("https://api.github.com/user", { headers });
+	const user = (await userResponse.json()) as GitHubUserResponse;
+	if (!userResponse.ok || !user.login) {
+		throw new Error(user.message || `GitHub 验证失败：${userResponse.status}`);
+	}
+	if (
+		user.login.toLowerCase() !== githubAdminConfig.allowedLogin.toLowerCase()
+	) {
+		throw new Error(`该账号没有管理权限：${user.login}`);
+	}
+
+	const repositoryResponse = await fetch(
+		`https://api.github.com/repos/${githubAdminConfig.owner}/${githubAdminConfig.repo}`,
+		{ headers },
+	);
+	const repository =
+		(await repositoryResponse.json()) as GitHubRepositoryResponse;
+	if (!repositoryResponse.ok) {
+		throw new Error(
+			repository.message || `仓库验证失败：${repositoryResponse.status}`,
+		);
+	}
+	if (repository.permissions?.push !== true) {
+		throw new Error("当前 Token 没有仓库写入权限。");
+	}
+
+    // On the production EdgeOne site, authenticate the PAT server-side and
+    // issue a SameSite, HttpOnly session for private API calls. This is required
+    // for gallery, private post index, and live content cookie authorization.
+    if (typeof window !== "undefined" && window.location.hostname === "blog.casto.top") {
+        const bridge = await fetch("/api/admin/auth/pat-login", {
+            method: "POST", credentials: "same-origin",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ token }),
+        });
+        if (!bridge.ok) {
+            const result = await bridge.json().catch(() => ({}));
+            throw new Error(result?.error || "EdgeOne 后台会话创建失败，未登录。");
+        }
+    }
+
+	const session: GitHubAdminSession = {
+		login: user.login,
+		name: user.name?.trim() || user.login,
+		avatarUrl: user.avatar_url || "",
+		token,
+		owner: githubAdminConfig.owner,
+		repo: githubAdminConfig.repo,
+		branch: githubAdminConfig.branch,
+		expiresAt: Date.now() + githubAdminConfig.sessionDays * DAY_MS,
+	};
+	sessionStorage.setItem(STORAGE_KEY, JSON.stringify(session));
+	notifySessionChanged();
+	return session;
+}

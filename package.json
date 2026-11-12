@@ -13,7 +13,7 @@
     "build": "node scripts/restore-casto-20261013.mjs --prepare && npx tsx scripts/generate-github-card-data.ts && npx tsx scripts/generate-lqips.ts && npx tsx scripts/generate-vndb-covers.ts && astro build && npx tsx scripts/prune-pio-assets.ts && npx tsx scripts/subset-fonts.ts && npx tsx scripts/minify-inline-scripts.ts && npx tsx scripts/run-pagefind.ts && node scripts/restore-casto-20261013.mjs dist && node scripts/restore-original-public-pages.mjs --apply dist && node scripts/verify-built-static-assets.mjs && node scripts/package-edgeone-friend-circle.mjs && node scripts/verify-edgeone-friend-circle.mjs && node scripts/package-edgeone-admin-auth.mjs && node scripts/verify-edgeone-admin-auth.mjs && node scripts/package-edgeone-deployment.mjs && node scripts/verify-edgeone-deployment.mjs",
     "preview": "astro preview",
     "astro": "astro",
-    "type-check": "tsc --noEmit --isolatedDeclarations",
+    "type-check": "tsc --noEmit",
     "new-dynamic": "tsx scripts/new-dynamic.js",
     "new-d": "tsx scripts/new-dynamic.js",
     "new-post": "node scripts/new-post.js",

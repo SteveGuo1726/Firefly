@@ -1,7 +1,126 @@
 ---
-import MainGridLayout from '@/layouts/MainGridLayout.astro';
-import GalleryBrowser from '@/components/recovery/GalleryBrowser.svelte';
-import {siteConfig} from '@/config';
-if(!siteConfig.pages.gallery)return Astro.redirect('/404/');
+import { Icon } from "astro-icon/components";
+import GalleryBrowser from "@/components/pages/gallery/GalleryBrowser.svelte";
+import { galleryConfig, siteConfig } from "@/config";
+import {
+	createManagedPublicAlbum,
+	galleryManagedSeed,
+} from "@/config/galleryManagedSeed";
+import I18nKey from "@/i18n/i18nKey";
+import { i18n } from "@/i18n/translation";
+import MainGridLayout from "@/layouts/MainGridLayout.astro";
+import type { PublicGalleryAlbum } from "@/types/galleryAdmin";
+import { getAlbumCover, scanAlbumPhotos } from "@/utils/gallery-utils";
+
+if (!siteConfig.pages.gallery) {
+	return Astro.redirect("/404/");
+}
+
+const title = i18n(I18nKey.gallery);
+const description = i18n(I18nKey.galleryDescription);
+
+const albumsMap = new Map<string, PublicGalleryAlbum>();
+
+// 1. Initialize managed seed albums (using EdgeOne native /file baseUrl)
+for (const managed of galleryManagedSeed.albums) {
+	albumsMap.set(managed.id, createManagedPublicAlbum(managed, "/file"));
+}
+
+// 2. Populate or merge static config albums
+for (const album of galleryConfig.albums) {
+	if (albumsMap.has(album.id)) {
+		const existing = albumsMap.get(album.id)!;
+		if (album.name) existing.name = album.name;
+		if (album.description) existing.description = album.description;
+		if (album.date) existing.date = album.date;
+		if (album.location) existing.location = album.location;
+		if (album.tags && album.tags.length > 0) existing.tags = album.tags;
+	} else {
+		const urls = scanAlbumPhotos(album.id);
+		const photos = urls.map((photo) => ({
+			key: photo,
+			url: photo,
+			name: photo.split("/").pop() || photo,
+			size: 0,
+		}));
+		albumsMap.set(album.id, {
+			id: album.id,
+			sourceDir: `gallery/${album.id}`,
+			name: album.name,
+			description: album.description,
+			date: album.date,
+			location: album.location,
+			tags: album.tags || [],
+			cover: "",
+			photoOrder: urls,
+			photos,
+			photoCount: photos.length,
+			coverUrl: getAlbumCover(album, urls),
+		});
+	}
+}
+
+const initialAlbums: PublicGalleryAlbum[] = Array.from(albumsMap.values());
+const staticAlbumIds = galleryConfig.albums.map((album) => album.id);
+const managedAlbumIds = galleryManagedSeed.albums.map((album) => album.id);
 ---
-<MainGridLayout title="相册" description="记录生活中的美好瞬间"><GalleryBrowser client:load /></MainGridLayout>
+
+<MainGridLayout title={title} description={description}>
+	<section class="gallery-page card-base" aria-labelledby="gallery-page-title">
+		<header class="gallery-heading">
+			<div class="gallery-icon" aria-hidden="true">
+				<Icon is:inline name="material-symbols:photo-library" />
+			</div>
+			<div>
+				<h1 id="gallery-page-title">{title}</h1>
+				{description && <p>{description}</p>}
+			</div>
+		</header>
+
+		<GalleryBrowser client:load {initialAlbums} {staticAlbumIds} {managedAlbumIds} />
+	</section>
+</MainGridLayout>
+
+<style>
+	.gallery-page {
+		width: 100%;
+		padding: 1.4rem;
+	}
+
+	.gallery-heading {
+		display: flex;
+		align-items: flex-start;
+		gap: 0.85rem;
+		margin-bottom: 1rem;
+	}
+
+	.gallery-icon {
+		display: grid;
+		place-items: center;
+		width: 2.35rem;
+		height: 2.35rem;
+		border-radius: 0.5rem;
+		background: var(--primary);
+		color: white;
+		font-size: 1.3rem;
+		flex: none;
+	}
+
+	.gallery-heading h1 {
+		margin: 0;
+		font-size: 1.55rem;
+		font-weight: 800;
+	}
+
+	.gallery-heading p {
+		margin: 0.25rem 0 0;
+		font-size: 0.88rem;
+		opacity: 0.62;
+	}
+
+	@media (max-width: 560px) {
+		.gallery-page {
+			padding: 1rem;
+		}
+	}
+</style>

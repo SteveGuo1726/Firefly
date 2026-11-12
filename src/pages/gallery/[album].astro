@@ -1,9 +1,162 @@
 ---
-import MainGridLayout from '@/layouts/MainGridLayout.astro';
-import GalleryBrowser from '@/components/recovery/GalleryBrowser.svelte';
-import {galleryConfig,siteConfig} from '@/config';
-if(!siteConfig.pages.gallery)return Astro.redirect('/404/');
-export function getStaticPaths(){const ids=new Set([...galleryConfig.albums.map(a=>a.id),'castorice-2026','test','wei-wei-an']);return [...ids].map(album=>({params:{album}}));}
-const {album}=Astro.params;
+import { Icon } from "astro-icon/components";
+import EncryptedContent from "@/components/features/EncryptedContent.astro";
+import GalleryAlbumRuntime from "@/components/pages/gallery/GalleryAlbumRuntime.svelte";
+import PhotoCard from "@/components/pages/gallery/PhotoCard.astro";
+import { galleryConfig, siteConfig } from "@/config";
+import {
+	createManagedPublicAlbum,
+	galleryManagedSeed,
+} from "@/config/galleryManagedSeed";
+import I18nKey from "@/i18n/i18nKey";
+import { i18n } from "@/i18n/translation";
+import MainGridLayout from "@/layouts/MainGridLayout.astro";
+import type { PublicGalleryAlbum } from "@/types/galleryAdmin";
+import { getAlbumCover, scanAlbumPhotos } from "@/utils/gallery-utils";
+import { url } from "@/utils/url-utils";
+
+if (!siteConfig.pages.gallery) {
+	return Astro.redirect("/404/");
+}
+
+export function getStaticPaths() {
+	return galleryConfig.albums.map((album) => ({ params: { album: album.id } }));
+}
+
+const { album: albumId } = Astro.params;
+const albumMeta = galleryConfig.albums.find((album) => album.id === albumId);
+if (!albumMeta) return Astro.redirect("/404/");
+
+const managedSeed = galleryManagedSeed.albums.find(
+	(album) => album.id === albumId,
+);
+
+const columnWidth = galleryConfig.columnWidth || 240;
+let initialManagedAlbum: PublicGalleryAlbum | null = null;
+let photos: string[] = [];
+
+if (managedSeed) {
+	initialManagedAlbum = createManagedPublicAlbum(managedSeed, "/file");
+	photos = initialManagedAlbum.photoOrder;
+} else {
+	photos = scanAlbumPhotos(albumMeta.id);
+}
 ---
-<MainGridLayout title="相册详情" description="探索相册"><GalleryBrowser albumId={album} client:load /></MainGridLayout>
+
+<MainGridLayout title={albumMeta.name} description={albumMeta.description || ""}>
+	{initialManagedAlbum ? (
+		<GalleryAlbumRuntime
+			client:load
+			albumId={albumMeta.id}
+			initialAlbum={initialManagedAlbum}
+			{columnWidth}
+		/>
+	) : (
+		<>
+			<section class="static-album-header card-base">
+				<a href={url("/gallery/")} class="back-link">
+					<Icon is:inline name="material-symbols:arrow-back" />
+					{i18n(I18nKey.galleryBackToAlbums)}
+				</a>
+				<div class="static-heading">
+					<div>
+						<h1>{albumMeta.name}</h1>
+						{albumMeta.description && <p>{albumMeta.description}</p>}
+					</div>
+					<div class="static-meta">
+						{albumMeta.date && <span>{albumMeta.date}</span>}
+						{albumMeta.location && <span>{albumMeta.location}</span>}
+						<span>{photos.length} {i18n(I18nKey.galleryPhotos)}</span>
+					</div>
+				</div>
+			</section>
+
+			<section class="static-photos card-base">
+				{photos.length > 0 ? (
+					albumMeta.password ? (
+						<EncryptedContent
+							password={albumMeta.password}
+							slug={albumMeta.id}
+							hint={albumMeta.passwordHint}
+						>
+							<div class="gallery-masonry" style={`--col-width: ${columnWidth}px`}>
+								{photos.map((photo) => <PhotoCard src={photo} albumId={albumMeta.id} />)}
+							</div>
+						</EncryptedContent>
+					) : (
+						<div class="gallery-masonry" style={`--col-width: ${columnWidth}px`}>
+							{photos.map((photo) => <PhotoCard src={photo} albumId={albumMeta.id} />)}
+						</div>
+					)
+				) : (
+					<div class="empty">{i18n(I18nKey.galleryNoAlbums)}</div>
+				)}
+			</section>
+		</>
+	)}
+</MainGridLayout>
+
+<style>
+	.static-album-header,
+	.static-photos {
+		width: 100%;
+		padding: 1.2rem;
+	}
+
+	.static-photos {
+		margin-top: 1rem;
+	}
+
+	.back-link {
+		display: inline-flex;
+		align-items: center;
+		gap: 0.3rem;
+		margin-bottom: 0.8rem;
+		color: var(--primary);
+		font-size: 0.8rem;
+	}
+
+	.static-heading {
+		display: flex;
+		align-items: flex-end;
+		justify-content: space-between;
+		gap: 1rem;
+	}
+
+	.static-heading h1 {
+		margin: 0;
+		font-size: 1.7rem;
+		font-weight: 800;
+	}
+
+	.static-heading p {
+		margin: 0.35rem 0 0;
+		opacity: 0.62;
+	}
+
+	.static-meta {
+		display: flex;
+		gap: 0.7rem;
+		flex-wrap: wrap;
+		font-size: 0.75rem;
+		opacity: 0.62;
+	}
+
+	.gallery-masonry {
+		columns: var(--col-width);
+		column-gap: 0.75rem;
+	}
+
+	.empty {
+		padding: 3rem 1rem;
+		text-align: center;
+		opacity: 0.55;
+	}
+
+	@media (max-width: 560px) {
+		.static-heading {
+			align-items: flex-start;
+			flex-direction: column;
+		}
+	}
+</style>

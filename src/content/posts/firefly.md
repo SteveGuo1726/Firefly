@@ -1,17 +1,46 @@
 ---
-title: "Firefly 一款清新美观的 Astro 博客主题模板"
+title: Firefly 一款清新美观的 Astro 博客主题模板
 published: 2026-05-08
-description: ""
-category: "文章示例"
+pinned: false
+description: Firefly 是一款基于 Astro 框架和 Fuwari 模板开发的清新美观且现代化个人博客主题模板，专为技术爱好者和内容创作者设计。该主题融合了现代 Web 技术栈，提供了丰富的功能模块和高度可定制的界面，让您能够轻松打造出专业且美观的个人博客网站。
+image: api
 tags: []
-slug: "firefly"
+category: 文章示例
+draft: false
+comment: true
+author: CuteLeaf
 ---
 
-<section><h2 id="-项目概述">🌟 项目概述</h2><p><strong>Firefly</strong> 是一款基于 Astro 框架和 Fuwari 模板开发的清新美观且现代化个人博客主题模板，专为技术爱好者和内容创作者设计。该主题融合了现代 Web 技术栈，提供了丰富的功能模块和高度可定制的界面，让您能够轻松打造出专业且美观的个人博客网站。</p><p><strong>🖥️在线预览： <a href="https://firefly.cuteleaf.cn/" target="_blank" rel="noopener noreferrer">Firefly - Demo site</a></strong></p><p><strong>🏠我的博客： <a href="https://blog.cuteleaf.cn/" target="_blank" rel="noopener noreferrer">https://blog.cuteleaf.cn</a></strong></p><p><strong>📝Firefly使用文档： <a href="https://docs-firefly.cuteleaf.cn/" target="_blank" rel="noopener noreferrer">https://docs-firefly.cuteleaf.cn</a></strong></p><p><strong>⭐Firefly开源地址：<a href="https://github.com/CuteLeaf/Firefly" target="_blank" rel="noopener noreferrer">https://github.com/CuteLeaf/Firefly</a></strong></p><p><strong>⭐Fuwari开源地址：<a href="https://github.com/saicaca/fuwari" target="_blank" rel="noopener noreferrer">https://github.com/saicaca/fuwari</a></strong></p><a id="GCp54wn5-card" class="card-github no-styling" href="https://github.com/CuteLeaf/Firefly" target="_blank" repo="CuteLeaf/Firefly"><div class="gc-titlebar"><div class="gc-titlebar-left"><div class="gc-owner"><div id="GCp54wn5-avatar" class="gc-avatar" style="background-image: url(&#x22;https://avatars.githubusercontent.com/u/43440669?v=4&#x26;s=32&#x22;); background-color: transparent;"></div><div class="gc-user">CuteLeaf</div></div><div class="gc-divider">/</div><div class="gc-repo">Firefly</div></div><div class="github-logo"></div></div><div id="GCp54wn5-description" class="gc-description">🍀Firefly, fresh and aesthetic Astro blog theme template. </div><div class="gc-infobar"><div id="GCp54wn5-stars" class="gc-stars">—</div><div id="GCp54wn5-forks" class="gc-forks">—</div><div id="GCp54wn5-license" class="gc-license">MIT</div><span id="GCp54wn5-language" class="gc-language">Astro</span></div></a><a id="GCqhqfi5-card" class="card-github no-styling" href="https://github.com/saicaca/fuwari" target="_blank" repo="saicaca/fuwari"><div class="gc-titlebar"><div class="gc-titlebar-left"><div class="gc-owner"><div id="GCqhqfi5-avatar" class="gc-avatar" style="background-image: url(&#x22;https://avatars.githubusercontent.com/u/25200299?v=4&#x26;s=32&#x22;); background-color: transparent;"></div><div class="gc-user">saicaca</div></div><div class="gc-divider">/</div><div class="gc-repo">fuwari</div></div><div class="github-logo"></div></div><div id="GCqhqfi5-description" class="gc-description">✨A static blog template built with Astro. </div><div class="gc-infobar"><div id="GCqhqfi5-stars" class="gc-stars">—</div><div id="GCqhqfi5-forks" class="gc-forks">—</div><div id="GCqhqfi5-license" class="gc-license">MIT</div><span id="GCqhqfi5-language" class="gc-language">Astro</span></div></a><p></p><center><figure><img alt="Firefly" loading="lazy" decoding="async" width="2192" height="1233" src="/_astro/1.BQ4-k1kz_Z17x8Xz.webp"><figcaption>Firefly</figcaption></figure></center><p></p></section>
-<section><h2 id="-技术架构">🚀 技术架构</h2><ul>
-<li><strong>静态站点生成</strong>: 基于 Astro ，提供极快的加载速度和优秀的 SEO 优化</li>
-<li><strong>TypeScript 支持</strong>: 完整的类型安全，提升开发体验和代码质量</li>
-<li><strong>响应式设计</strong>: 使用 Tailwind CSS 构建，完美适配桌面端和移动端</li>
-<li><strong>组件化开发</strong>: 支持 Astro、Svelte 组件，灵活可扩展</li>
-</ul></section>
-<section><h2 id="-配置说明">📖 配置说明</h2><blockquote><p>📚 <strong>详细配置文档</strong>: 查看 <a href="https://docs-firefly.cuteleaf.cn/" target="_blank" rel="noopener noreferrer">Firefly使用文档</a> 获取完整的配置指南</p></blockquote></section>
+## 🌟 项目概述
+
+**Firefly** 是一款基于 Astro 框架和 Fuwari 模板开发的清新美观且现代化个人博客主题模板，专为技术爱好者和内容创作者设计。该主题融合了现代 Web 技术栈，提供了丰富的功能模块和高度可定制的界面，让您能够轻松打造出专业且美观的个人博客网站。
+
+
+**🖥️在线预览： [Firefly - Demo site](https://firefly.cuteleaf.cn/)**
+
+**🏠我的博客： [https://blog.cuteleaf.cn](https://blog.cuteleaf.cn/)**
+
+**📝Firefly使用文档： [https://docs-firefly.cuteleaf.cn](https://docs-firefly.cuteleaf.cn/)**
+
+**⭐Firefly开源地址：[https://github.com/CuteLeaf/Firefly](https://github.com/CuteLeaf/Firefly)** 
+
+**⭐Fuwari开源地址：[https://github.com/saicaca/fuwari](https://github.com/saicaca/fuwari)**
+
+::github{repo="CuteLeaf/Firefly"}
+
+::github{repo="saicaca/fuwari"}
+
+![Firefly](./images/1.avif)
+
+
+## 🚀 技术架构
+
+- **静态站点生成**: 基于 Astro ，提供极快的加载速度和优秀的 SEO 优化
+- **TypeScript 支持**: 完整的类型安全，提升开发体验和代码质量
+- **响应式设计**: 使用 Tailwind CSS 构建，完美适配桌面端和移动端
+- **组件化开发**: 支持 Astro、Svelte 组件，灵活可扩展
+
+
+## 📖 配置说明
+
+> 📚 **详细配置文档**: 查看 [Firefly使用文档](https://docs-firefly.cuteleaf.cn/) 获取完整的配置指南

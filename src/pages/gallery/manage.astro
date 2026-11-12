@@ -1,0 +1,15 @@
+---
+import Layout from "@/layouts/Layout.astro";
+---
+<Layout title="相册管理已迁移" description="相册管理统一迁移至 Firefly 独立后台">
+ <meta slot="head" name="robots" content="noindex,nofollow,noarchive" />
+ <main class="migration card-base">
+  <h1>相册管理已迁移</h1>
+  <p>请使用独立 Firefly Admin。公开相册页面不会加载管理员组件。</p>
+  <a href="/admin/?section=gallery">进入相册管理后台</a>
+ </main>
+</Layout>
+<script is:inline>
+ if(window.location.pathname.includes("/gallery/manage"))window.location.replace("/admin/?section=gallery");
+</script>
+<style>.migration{max-width:38rem;margin:8rem auto 2rem;padding:1.4rem}.migration h1{font-size:1.3rem;font-weight:800}.migration p{opacity:.7;margin:.75rem 0}.migration a{color:var(--primary);font-weight:700}</style>
